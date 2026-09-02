@@ -4,7 +4,7 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`52591e0`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`9a2fed0`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
@@ -63,19 +63,26 @@ slicing), `shadowReferee.ts` (client-side validation of model-proposed deltas), 
 math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts` (`!`
 client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `crafting.ts`
 + `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic), `summoning.ts`
-(§5.3 Summoning/Minion engine, new this session), `currency.ts`, `derivedStats.ts`,
-`richText.tsx`, `slug.ts`, `autoRegister.ts`, `turnStates.ts`, `backup.ts` (JSON
-download/upload only).
+(§5.3 Summoning/Minion engine), `factions.ts` (§5.4/§5.11 rivalry + derived standing),
+`fsAccess.ts` (§6.4B File System Access API wrapper, new this session), `currency.ts`,
+`derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`, `turnStates.ts`,
+`backup.ts` (`downloadJSON`/`readJSONFile` plus the new `saveJSON`, folder-aware).
 
 **API** (`src/api/`): `turnContract.ts` (system prompt + `TURN_SCHEMA`),
-`providers/gemini.ts` (the *only* provider implementation — `runTurn`, `runSummary`).
+`providers/types.ts` (the `Provider` interface, new this session),
+`providers/index.ts` (the provider registry — `getProvider`/`allProviders`, new this
+session), `providers/gemini.ts` (the only real provider implementation — exports both the
+raw `runTurn`/`runSummary` functions and the `GEMINI_PROVIDER` descriptor).
 
 **Data** (`src/data/`): `classes.ts` (Preset Class Dictionary), `recipes.ts` (§5.8 Recipe
-Dictionary, new this session).
+Dictionary).
+
+**Ambient types** (`src/types/`): `fileSystemAccess.d.ts` — minimal File System Access API
+types not yet in TS's bundled DOM lib, new this session.
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `52591e0`. See `git log --oneline` for
+Everything below is implemented and working as of `9a2fed0`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -167,6 +174,23 @@ the literal commit sequence; the summary here groups by feature, not commit.
   dossiers), and a Hostile-standing location's context slice gains one line steering the
   model toward STEALTH. **Scope note**: rivalry links are directional per-entry, not
   auto-mirrored — a symmetric rivalry needs both factions' `rivalId` set via CRUD.
+- **Multi-provider abstraction + on-device folder saves** (blueprint §3.4/§6.4B, this
+  session, commit `9a2fed0`) — a `Provider` interface (`src/api/providers/types.ts`) with
+  a registry (`providers/index.ts`); `App.tsx`'s three Gemini call sites now route through
+  `getProvider(apiSettings.provider)` instead of importing `gemini.ts` directly, and
+  Settings' AI Model tab has a real Provider dropdown (previously hardcoded to `'gemini'`
+  in the save handler). Separately, `src/lib/fsAccess.ts` wraps the File System Access API
+  (feature-detected, Chrome/Edge desktop only) with IndexedDB handle persistence;
+  `backup.ts`'s new `saveJSON()` writes into a linked On-Device Folder when one exists and
+  is permitted, else falls back to the unchanged browser download; Settings' Backup tab
+  has a Local Save status row (On-Device Folder / Browser Only) with a link/unlink button.
+  **Scope note**: Gemini remains the only real provider — a second one needs a live API
+  key this session doesn't have to build against and verify, so only the abstraction
+  itself shipped (verified in active use). **Verification gap**: the native OS
+  folder-picker dialog could not be exercised through browser automation
+  (`showDirectoryPicker()` needs a user gesture / opens outside the page DOM) — the
+  IndexedDB plumbing and feature detection were verified directly, but a human should
+  click through the actual link/write/unlink flow before relying on it.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -201,22 +225,10 @@ assumption.
    the list technically (untested Gemini API capability combination) — budget time to
    spike/verify the grounding+schema combination in isolation before wiring UI.
 
-6. **#16 Multi-provider support + on-device folder saves** — two separate items:
-   - **Multi-provider**: `ApiSettings.provider` exists as a plain `string` field and is
-     persisted, but *nothing reads it* — `App.tsx` imports `runTurn`/`runSummary`
-     directly from `./api/providers/gemini.ts` with no indirection. There is no provider
-     interface/adapter type anywhere. Needs: define a provider interface (probably
-     matching `gemini.ts`'s existing `runTurn`/`runSummary` signature shape), refactor
-     `gemini.ts` to implement it, add a registry/lookup keyed by `apiSettings.provider`,
-     and only then add a second real provider. Settings screen's model dropdown is also
-     currently Gemini-only and will need to become provider-aware.
-   - **On-device folder saves**: `src/lib/backup.ts` is presently just
-     `downloadJSON()`/`readJSONFile()` — manual browser Save-As/file-picker, not a
-     persistent directory handle. Needs the File System Access API
-     (`showDirectoryPicker`/`FileSystemHandle`) — confirmed zero existing usage. Note
-     this API has real browser-support gaps (notably Firefox/Safari) — decide whether
-     it's a progressive enhancement over the existing download/upload path or a hard
-     replacement before implementing.
+6. ~~**#16 Multi-provider support + on-device folder saves**~~ — **done, both halves**,
+   commit `9a2fed0`. See §3 above for scope notes (Gemini is still the only real provider;
+   the native folder-picker's live click/write/unlink flow needs a human verification
+   pass — browser automation can't drive that native OS dialog).
 
 ### Also noted in the blueprint but not on the numbered list above
 
@@ -250,20 +262,20 @@ Per the standing instruction this session was given:
 2. ~~#10 Class Evolution~~ — **done** (commit `3597869`).
 3. ~~#12 Crafting & Resource Management~~ — **done** (crafting-queue half), commit `ccec6d1`.
 4. ~~#13 Three-Branch Summoning & Minion Engine~~ — **done**, commit `9a3158e`.
-5. ~~#14 Faction rivalry + Territory Standing~~ — **done**, commit `52591e0`. Tier 3 items
-   #10/#12/#13/#14 are now fully complete; only #15 and #16 remain on the list.
-6. Work #15 (Inspired Mode) and #16 (multi-provider + on-device saves), committing and
-   pushing after each, and **repeat this notes-file update after each major chunk**
-   (append a dated entry below rather than rewriting history above) — this was the
-   explicit instruction that produced this file in the first place. #15 is the
-   higher-risk item (an untested Gemini search-grounding + structured-JSON combination) —
-   consider #16 first if a time-boxed spike on #15 doesn't pan out quickly, so the session
-   doesn't stall on the riskiest item with nothing else shipped. #16's two halves (provider
-   abstraction, on-device folder saves) are independent of each other and of #15.
-7. Do the full verify-and-fix pass across existing functions/components — see §5 above for
+5. ~~#14 Faction rivalry + Territory Standing~~ — **done**, commit `52591e0`.
+6. ~~#16 Multi-provider + on-device saves~~ — **done, both halves**, commit `9a2fed0`.
+   **Every Tier 3 list item except #15 (Inspired Mode) is now complete.**
+7. #15 (Inspired Mode) is the last Tier 3 item, and the highest-risk one technically — it
+   needs a live Gemini search-grounding + structured-JSON-output combination this session
+   never got to spike/verify. If picking this up: budget time for an isolated
+   spike/verification of that exact API combination *before* wiring any UI, per the
+   original scope note (still below in §4's corresponding entry, if not yet resolved
+   above). If the spike doesn't pan out cleanly, it's reasonable to document the blocker
+   here and move on to the verify-and-fix pass instead of stalling on it.
+8. Do the full verify-and-fix pass across existing functions/components — see §5 above for
    one concrete lead already surfaced (a possible ST clamping gap).
-8. Do the final beautification pass last.
-9. Always run `npm run typecheck` and `npm run build` clean, and manually click through
+9. Do the final beautification pass last.
+10. Always run `npm run typecheck` and `npm run build` clean, and manually click through
    the actual change in the dev server (see §0's tooling-trap warning) before committing.
    Note: a `window.confirm()`/`window.alert()` dialog in a flow you're testing live may
    get silently auto-dismissed by the browser-automation tool — if a confirm-gated action
@@ -372,3 +384,34 @@ Per the standing instruction this session was given:
   up per §6: Tier 3 item #15 (Inspired Mode) or #16 (multi-provider + on-device saves) —
   #16 is lower-risk and may be worth doing first if #15's grounding+schema spike doesn't
   pan out quickly.
+- **2026-09-03** — Multi-provider abstraction + on-device folder saves (blueprint §3.4 /
+  §6.4B) implemented and pushed (`9a2fed0`). **This clears Tier 3 item #16 — every item
+  on the original list except #15 (Inspired Mode) is now done.** Added the `Provider`
+  interface + registry (`src/api/providers/types.ts`, `providers/index.ts`), wrapped
+  Gemini's existing `runTurn`/`runSummary` as `GEMINI_PROVIDER`, and rerouted `App.tsx`'s
+  three call sites through `getProvider(apiSettings.provider)`; Settings' AI Model tab
+  gained a real Provider dropdown (previously `provider: 'gemini'` was hardcoded in the
+  save handler, dead field). Separately added `src/lib/fsAccess.ts` (File System Access
+  API wrapper + IndexedDB handle persistence — needed a small ambient-types file,
+  `src/types/fileSystemAccess.d.ts`, since TS's bundled DOM lib doesn't have this API
+  yet) and `backup.ts`'s new `saveJSON()`, wired into all three existing Export/Backup
+  call sites; Settings' Backup tab gained the Local Save status row from §6.4B. Verified:
+  typecheck/build clean, the Provider/Model dropdowns render and persist correctly live,
+  and — importantly — confirmed the fallback path is unbroken (feature detection and the
+  IndexedDB get/set plumbing were exercised directly via the browser console and returned
+  cleanly with nothing linked, meaning `saveJSON` correctly falls through to the
+  unchanged `downloadJSON` path when no folder is linked, i.e. the common case for every
+  user until they explicitly opt in). **Could not verify**: the actual native
+  folder-picker dialog (`showDirectoryPicker()`) — clicking "Choose Folder" produced no
+  visible dialog and no error, consistent with the picker either requiring a stricter
+  user-activation gesture than an automated click provides, or opening as a native OS
+  window outside anything the browser-automation tool can see or interact with. This is
+  a testing-environment ceiling, not a diagnosed bug, but it means the link → write →
+  unlink flow specifically has never been exercised end-to-end by anything other than
+  code review. **If a human is available, the highest-value thing they could do for this
+  project right now is spend two minutes clicking "Choose Folder" in Settings → Backup,
+  picking a real folder, and confirming Export Active drops a file there** — that one
+  manual check would close the last verification gap on this entire session's work.
+  `npm run typecheck` and `npm run build` both clean. Next up per §6: Tier 3 item #15
+  (Inspired Mode), the last remaining item, or the verify-and-fix pass if a time-boxed
+  spike on #15's grounding+schema combination doesn't pan out quickly.
