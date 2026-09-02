@@ -4,10 +4,21 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`43d5ad8`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`5f271d1`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
+
+**Session summary, if you only read one paragraph:** every Tier 3 priority item shipped
+and was verified live except #15 (Inspired Mode), which was spiked and deliberately
+deferred with hard evidence (§4 below) rather than built blind — do not attempt it again
+without re-reading that entry first. The verify-and-fix pass found and fixed one genuine
+pre-existing bug (`stat_grant` was completely unimplemented) plus a defensive pool-clamp
+and two small consistency fixes, but is not exhaustive — §5/§6 list concrete remaining
+work. The beautification pass is barely started — §6 has a suggested approach. Nothing is
+broken; everything shipped this session was verified live in a real browser, most of it
+against a real Gemini turn, with any verification gaps stated explicitly rather than
+implied.
 
 ## 0. How to resume
 
@@ -82,7 +93,7 @@ types not yet in TS's bundled DOM lib, new this session.
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `43d5ad8`. See `git log --oneline` for
+Everything below is implemented and working as of `5f271d1`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -522,3 +533,29 @@ Per the standing instruction this session was given:
   work (Quests/Bestiary CRUD live click-through, defeat/recovery flow, chapter recap).
   Next up: continue the verify pass or move to the beautification pass — see §6's
   reasoning for why either order is defensible at this point.
+- **2026-09-03** — Started the beautification pass (commit `5f271d1`), scoped to the
+  newest UI added this session (Character/Crafting Codex categories, Local Save status)
+  on the theory that older screens were already polished in earlier session batches (per
+  `git log`: "Obsidian dark chrome redesign", "Tier 2 batch" commits, etc.) and are the
+  lower-risk place to spend a bounded pass. Walked Title → Main Menu → Chronicle →
+  Character → Workbenches & Recipes → Settings live in the browser. Found one real
+  inconsistency: the Character screen's Attributes line showed raw fractional values
+  (`STR 5.6`) next to whole-number pools (`HP 34 · MP 20 · ST 29`) on the same card,
+  since STR/INT/AGI accumulate fractional amounts from level-up weight math while
+  HP/MP/ST are always rounded — fixed for display-only consistency. Everything else
+  reviewed (Chronicle badge stacking with multiple simultaneous badges, the Crafting
+  recipe grid's live-affordability highlighting, the Settings Local Save status row)
+  already read as clean and intentional — this app's existing visual language is
+  genuinely solid, not neglected. **This is a light pass, not the full "entire app"
+  scope the standing instruction asked for** — it covered the screens most likely to
+  have rough edges (this session's own new work) but not, e.g., WorldSetup, NewGame, or
+  a mobile-viewport pass. A future session picking this up should treat it as a
+  continuation, not a restart — the newest UI has already had one honest look.
+  `npm run typecheck` and `npm run build` both clean.
+
+  **Where this leaves the project, for whoever reads this next**: every Tier 3 priority
+  item is done except Inspired Mode (deliberately deferred with evidence, not skipped
+  out of neglect — see #15's entry in §4). The verify-and-fix and beautification passes
+  are both genuinely started with real, verified work landed, but neither is complete,
+  and this file says exactly where each one left off. There is no unstated or hidden
+  work — if it isn't written down above, it either doesn't exist yet or wasn't checked.
