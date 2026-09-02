@@ -17,6 +17,8 @@
   --color-emerald-bg: var(--td-emerald-bg);
   --color-rose: var(--td-rose);
   --color-rose-bg: var(--td-rose-bg);
+  --color-skill: var(--td-skill);
+  --color-skill-bg: var(--td-skill-bg);
   --color-parchment: var(--td-parchment);
   --color-parchment-header: var(--td-parchment-header);
 
@@ -39,6 +41,8 @@
   --td-emerald-bg: #dff3e8;
   --td-rose: #9f1239;
   --td-rose-bg: #fce7ea;
+  --td-skill: #31456e;
+  --td-skill-bg: #e8eefb;
   --td-parchment: #e5d9c3;
   --td-parchment-header: #e0d3ba;
   --td-glow: 0 8px 28px rgba(120, 90, 20, 0.12);
@@ -58,6 +62,8 @@
   --td-emerald-bg: #143223b3;
   --td-rose: #f87171;
   --td-rose-bg: #3a1620b3;
+  --td-skill: #a9c1f5;
+  --td-skill-bg: #1e2a4ab3;
   --td-parchment: #11141c;
   --td-parchment-header: #1b1f2c;
   --td-glow: 0 0 24px rgba(240, 202, 101, 0.15), 0 8px 28px rgba(0, 0, 0, 0.5);

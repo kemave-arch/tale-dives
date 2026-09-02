@@ -1,12 +1,16 @@
 import { ensureEntry } from './autoRegister.js'
+import { slugify } from './slug.js'
 
 // §5.5 Romance & Key Contact Memory Engine + §5.14 auto-registration.
-// npc_mem_up only ever carries an id, never a display name — until the
-// {{Term|npc}} keyword-link parser exists (§4.2/§5.14) to capture real names
-// from prose, a title-cased id is a reasonable stand-in ("mira_sorrengail"
-// -> "Mira Sorrengail").
+// npc_mem_up only ever carries an id, never a display name — a title-cased
+// version of it is the fallback display name when no {{Term|npc}} keyword
+// link (§4.2/§5.14, lib/codex.js) has already registered a nicer one.
 function titleCaseId(id) {
   return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}
+
+export function emptyNpc(name) {
+  return { name, affection: 0, trust: 0, stage: 'Stranger', deeds: [], memSummary: '', lastSeenLocId: null }
 }
 
 const STAGES = [
@@ -33,25 +37,22 @@ export function applyNpcUpdates(npcs, updates = [], locId) {
 
   for (const u of updates) {
     if (!u.npc_id) continue
+    const id = slugify(u.npc_id)
+    if (!id) continue
 
-    const { dict: withEntry } = ensureEntry(dict, u.npc_id, () => ({
-      name: titleCaseId(u.npc_id),
-      affection: 0,
-      trust: 0,
-      stage: 'Stranger',
-      deeds: [],
-      memSummary: '',
-      lastSeenLocId: null,
-    }))
+    // Same slug as a {{Term|npc}} tag would produce, so if that ran first
+    // this turn (lib/codex.js), its nicer name is preserved here — this
+    // factory only fires when npc_mem_up is the very first mention.
+    const { dict: withEntry } = ensureEntry(dict, id, () => emptyNpc(titleCaseId(u.npc_id)))
     dict = withEntry
 
-    const prev = dict[u.npc_id]
+    const prev = dict[id]
     const affection = clamp(prev.affection + (u.aff_delta ?? 0), 0, 100)
     const trust = clamp(prev.trust + (u.trust_delta ?? 0), 0, 100)
 
     dict = {
       ...dict,
-      [u.npc_id]: {
+      [id]: {
         ...prev,
         affection,
         trust,

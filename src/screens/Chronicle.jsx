@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { Menu, Settings as SettingsIcon, Send } from 'lucide-react'
+import { renderNarrative } from '../lib/richText.jsx'
 
 // Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
 // yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
@@ -42,7 +43,7 @@ export default function Chronicle({ player, log, busy, error, onSend, onOpenSett
             {entry.action && (
               <p className="font-mono text-xs text-gold-primary">&gt; {entry.action}</p>
             )}
-            <p className="font-narrative text-sm leading-relaxed whitespace-pre-wrap">{entry.nar}</p>
+            <p className="font-narrative text-sm leading-relaxed whitespace-pre-wrap">{renderNarrative(entry.nar)}</p>
           </div>
         ))}
         {busy && <p className="font-narrative italic text-sm opacity-50">The thread of fate is being woven...</p>}

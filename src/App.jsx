@@ -11,6 +11,7 @@ import { buildContextSlice } from './lib/jitContext.js'
 import { applyTurn } from './lib/shadowReferee.js'
 import { ensureLocation } from './lib/locations.js'
 import { applyNpcUpdates } from './lib/npcs.js'
+import { applyKeywordLinks } from './lib/codex.js'
 import { runTurn } from './api/providers/gemini.js'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.js'
 import { downloadJSON, readJSONFile } from './lib/backup.js'
@@ -129,6 +130,10 @@ export default function App() {
       narrationStyle: world.narrationStyle || DEFAULT_NARRATION_STYLE,
       locations: {}, // §5.10 Locations Codex — populated by auto-registration
       npcs: {}, // §5.5/§5.14 NPC Codex — populated by auto-registration
+      factions: {}, // §5.14 — populated by {{Term|faction}} keyword links
+      lore: {}, // §5.14 — populated by {{Term|lore}} keyword links
+      quests: {}, // §5.14 — populated by {{Term|quest}} keyword links (quest_update integration is still pending)
+      bestiary: {}, // §5.13/§5.14 — populated by {{Term|beast}} keyword links; full stat-block auto-registration lands with Tactical combat
       log: [],
       lastPlayed: Date.now(),
     }
@@ -200,14 +205,31 @@ export default function App() {
       const { player: nextPlayer, defeated } = applyTurn(current.player, turn)
       nextPlayer.time = turn.time ?? current.player.time // Shadow Referee doesn't own time
 
-      const { dict: nextLocations } = ensureLocation(current.locations, turn.loc_id, turn.loc_disp)
-      const nextNpcs = applyNpcUpdates(current.npcs, turn.npc_mem_up, turn.loc_id)
+      // Keyword links run first so a {{Term|npc}}/{{Term|loc}} tag's real name
+      // wins over the plainer fallback loc_id/npc_id-derived stub name.
+      const linked = applyKeywordLinks(
+        {
+          locations: current.locations,
+          npcs: current.npcs,
+          factions: current.factions,
+          lore: current.lore,
+          quests: current.quests,
+          bestiary: current.bestiary,
+        },
+        turn.nar,
+      )
+      const { dict: nextLocations } = ensureLocation(linked.locations, turn.loc_id, turn.loc_disp)
+      const nextNpcs = applyNpcUpdates(linked.npcs, turn.npc_mem_up, turn.loc_id)
 
       setGame((g) => ({
         ...g,
         player: nextPlayer,
         locations: nextLocations,
         npcs: nextNpcs,
+        factions: linked.factions,
+        lore: linked.lore,
+        quests: linked.quests,
+        bestiary: linked.bestiary,
         lastPlayed: Date.now(),
         log: [...g.log, { action: actionText, nar: turn.nar, turnState: turn.turn_state, defeated }],
       }))
