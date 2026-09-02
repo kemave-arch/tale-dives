@@ -18,3 +18,11 @@ export function slugify(text: string): string {
   const stripped = words.length > 1 ? words.filter((w) => !TITLES.has(w)) : words
   return (stripped.length ? stripped : words).join('_')
 }
+
+// The inverse direction — a schema field that only ever carries an id
+// (npc_id, quest_id, etc.) needs a readable fallback display name when no
+// nicer {{Term|category}} keyword link (§4.2/§5.14) has already registered
+// one for that same id.
+export function titleCaseId(id: string): string {
+  return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+}

@@ -1,14 +1,11 @@
 import { ensureEntry } from './autoRegister.ts'
-import { slugify } from './slug.ts'
+import { slugify, titleCaseId } from './slug.ts'
 import type { Dict, NpcEntry, NpcMemoryUpdate } from '../types.ts'
 
 // §5.5 Romance & Key Contact Memory Engine + §5.14 auto-registration.
 // npc_mem_up only ever carries an id, never a display name — a title-cased
 // version of it is the fallback display name when no {{Term|npc}} keyword
 // link (§4.2/§5.14, lib/codex.js) has already registered a nicer one.
-function titleCaseId(id: string): string {
-  return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-}
 
 export function emptyNpc(name: string): Omit<NpcEntry, 'autoLogged'> {
   return { name, affection: 0, trust: 0, stage: 'Stranger', deeds: [], memSummary: '', lastSeenLocId: null }

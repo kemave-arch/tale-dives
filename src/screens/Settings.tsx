@@ -302,42 +302,42 @@ export default function Settings({
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-            <button
-              onClick={onExportActive}
-              disabled={!game}
-              className="flex items-center gap-1.5 justify-center rounded-lg border border-gold-accent/40 py-2.5 font-display text-xs disabled:opacity-40"
-            >
-              <Download size={14} /> Export Active
-            </button>
-            <button
-              onClick={onBackupAll}
-              className="flex items-center gap-1.5 justify-center rounded-lg border border-gold-accent/40 py-2.5 font-display text-xs"
-            >
-              <Database size={14} /> Backup All
-            </button>
-            <button
-              onClick={() => importRef.current?.click()}
-              className="flex items-center gap-1.5 justify-center rounded-lg border border-emerald/40 text-emerald py-2.5 font-display text-xs"
-            >
-              <Upload size={14} /> Import JSON
-            </button>
-            <button
-              onClick={onResetDefaults}
-              className="flex items-center gap-1.5 justify-center rounded-lg border border-rose/40 text-rose py-2.5 font-display text-xs"
-            >
-              <RotateCcw size={14} /> Reset Defaults
-            </button>
-            <input
-              ref={importRef}
-              type="file"
-              accept="application/json"
-              hidden
-              onChange={(e) => {
-                const file = e.target.files?.[0]
-                if (file) onImportJson(file)
-                e.target.value = ''
-              }}
-            />
+              <button
+                onClick={onExportActive}
+                disabled={!game}
+                className="flex items-center gap-1.5 justify-center rounded-lg border border-gold-accent/40 py-2.5 font-display text-xs disabled:opacity-40"
+              >
+                <Download size={14} /> Export Active
+              </button>
+              <button
+                onClick={onBackupAll}
+                className="flex items-center gap-1.5 justify-center rounded-lg border border-gold-accent/40 py-2.5 font-display text-xs"
+              >
+                <Database size={14} /> Backup All
+              </button>
+              <button
+                onClick={() => importRef.current?.click()}
+                className="flex items-center gap-1.5 justify-center rounded-lg border border-emerald/40 text-emerald py-2.5 font-display text-xs"
+              >
+                <Upload size={14} /> Import JSON
+              </button>
+              <button
+                onClick={onResetDefaults}
+                className="flex items-center gap-1.5 justify-center rounded-lg border border-rose/40 text-rose py-2.5 font-display text-xs"
+              >
+                <RotateCcw size={14} /> Reset Defaults
+              </button>
+              <input
+                ref={importRef}
+                type="file"
+                accept="application/json"
+                hidden
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) onImportJson(file)
+                  e.target.value = ''
+                }}
+              />
             </div>
           </div>
         )}
