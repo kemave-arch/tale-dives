@@ -5,6 +5,7 @@ import MainMenu from './screens/MainMenu.tsx'
 import WorldSetup from './screens/WorldSetup.tsx'
 import NewGame from './screens/NewGame.tsx'
 import Chronicle from './screens/Chronicle.tsx'
+import Codex from './screens/Codex.tsx'
 import { getClassById } from './data/classes.ts'
 import { startingAttributes, derivedPools } from './lib/derivedStats.ts'
 import { buildContextSlice } from './lib/jitContext.ts'
@@ -12,6 +13,7 @@ import { applyTurn, type TacticalOverride } from './lib/shadowReferee.ts'
 import { ensureLocation } from './lib/locations.ts'
 import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
+import { applyQuestUpdate } from './lib/quests.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -22,7 +24,7 @@ import { downloadJSON, readJSONFile } from './lib/backup.ts'
 import * as store from './lib/store.ts'
 import type { Campaign, CombatState, Dict, HistoryTurn, ProtagonistData, TurnState, WorldData } from './types.ts'
 
-type Screen = 'title' | 'settings' | 'mainmenu' | 'worldsetup' | 'newgame' | 'chronicle'
+type Screen = 'title' | 'settings' | 'mainmenu' | 'worldsetup' | 'newgame' | 'chronicle' | 'codex'
 type CreationMode = 'tale' | 'library'
 
 // §5.7 Player Defeat State — soft-fail recovery, client-owned.
@@ -271,6 +273,7 @@ export default function App() {
       )
       const { dict: nextLocations } = ensureLocation(linked.locations, turn.loc_id, turn.loc_disp)
       const nextNpcs = applyNpcUpdates(linked.npcs, turn.npc_mem_up, turn.loc_id)
+      const nextQuests = applyQuestUpdate(linked.quests, turn.quest_update)
 
       // §3.2 Turn State Consistency — forced to COMBAT whenever a Tactical
       // result was precomputed; otherwise Gemini's own call, same as always.
@@ -332,7 +335,7 @@ export default function App() {
         npcs: nextNpcs,
         factions: linked.factions,
         lore: linked.lore,
-        quests: linked.quests,
+        quests: nextQuests,
         bestiary: nextBestiary,
         combat: nextCombat,
         lastPlayed: Date.now(),
@@ -621,6 +624,22 @@ export default function App() {
     )
   }
 
+  if (screen === 'codex' && game) {
+    return (
+      <Codex
+        world={game.world}
+        log={game.log}
+        npcs={game.npcs}
+        factions={game.factions}
+        locations={game.locations}
+        lore={game.lore}
+        quests={game.quests}
+        bestiary={game.bestiary}
+        onBack={() => setScreen('chronicle')}
+      />
+    )
+  }
+
   if (screen === 'chronicle' && game) {
     return (
       <Chronicle
@@ -632,6 +651,7 @@ export default function App() {
         onSend={sendAction}
         onOpenSettings={() => openSettings('chronicle')}
         onOpenMenu={() => setScreen('mainmenu')}
+        onOpenCodex={() => setScreen('codex')}
       />
     )
   }

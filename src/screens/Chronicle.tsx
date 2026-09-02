@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Settings as SettingsIcon, Send, Swords, Star, BookOpen } from 'lucide-react'
+import { Menu, Settings as SettingsIcon, Send, Swords, Star, BookOpen, Library } from 'lucide-react'
 import { renderNarrative } from '../lib/richText.tsx'
 import type { CombatState, LogEntry, Player } from '../types.ts'
 
@@ -12,11 +12,12 @@ interface ChronicleProps {
   onSend: (action: string) => void
   onOpenSettings: () => void
   onOpenMenu: () => void
+  onOpenCodex: () => void
 }
 
 // Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
 // yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
-export default function Chronicle({ player, combat, log, busy, error, onSend, onOpenSettings, onOpenMenu }: ChronicleProps) {
+export default function Chronicle({ player, combat, log, busy, error, onSend, onOpenSettings, onOpenMenu, onOpenCodex }: ChronicleProps) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -39,6 +40,9 @@ export default function Chronicle({ player, combat, log, busy, error, onSend, on
         <div className="font-mono text-xs text-center flex-1">
           Day {player.time.d} • {player.time.h} — {player.locDisp}
         </div>
+        <button onClick={onOpenCodex} aria-label="Codex" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
+          <Library size={18} />
+        </button>
         <button onClick={onOpenSettings} aria-label="Settings" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
           <SettingsIcon size={18} />
         </button>

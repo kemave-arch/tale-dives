@@ -81,6 +81,8 @@ export interface LoreEntry {
 
 export interface QuestEntry {
   name: string
+  status?: 'advanced' | 'completed' | 'failed'
+  note?: string
   autoLogged?: boolean
 }
 
