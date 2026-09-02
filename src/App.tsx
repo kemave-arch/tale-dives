@@ -25,6 +25,10 @@ import type { Campaign, CombatState, Dict, HistoryTurn, ProtagonistData, TurnSta
 type Screen = 'title' | 'settings' | 'mainmenu' | 'worldsetup' | 'newgame' | 'chronicle'
 type CreationMode = 'tale' | 'library'
 
+// §5.7 Player Defeat State — soft-fail recovery, client-owned.
+const DEFEAT_HP_RESTORE_FRACTION = 0.4
+const DEFEAT_CURRENCY_PENALTY_FRACTION = 0.15
+
 function findDefault<T extends { isDefault?: boolean }>(dict: Dict<T>): T | null {
   return Object.values(dict).find((e) => e.isDefault) ?? null
 }
@@ -320,28 +324,83 @@ export default function App() {
         questLevels + chapterLevels,
       )
 
+      const nextCampaign: Campaign = {
+        ...current,
+        player: leveledPlayer,
+        locations: nextLocations,
+        npcs: nextNpcs,
+        factions: linked.factions,
+        lore: linked.lore,
+        quests: linked.quests,
+        bestiary: nextBestiary,
+        combat: nextCombat,
+        lastPlayed: Date.now(),
+        log: [
+          ...current.log,
+          {
+            action: actionText,
+            nar: turn.nar,
+            turnState,
+            defeated: playerDefeated,
+            ...(leveled ? { levelUp: leveledPlayer.level } : {}),
+          },
+        ],
+      }
+
+      setGame(nextCampaign)
+      const historyWithResponse: HistoryTurn[] = [...newHistory, { role: 'model', parts: [{ text: result.raw }] }]
+      setHistory(historyWithResponse)
+
+      // §5.7 Player Defeat State — chains into its own resolution turn once
+      // the fatal blow itself is committed, rather than leaving the player
+      // stuck at 0 HP with nothing to do.
+      if (playerDefeated) resolveDefeat(nextCampaign, historyWithResponse)
+    } catch (err) {
+      setError(`The thread of fate falters... (${errorMessage(err)})`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // §5.7 — a fixed defeat context, no further damage math left to the model;
+  // the client owns the recovery HP/currency outright, Gemini only narrates it.
+  async function resolveDefeat(campaign: Campaign, baseHistory: HistoryTurn[]) {
+    setBusy(true)
+    const defeatAction =
+      '[SYSTEM: The protagonist has just fallen (HP reached 0). Narrate a brief DESPAIR-tier resolution: they wake, injured but alive, at the nearest safe location. This is a soft-fail recovery beat, not a continuation of the fight — do not narrate death.]'
+
+    const contextSlice = buildContextSlice(campaign)
+    const userTurnText = `${contextSlice}\n\nPlayer Action: ${defeatAction}`
+    const newHistory: HistoryTurn[] = [...baseHistory, { role: 'user', parts: [{ text: userTurnText }] }]
+
+    const restoredHp = Math.round(campaign.player.hpMax * DEFEAT_HP_RESTORE_FRACTION)
+    const penalizedCopper = Math.max(0, Math.round(campaign.player.copper * (1 - DEFEAT_CURRENCY_PENALTY_FRACTION)))
+
+    try {
+      const result = await runTurn({
+        apiKey: apiSettings.apiKey,
+        model: apiSettings.model,
+        temperature: apiSettings.temperature,
+        maxOutputTokens: campaign.proseDepth.maxOutputTokens,
+        history: newHistory,
+      })
+
+      const nar = result.ok ? result.turn!.nar : (result.fallbackText ?? 'Consciousness returns slowly, aching but alive.')
+      const nextPlayer = {
+        ...campaign.player,
+        hp: restoredHp,
+        copper: penalizedCopper,
+        ...(result.ok && result.turn!.loc_id ? { locId: result.turn!.loc_id, locDisp: result.turn!.loc_disp } : {}),
+        ...(result.ok ? { time: result.turn!.time } : {}),
+      }
+
       setGame((g) =>
         g && {
           ...g,
-          player: leveledPlayer,
-          locations: nextLocations,
-          npcs: nextNpcs,
-          factions: linked.factions,
-          lore: linked.lore,
-          quests: linked.quests,
-          bestiary: nextBestiary,
-          combat: nextCombat,
+          player: nextPlayer,
+          combat: { active: false },
           lastPlayed: Date.now(),
-          log: [
-            ...g.log,
-            {
-              action: actionText,
-              nar: turn.nar,
-              turnState,
-              defeated: playerDefeated,
-              ...(leveled ? { levelUp: leveledPlayer.level } : {}),
-            },
-          ],
+          log: [...g.log, { nar, turnState: 'DESPAIR' }],
         },
       )
       setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])
