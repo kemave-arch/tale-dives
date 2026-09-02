@@ -24,7 +24,10 @@ import { runTurn, runSummary } from './api/providers/gemini.ts'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { downloadJSON, readJSONFile } from './lib/backup.ts'
 import * as store from './lib/store.ts'
-import type { Campaign, CombatState, Dict, HistoryTurn, KeywordLink, ProtagonistData, TurnState, WorldData } from './types.ts'
+import type {
+  BestiaryEntry, Campaign, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
+  ProtagonistData, QuestEntry, TurnState, WorldData,
+} from './types.ts'
 
 const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
   npc: 'npcs',
@@ -473,6 +476,39 @@ export default function App() {
     }
   }
 
+  // §9 Codex CRUD — the manual correction path for auto-logged entries (or
+  // anything the player wants to fix directly rather than steering the LLM
+  // toward). `patch: null` deletes the entry; otherwise it's merged into
+  // whatever's already at that id, so the same call creates a fresh entry
+  // when the id doesn't exist yet.
+  function patchCodexDict(
+    dictKey: 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary',
+    id: string,
+    patch: Record<string, unknown> | null,
+  ) {
+    setGame((g) => {
+      if (!g) return g
+      const dict = { ...(g[dictKey] as unknown as Dict<Record<string, unknown>>) }
+      if (patch === null) delete dict[id]
+      else dict[id] = { ...(dict[id] ?? {}), ...patch }
+      return { ...g, [dictKey]: dict } as Campaign
+    })
+  }
+
+  function updateItem(id: string, qty: number | null) {
+    setGame((g) => {
+      if (!g) return g
+      const inv = { ...g.inventory }
+      if (qty === null || qty <= 0) delete inv[id]
+      else inv[id] = qty
+      return { ...g, inventory: inv }
+    })
+  }
+
+  function updateWorld(patch: Partial<WorldData>) {
+    setGame((g) => g && { ...g, world: { ...g.world, ...patch } })
+  }
+
   function openSettings(from: Screen) {
     setSettingsReturnTo(from)
     setScreen('settings')
@@ -658,6 +694,14 @@ export default function App() {
         bestiary={game.bestiary}
         flags={game.flags}
         inventory={game.inventory}
+        onUpdateNpc={(id: string, patch: Partial<NpcEntry> | null) => patchCodexDict('npcs', id, patch as Record<string, unknown> | null)}
+        onUpdateFaction={(id: string, patch: Partial<FactionEntry> | null) => patchCodexDict('factions', id, patch as Record<string, unknown> | null)}
+        onUpdateLocation={(id: string, patch: Partial<LocationEntry> | null) => patchCodexDict('locations', id, patch as Record<string, unknown> | null)}
+        onUpdateLore={(id: string, patch: Partial<LoreEntry> | null) => patchCodexDict('lore', id, patch as Record<string, unknown> | null)}
+        onUpdateQuest={(id: string, patch: Partial<QuestEntry> | null) => patchCodexDict('quests', id, patch as Record<string, unknown> | null)}
+        onUpdateBestiary={(id: string, patch: Partial<BestiaryEntry> | null) => patchCodexDict('bestiary', id, patch as Record<string, unknown> | null)}
+        onUpdateItem={updateItem}
+        onUpdateWorld={updateWorld}
         initialCategory={codexTarget?.category}
         initialEntryId={codexTarget?.id}
         onBack={() => {
