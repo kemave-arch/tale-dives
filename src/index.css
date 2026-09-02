@@ -1,0 +1,26 @@
+@import "tailwindcss";
+
+/* Theme tokens — Blueprint §6.1 (Palette) and §6.2 (Typography) */
+@theme {
+  --color-ivory: #f8f4ea;
+  --color-card: #fdfaf0;
+  --color-ink: #2a241e;
+  --color-gold-primary: #9c7a2e;
+  --color-gold-accent: #e2c275;
+  --color-gold-action: #f0ca65;
+  --color-emerald: #0f5132;
+  --color-emerald-bg: #dff3e8;
+  --color-parchment: #e5d9c3;
+  --color-parchment-header: #e0d3ba;
+
+  --font-display: "Cinzel", serif;
+  --font-narrative: "Lora", serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ivory);
+  color: var(--color-ink);
+  font-family: var(--font-narrative);
+}
