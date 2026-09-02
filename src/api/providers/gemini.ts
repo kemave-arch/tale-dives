@@ -1,6 +1,7 @@
 // Gemini provider adapter — Blueprint §7.1 (call shape) and §3.3 (self-healing pipeline).
 import { SYSTEM_INSTRUCTIONS, TURN_SCHEMA } from '../turnContract.ts'
 import type { HistoryTurn, RunTurnResult } from '../../types.ts'
+import type { Provider } from './types.ts'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
@@ -165,4 +166,30 @@ export async function runSummary({ apiKey, model, temperature, history }: Summar
   const data = await res.json()
   const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
   return text.trim()
+}
+
+// §3.4 — the single source of truth for Gemini's model list; Settings.tsx
+// reads this rather than keeping its own copy now that the provider
+// registry (api/providers/index.ts) exists.
+export const GEMINI_MODELS: import('./types.ts').ProviderModel[] = [
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite' },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
+]
+
+// Capability flags reflect what this adapter actually does today (only
+// JSON-schema structured output is wired up) — not Gemini-the-platform's
+// full ceiling. See types.ts's Provider doc comment.
+export const GEMINI_PROVIDER: Provider = {
+  id: 'gemini',
+  label: 'Google Gemini',
+  models: GEMINI_MODELS,
+  capabilities: { supportsGrounding: false, supportsJsonSchema: true, supportsStreaming: false, supportsPromptCaching: false },
+  runTurn,
+  runSummary,
 }

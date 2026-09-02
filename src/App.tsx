@@ -26,9 +26,9 @@ import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversa
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
 import { slugify } from './lib/slug.ts'
-import { runTurn, runSummary } from './api/providers/gemini.ts'
+import { getProvider } from './api/providers/index.ts'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
-import { downloadJSON, readJSONFile } from './lib/backup.ts'
+import { readJSONFile, saveJSON } from './lib/backup.ts'
 import * as store from './lib/store.ts'
 import type {
   BestiaryEntry, Campaign, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
@@ -278,7 +278,7 @@ export default function App() {
     const newHistory: HistoryTurn[] = [...baseHistory, { role: 'user', parts: [{ text: userTurnText }] }]
 
     try {
-      const result = await runTurn({
+      const result = await getProvider(apiSettings.provider).runTurn({
         apiKey: apiSettings.apiKey,
         model: apiSettings.model,
         temperature: apiSettings.temperature,
@@ -508,7 +508,7 @@ export default function App() {
     const penalizedCopper = Math.max(0, Math.round(campaign.player.copper * (1 - DEFEAT_CURRENCY_PENALTY_FRACTION)))
 
     try {
-      const result = await runTurn({
+      const result = await getProvider(apiSettings.provider).runTurn({
         apiKey: apiSettings.apiKey,
         model: apiSettings.model,
         temperature: apiSettings.temperature,
@@ -549,7 +549,7 @@ export default function App() {
   // the window keeps growing and the next boundary just retries.
   async function recapChapter(historyForSummary: HistoryTurn[], chapterNumber: number) {
     try {
-      const summary = await runSummary({
+      const summary = await getProvider(apiSettings.provider).runSummary({
         apiKey: apiSettings.apiKey,
         model: apiSettings.model,
         temperature: apiSettings.temperature,
@@ -762,9 +762,9 @@ export default function App() {
           }
           setScreen(settingsReturnTo)
         }}
-        onExportActive={() => game && downloadJSON(`${game.title}.json`, game)}
+        onExportActive={() => game && saveJSON(`${game.title}.json`, game)}
         onBackupAll={() =>
-          downloadJSON('tale-dives-backup.json', {
+          saveJSON('tale-dives-backup.json', {
             worlds,
             protagonists,
             campaigns,
@@ -818,7 +818,7 @@ export default function App() {
             setActiveCampaignId(null)
           }
         }}
-        onExportCampaign={(id) => downloadJSON(`${campaigns[id].title}.json`, campaigns[id])}
+        onExportCampaign={(id) => saveJSON(`${campaigns[id].title}.json`, campaigns[id])}
         onImportCampaign={async (file) => {
           try {
             const data = await readJSONFile(file)

@@ -1,18 +1,9 @@
-import { useRef, useState } from 'react'
-import { Cpu, SlidersHorizontal, Database, Info, X, Save, Download, Upload, RotateCcw } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Cpu, SlidersHorizontal, Database, Info, X, Save, Download, Upload, RotateCcw, FolderOpen, FolderX } from 'lucide-react'
 import { PROSE_DEPTHS } from '../api/turnContract.ts'
+import { allProviders, getProvider } from '../api/providers/index.ts'
+import { forgetSaveFolder, loadSaveFolder, pickSaveFolder, supportsFileSystemAccess } from '../lib/fsAccess.ts'
 import type { ApiSettings, Campaign, CombatMode, Skin, UiPrefs } from '../types.ts'
-
-const GEMINI_MODELS = [
-  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
-  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
-  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
-  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
-  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite' },
-  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
-  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
-  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
-] as const
 
 const TABS = [
   { id: 'model', label: 'AI Model', icon: Cpu },
@@ -54,6 +45,7 @@ export default function Settings({
   onResetDefaults,
 }: SettingsProps) {
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('model')
+  const [provider, setProvider] = useState(apiSettings.provider)
   const [model, setModel] = useState(apiSettings.model)
   const [apiKey, setApiKey] = useState(apiSettings.apiKey)
   const [temperature, setTemperature] = useState(apiSettings.temperature)
@@ -63,11 +55,34 @@ export default function Settings({
     (game?.proseDepth?.label as keyof typeof PROSE_DEPTHS) ?? 'BALANCED',
   )
   const [combatMode, setCombatMode] = useState<CombatMode>(game?.combatMode ?? 'NARRATIVE')
+  const [folderLinked, setFolderLinked] = useState<boolean | null>(null) // null = still checking
   const importRef = useRef<HTMLInputElement>(null)
+
+  // §6.4B Local Save status — re-checked on mount since a granted folder
+  // handle's permission doesn't survive a page reload.
+  useEffect(() => {
+    let cancelled = false
+    loadSaveFolder().then((handle) => {
+      if (!cancelled) setFolderLinked(!!handle)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  async function linkFolder() {
+    const handle = await pickSaveFolder()
+    setFolderLinked(!!handle)
+  }
+
+  async function unlinkFolder() {
+    await forgetSaveFolder()
+    setFolderLinked(false)
+  }
 
   function save() {
     onSave({
-      apiSettings: { provider: 'gemini', model, apiKey, temperature },
+      apiSettings: { provider, model, apiKey, temperature },
       uiPrefs: { skin, chromeOpacity },
       proseDepthKey,
       combatMode,
@@ -103,16 +118,37 @@ export default function Settings({
           <div className="flex flex-col gap-4">
             <div>
               <label className="text-sm font-display">
+                Provider
+                <select
+                  value={provider}
+                  onChange={(e) => {
+                    const nextProvider = e.target.value
+                    setProvider(nextProvider)
+                    const models = getProvider(nextProvider).models
+                    if (!models.some((m) => m.id === model)) setModel(models[0]?.id ?? '')
+                  }}
+                  className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
+                >
+                  {allProviders().map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div>
+              <label className="text-sm font-display">
                 Model ID
                 <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
                 >
-                  {!GEMINI_MODELS.some((m) => m.id === model) && model && (
+                  {!getProvider(provider).models.some((m) => m.id === model) && model && (
                     <option value={model}>{model} (custom)</option>
                   )}
-                  {GEMINI_MODELS.map((m) => (
+                  {getProvider(provider).models.map((m) => (
                     <option key={m.id} value={m.id}>
                       {m.label}
                     </option>
@@ -127,7 +163,7 @@ export default function Settings({
                   type="password"
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Paste your Gemini API key"
+                  placeholder={`Paste your ${getProvider(provider).label} API key`}
                   className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
                 />
               </label>
@@ -231,7 +267,41 @@ export default function Settings({
         )}
 
         {tab === 'backup' && (
-          <div className="grid grid-cols-2 gap-2">
+          <div className="flex flex-col gap-3">
+            {/* §6.4B Local Save status — a status indicator, not a freely
+                reversible toggle: On-Device Folder writes Export/Backup
+                directly to a chosen folder; Browser Only (the fallback
+                everywhere without File System Access API support) keeps
+                using the plain download flow below. */}
+            <div className="rounded-lg border border-gold-accent/30 px-3 py-2.5 flex items-center gap-2.5">
+              {folderLinked ? <FolderOpen size={16} className="text-gold-primary shrink-0" /> : <FolderX size={16} className="text-ink-muted shrink-0" />}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-display">
+                  {!supportsFileSystemAccess()
+                    ? 'Browser Only'
+                    : folderLinked
+                      ? 'On-Device Folder'
+                      : 'Browser Only'}
+                </p>
+                <p className="text-[11px] opacity-50">
+                  {!supportsFileSystemAccess()
+                    ? 'This browser has no folder-save support — Export writes a normal download.'
+                    : folderLinked
+                      ? 'Export & Backup write directly into your chosen folder.'
+                      : 'Saves live in this browser only — clearing site data erases them. Link a folder, or use Export for backup.'}
+                </p>
+              </div>
+              {supportsFileSystemAccess() && (
+                <button
+                  onClick={folderLinked ? unlinkFolder : linkFolder}
+                  className="shrink-0 rounded-full border border-gold-accent/40 px-3 py-1.5 font-display text-[11px]"
+                >
+                  {folderLinked ? 'Unlink' : 'Choose Folder'}
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
             <button
               onClick={onExportActive}
               disabled={!game}
@@ -268,6 +338,7 @@ export default function Settings({
                 e.target.value = ''
               }}
             />
+            </div>
           </div>
         )}
 
