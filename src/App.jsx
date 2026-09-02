@@ -7,6 +7,7 @@ import { getClassById } from './data/classes.js'
 import { startingAttributes, derivedPools } from './lib/derivedStats.js'
 import { buildContextSlice } from './lib/jitContext.js'
 import { applyTurn } from './lib/shadowReferee.js'
+import { ensureLocation } from './lib/locations.js'
 import { runTurn } from './api/providers/gemini.js'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.js'
 
@@ -67,6 +68,7 @@ export default function App() {
       combatMode: 'NARRATIVE', // Tactical combat math isn't implemented yet in this build
       proseDepth: PROSE_DEPTHS.BALANCED,
       narrationStyle: DEFAULT_NARRATION_STYLE,
+      locations: {}, // §5.10 Locations Codex — populated by auto-registration
       log: [],
     }
     setGame(campaign)
@@ -122,9 +124,12 @@ export default function App() {
       const { player: nextPlayer, defeated } = applyTurn(current.player, turn)
       nextPlayer.time = turn.time ?? current.player.time // Shadow Referee doesn't own time
 
+      const { dict: nextLocations } = ensureLocation(current.locations, turn.loc_id, turn.loc_disp)
+
       setGame((g) => ({
         ...g,
         player: nextPlayer,
+        locations: nextLocations,
         log: [...g.log, { action: actionText, nar: turn.nar, turnState: turn.turn_state, defeated }],
       }))
       setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])

@@ -14,7 +14,8 @@ function sanitize(raw) {
 }
 
 async function requestOnce({ apiKey, model, temperature, maxOutputTokens, history }) {
-  const url = `${BASE_URL}/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`
+  // Key goes in a header, not the URL — keeps it out of browser history and network logs.
+  const url = `${BASE_URL}/${encodeURIComponent(model)}:generateContent`
 
   const body = {
     system_instruction: { parts: [{ text: SYSTEM_INSTRUCTIONS }] },
@@ -29,7 +30,7 @@ async function requestOnce({ apiKey, model, temperature, maxOutputTokens, histor
 
   const res = await fetch(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
     body: JSON.stringify(body),
   })
 
