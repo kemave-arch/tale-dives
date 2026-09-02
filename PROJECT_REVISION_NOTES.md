@@ -4,7 +4,7 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`3597869`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`ccec6d1`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
@@ -61,18 +61,20 @@ slicing), `shadowReferee.ts` (client-side validation of model-proposed deltas), 
 + `keywordLinks.ts` (`{{Term|category}}` auto-registration), `locations.ts`, `npcs.ts`,
 `quests.ts`, `inventory.ts` (per-domain state appliers), `combat.ts` (Tactical combat
 math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts` (`!`
-client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks, new this
-session), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`,
+client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `crafting.ts`
++ `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic, new this session),
+`currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`,
 `turnStates.ts`, `backup.ts` (JSON download/upload only).
 
 **API** (`src/api/`): `turnContract.ts` (system prompt + `TURN_SCHEMA`),
 `providers/gemini.ts` (the *only* provider implementation — `runTurn`, `runSummary`).
 
-**Data** (`src/data/classes.ts`): static `PRESET_CLASSES` + `getClassById()`.
+**Data** (`src/data/`): `classes.ts` (Preset Class Dictionary), `recipes.ts` (§5.8 Recipe
+Dictionary, new this session).
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `3597869`. See `git log --oneline` for
+Everything below is implemented and working as of `ccec6d1`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -132,6 +134,17 @@ the literal commit sequence; the summary here groups by feature, not commit.
   blueprint describes evolution as reusing a "Class Grounding" search-grounded call for
   freely-typed class names, which doesn't exist at character creation either; that's
   bundled with Inspired Mode (Tier 3 item #15 below) as shared future work.
+- **§5.8 Crafting & Resource Management** (this session, commit `ccec6d1`) — a
+  timestamp-based crafting queue, fully client-resolved (0 tokens): a Recipe Dictionary
+  (`src/data/recipes.ts`), queue/resolve logic (`src/lib/crafting.ts` +
+  `src/lib/gameTime.ts` for arithmetic on the model's freeform time string), and a new
+  "Workbenches & Recipes" Codex category with live-affordability recipe cards and a
+  countdown on active jobs. A completion surfaces as a "Craft Ready" Chronicle badge, plus
+  an optional one-line narration hook in the prompt when the player is at the crafting
+  location on the exact turn it resolves. **Scope note**: station-location enforcement is
+  skipped (no location-station-type data model exists — any recipe can be queued from
+  anywhere), and "Resource Management" (perishable material decay, the other half of
+  §5.8) is not built — it needs a static item-metadata dictionary that doesn't exist yet.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -144,14 +157,9 @@ assumption.
    Preset Class Dictionary only — see §3 above for the free-form "Class Grounding" scope
    note, folded into item #15 below).
 
-2. **#12 Crafting & Resource Management** (blueprint §5.8) — timestamp-based, 0-token,
-   client-resolved. **Zero implementation.** No queue/recipe/workbench type anywhere in
-   `types.ts`; `Campaign.inventory` is just a flat `Dict<number>` (item id → qty) with no
-   crafting metadata. Needs: recipe data (new `src/data/` module, mirroring
-   `classes.ts`'s pattern), a crafting queue on `Campaign` keyed off the existing
-   `player.time: {d, h}` clock, and Chronicle/Codex UI surface (blueprint mentions a
-   conditional `Hammer` radial-menu icon + Workbenches & Recipes Entry Cards — the radial
-   menu itself doesn't exist yet either, see note below).
+2. ~~**#12 Crafting & Resource Management**~~ (blueprint §5.8) — **done** (crafting-queue
+   half only), commit `ccec6d1`. See §3 above for the scope notes (no station-location
+   enforcement, no perishable-material decay).
 
 3. **#13 Three-Branch Summoning & Minion Engine** (blueprint §5.3) — class-specific
    summon/minion ability kits. **Zero implementation** beyond one class's flavor *name*
@@ -218,16 +226,16 @@ Per the standing instruction this session was given:
 
 1. ~~Pick up Tier 3 item #14's Codex Discovery half first~~ — **done** (commit `fbdef88`).
 2. ~~#10 Class Evolution~~ — **done** (commit `3597869`).
-3. Work the rest of the Tier 3 list in order (#12 → #13 → #14 remainder → #15 → #16),
-   committing and pushing after each, and **repeat this notes-file update after each
-   major chunk** (append a dated entry below rather than rewriting history above) — this
-   was the explicit instruction that produced this file in the first place. #13
-   (Summoning) has a soft dependency on #10 (a summoner-type class should presumably
-   grant the summon ability branch on evolving into it) — that dependency is now
-   satisfied, so #12 → #13 in either order is fine next.
-4. Do the full verify-and-fix pass across existing functions/components.
-5. Do the final beautification pass last.
-6. Always run `npm run typecheck` and `npm run build` clean, and manually click through
+3. ~~#12 Crafting & Resource Management~~ — **done** (crafting-queue half), commit `ccec6d1`.
+4. Work the rest of the Tier 3 list (#13 → #14 remainder → #15 → #16), committing and
+   pushing after each, and **repeat this notes-file update after each major chunk**
+   (append a dated entry below rather than rewriting history above) — this was the
+   explicit instruction that produced this file in the first place. #13 (Summoning) is
+   the natural next pick — its soft dependency on #10 (a summoner-type class should
+   presumably grant the summon ability branch on evolving into it) is already satisfied.
+5. Do the full verify-and-fix pass across existing functions/components.
+6. Do the final beautification pass last.
+7. Always run `npm run typecheck` and `npm run build` clean, and manually click through
    the actual change in the dev server (see §0's tooling-trap warning) before committing.
    Note: a `window.confirm()`/`window.alert()` dialog in a flow you're testing live may
    get silently auto-dismissed by the browser-automation tool — if a confirm-gated action
@@ -279,3 +287,18 @@ Per the standing instruction this session was given:
   `npm run typecheck` and `npm run build` both clean. Next up per §6: Tier 3 item #12
   (Crafting) or #13 (Summoning), either order — both are independent of everything shipped
   so far.
+- **2026-09-03** — Crafting & Resource Management (blueprint §5.8, crafting-queue half)
+  implemented and pushed (`ccec6d1`). Added `src/data/recipes.ts` (Recipe Dictionary),
+  `src/lib/gameTime.ts` (arithmetic on the model's freeform time string) and
+  `src/lib/crafting.ts` (queue/resolve logic), wired into `App.tsx`'s `sendAction` with a
+  two-pass resolution (a read-only pre-turn peek for the narration hook, an authoritative
+  post-turn pass using the turn's real resulting time for what actually persists), plus a
+  new "Workbenches & Recipes" Codex category and a "Craft Ready" Chronicle badge. Verified
+  live end-to-end, including a real Gemini turn: added Iron Ore via Codex CRUD, queued an
+  Iron Dagger (ingredients deducted immediately, 1h timer shown), sent an actual turn that
+  advanced game time past completion, and confirmed the dagger appeared in inventory with
+  the "Craft Ready: Iron Dagger" badge on that turn's log entry, narrated context hook
+  included (player happened to still be at the same location). `npm run typecheck` and
+  `npm run build` both clean. Scope cuts (station-location enforcement, perishable decay)
+  are documented in §3/§4 above — read those before assuming either exists.
+  Next up per §6: Tier 3 item #13 (Summoning & Minion Engine).
