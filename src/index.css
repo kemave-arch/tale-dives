@@ -1,26 +1,100 @@
 @import "tailwindcss";
 
-/* Theme tokens — Blueprint §6.1 (Palette) and §6.2 (Typography) */
+/* Tailwind utility tokens — each resolves to a CSS custom property below, so
+   `bg-canvas`, `text-gold-primary`, etc. stay dynamic across skins instead of
+   being baked to a fixed hex at build time (Blueprint §6.1, extended with a
+   selectable dark "obsidian" skin per later design direction). */
 @theme {
-  --color-ivory: #f8f4ea;
-  --color-card: #fdfaf0;
-  --color-ink: #2a241e;
-  --color-gold-primary: #9c7a2e;
-  --color-gold-accent: #e2c275;
-  --color-gold-action: #f0ca65;
-  --color-emerald: #0f5132;
-  --color-emerald-bg: #dff3e8;
-  --color-parchment: #e5d9c3;
-  --color-parchment-header: #e0d3ba;
+  --color-canvas: var(--td-canvas);
+  --color-surface: var(--td-surface);
+  --color-surface-raised: var(--td-surface-raised);
+  --color-ink: var(--td-ink);
+  --color-ink-muted: var(--td-ink-muted);
+  --color-gold-primary: var(--td-gold-primary);
+  --color-gold-accent: var(--td-gold-accent);
+  --color-gold-action: var(--td-gold-action);
+  --color-emerald: var(--td-emerald);
+  --color-emerald-bg: var(--td-emerald-bg);
+  --color-rose: var(--td-rose);
+  --color-rose-bg: var(--td-rose-bg);
+  --color-parchment: var(--td-parchment);
+  --color-parchment-header: var(--td-parchment-header);
 
   --font-display: "Cinzel", serif;
   --font-narrative: "Lora", serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 
+/* Parchment skin — light mode, gold glassmorphism (Blueprint §6.1). Default. */
+:root {
+  --td-canvas: #f8f4ea;
+  --td-surface: #fdfaf0e6;
+  --td-surface-raised: #fdfaf0;
+  --td-ink: #2a241e;
+  --td-ink-muted: #6b6152;
+  --td-gold-primary: #9c7a2e;
+  --td-gold-accent: #e2c275;
+  --td-gold-action: #f0ca65;
+  --td-emerald: #0f5132;
+  --td-emerald-bg: #dff3e8;
+  --td-rose: #9f1239;
+  --td-rose-bg: #fce7ea;
+  --td-parchment: #e5d9c3;
+  --td-parchment-header: #e0d3ba;
+  --td-glow: 0 8px 28px rgba(120, 90, 20, 0.12);
+}
+
+/* Obsidian skin — dark ground, brighter gold for contrast, glowing glass. */
+[data-skin="obsidian"] {
+  --td-canvas: #0b0d13;
+  --td-surface: #151926e6;
+  --td-surface-raised: #1a1f2e;
+  --td-ink: #ece4d3;
+  --td-ink-muted: #a89f8c;
+  --td-gold-primary: #f0ca65;
+  --td-gold-accent: #caa24a;
+  --td-gold-action: #f0ca65;
+  --td-emerald: #34d399;
+  --td-emerald-bg: #143223b3;
+  --td-rose: #f87171;
+  --td-rose-bg: #3a1620b3;
+  --td-parchment: #11141c;
+  --td-parchment-header: #1b1f2c;
+  --td-glow: 0 0 24px rgba(240, 202, 101, 0.15), 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+
 body {
   margin: 0;
-  background: var(--color-ivory);
-  color: var(--color-ink);
+  background: var(--td-canvas);
+  color: var(--td-ink);
   font-family: var(--font-narrative);
+}
+
+/* Standard glass surface — Blueprint §6.1a, generalized across both skins. */
+.glass-panel {
+  backdrop-filter: blur(16px);
+  background: var(--td-surface);
+  border: 1px solid color-mix(in srgb, var(--td-gold-accent) 40%, transparent);
+  box-shadow: var(--td-glow);
+}
+
+.glow-ring {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--td-gold-accent) 55%, transparent), var(--td-glow);
+}
+
+/* Themed scrollbars instead of the browser default. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--td-gold-accent) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: color-mix(in srgb, var(--td-gold-accent) 60%, transparent);
+  border-radius: 999px;
 }

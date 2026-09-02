@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
+import { Menu, Settings as SettingsIcon, Send } from 'lucide-react'
 
-// Blueprint §6.4C — v1 scaffold: no parchment/radial menu/quick-slots yet,
-// just enough surface to prove the turn loop (§2 Phase D) actually works.
-export default function Chronicle({ player, log, busy, error, onSend, onOpenSettings }) {
+// Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
+// yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
+export default function Chronicle({ player, log, busy, error, onSend, onOpenSettings, onOpenMenu }) {
   const [input, setInput] = useState('')
   const scrollRef = useRef(null)
 
@@ -17,13 +18,16 @@ export default function Chronicle({ player, log, busy, error, onSend, onOpenSett
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-ivory text-ink">
+    <div className="min-h-screen flex flex-col bg-canvas text-ink">
       <header className="flex items-center justify-between px-4 py-3 bg-parchment-header border-b border-gold-accent/30">
-        <div className="font-mono text-xs">
+        <button onClick={onOpenMenu} aria-label="Menu" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
+          <Menu size={18} />
+        </button>
+        <div className="font-mono text-xs text-center flex-1">
           Day {player.time.d} • {player.time.h} — {player.locDisp}
         </div>
-        <button onClick={onOpenSettings} className="text-xs font-display underline">
-          Settings
+        <button onClick={onOpenSettings} aria-label="Settings" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
+          <SettingsIcon size={18} />
         </button>
       </header>
 
@@ -42,31 +46,32 @@ export default function Chronicle({ player, log, busy, error, onSend, onOpenSett
           </div>
         ))}
         {busy && <p className="font-narrative italic text-sm opacity-50">The thread of fate is being woven...</p>}
-        {error && <p className="font-mono text-xs text-rose-700">{error}</p>}
+        {error && <p className="font-mono text-xs text-rose">{error}</p>}
       </div>
 
-      <footer className="bg-card border-t border-gold-accent/30 px-4 py-2 font-mono text-xs flex gap-4">
+      <footer className="bg-surface-raised border-t border-gold-accent/30 px-4 py-2 font-mono text-xs flex gap-4">
         <span>HP {player.hp}/{player.hpMax}</span>
         <span>MP {player.mp}/{player.mpMax}</span>
         <span>ST {player.st}/{player.stMax}</span>
         <span className="ml-auto">{player.copper}c</span>
       </footer>
 
-      <div className="bg-card border-t border-gold-accent/50 px-4 py-3 flex gap-2">
+      <div className="bg-surface-raised border-t border-gold-accent/50 px-4 py-3 flex gap-2">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && send()}
           placeholder="What do you do?"
           disabled={busy}
-          className="flex-1 rounded-full border border-gold-accent/40 bg-ivory px-4 py-2 font-narrative text-sm"
+          className="flex-1 rounded-full border border-gold-accent/40 bg-canvas px-4 py-2 font-narrative text-sm"
         />
         <button
           onClick={send}
           disabled={busy || !input.trim()}
-          className="rounded-full bg-gold-action px-5 py-2 font-display text-sm font-semibold text-ink disabled:opacity-40"
+          aria-label="Send"
+          className="w-10 h-10 rounded-full bg-gold-action inline-flex items-center justify-center text-ink disabled:opacity-40"
         >
-          Send
+          <Send size={16} />
         </button>
       </div>
     </div>
