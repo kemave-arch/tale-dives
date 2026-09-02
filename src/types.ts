@@ -28,6 +28,7 @@ export interface GameTime {
 
 export interface Player {
   name: string
+  classId: string
   className: string
   level: number
   attrs: Attributes
@@ -141,6 +142,7 @@ export interface LogEntry {
   nar: string
   turnState?: string
   defeated?: boolean
+  levelUp?: number // §5.1a — set when this turn triggered a Milestone Level-up
 }
 
 // A Tale — the full persisted campaign shape (§6.4B Tales library).

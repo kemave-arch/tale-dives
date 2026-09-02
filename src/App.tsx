@@ -13,6 +13,7 @@ import { ensureLocation } from './lib/locations.ts'
 import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
+import { applyLevelUps, isChapterBoundary } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
 import { slugify } from './lib/slug.ts'
 import { runTurn } from './api/providers/gemini.ts'
@@ -99,6 +100,7 @@ export default function App() {
 
     const player = {
       name: protagonistData.name,
+      classId: cls.id,
       className: cls.name,
       level: 1,
       attrs,
@@ -306,10 +308,22 @@ export default function App() {
 
       if (playerDefeated) nextCombat = { active: false }
 
+      // §5.1a Milestone Leveling — +1 per completed quest this turn, +1 at
+      // every Chapter Milestone boundary (§8 item 5's Secret-quest question
+      // is moot for now since quest_update doesn't track a tier at all yet).
+      const turnNumber = current.log.length + 1
+      const questLevels = turn.quest_update?.status === 'completed' ? 1 : 0
+      const chapterLevels = isChapterBoundary(turnNumber) ? 1 : 0
+      const { player: leveledPlayer, leveled } = applyLevelUps(
+        nextPlayer,
+        getClassById(current.player.classId).weights,
+        questLevels + chapterLevels,
+      )
+
       setGame((g) =>
         g && {
           ...g,
-          player: nextPlayer,
+          player: leveledPlayer,
           locations: nextLocations,
           npcs: nextNpcs,
           factions: linked.factions,
@@ -318,7 +332,16 @@ export default function App() {
           bestiary: nextBestiary,
           combat: nextCombat,
           lastPlayed: Date.now(),
-          log: [...g.log, { action: actionText, nar: turn.nar, turnState, defeated: playerDefeated }],
+          log: [
+            ...g.log,
+            {
+              action: actionText,
+              nar: turn.nar,
+              turnState,
+              defeated: playerDefeated,
+              ...(leveled ? { levelUp: leveledPlayer.level } : {}),
+            },
+          ],
         },
       )
       setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])

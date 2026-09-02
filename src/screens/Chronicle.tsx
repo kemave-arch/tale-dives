@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Settings as SettingsIcon, Send, Swords } from 'lucide-react'
+import { Menu, Settings as SettingsIcon, Send, Swords, Star } from 'lucide-react'
 import { renderNarrative } from '../lib/richText.tsx'
 import type { CombatState, LogEntry, Player } from '../types.ts'
 
@@ -56,6 +56,11 @@ export default function Chronicle({ player, combat, log, busy, error, onSend, on
               <p className="font-mono text-xs text-gold-primary">&gt; {entry.action}</p>
             )}
             <p className="font-narrative text-sm leading-relaxed whitespace-pre-wrap">{renderNarrative(entry.nar)}</p>
+            {entry.levelUp && (
+              <p className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary">
+                <Star size={12} /> Level {entry.levelUp}
+              </p>
+            )}
           </div>
         ))}
         {busy && <p className="font-narrative italic text-sm opacity-50">The thread of fate is being woven...</p>}
