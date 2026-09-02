@@ -2,14 +2,17 @@ import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeft, ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
-  Pencil, Save, X, Trash2, Plus, Lock, User,
+  Pencil, Save, X, Trash2, Plus, Lock, User, Hammer, Clock,
 } from 'lucide-react'
 import { slugify } from '../lib/slug.ts'
 import { isHidden } from '../lib/discovery.ts'
 import { PRESET_CLASSES } from '../data/classes.ts'
-import type { BestiaryEntry, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
+import { RECIPES } from '../data/recipes.ts'
+import { canAffordRecipe } from '../lib/crafting.ts'
+import { hoursRemaining } from '../lib/gameTime.ts'
+import type { BestiaryEntry, CraftingJob, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
 
-export type CategoryId = 'realm' | 'character' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
+export type CategoryId = 'realm' | 'character' | 'crafting' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
 
 interface CodexProps {
   world: WorldData
@@ -23,6 +26,7 @@ interface CodexProps {
   bestiary: Record<string, BestiaryEntry>
   flags: string[]
   inventory: Record<string, number>
+  crafting: CraftingJob[]
   onUpdateNpc: (id: string, patch: Partial<NpcEntry> | null) => void
   onUpdateFaction: (id: string, patch: Partial<FactionEntry> | null) => void
   onUpdateLocation: (id: string, patch: Partial<LocationEntry> | null) => void
@@ -32,6 +36,7 @@ interface CodexProps {
   onUpdateItem: (id: string, qty: number | null) => void
   onUpdateWorld: (patch: Partial<WorldData>) => void
   onEvolveClass: (classId: string) => void
+  onStartCraft: (recipeId: string) => void
   initialCategory?: CategoryId | null
   initialEntryId?: string | null
   onBack: () => void
@@ -303,6 +308,7 @@ export default function Codex({
   bestiary,
   flags,
   inventory,
+  crafting,
   onUpdateNpc,
   onUpdateFaction,
   onUpdateLocation,
@@ -312,6 +318,7 @@ export default function Codex({
   onUpdateItem,
   onUpdateWorld,
   onEvolveClass,
+  onStartCraft,
   initialCategory,
   initialEntryId,
   onBack,
@@ -338,6 +345,7 @@ export default function Codex({
     { id: 'lore', label: 'Lore', description: 'Legends, myths & discovered secrets', icon: ScrollText, count: Object.keys(lore).length },
     { id: 'chapters', label: 'Chapters', description: 'Chronological recap of the tale so far', icon: BookOpen, count: chapters.length },
     { id: 'character', label: 'Character', description: 'Attributes, class & derived pools', icon: User, count: 1 },
+    { id: 'crafting', label: 'Workbenches & Recipes', description: 'Craft items from held materials', icon: Hammer, count: crafting.length },
     { id: 'realm', label: 'Realm', description: 'Cosmology, setting, tone & core conflict', icon: Globe, count: 1 },
   ]
 
@@ -557,6 +565,65 @@ export default function Codex({
             </DetailPanel>
           )}
         </>
+      )}
+
+      {/* Workbenches & Recipes — §5.8 Crafting, its own category (v1.7) rather
+          than an eighth Relics & Vault filter. Station requirements are shown
+          as flavor text only — there's no location-station-type data model
+          yet, so any recipe can currently be queued from wherever the player
+          is standing (see the scope note in lib/crafting.ts). */}
+      {category === 'crafting' && (
+        <div className="flex flex-col gap-4">
+          {crafting.length > 0 && (
+            <div>
+              <p className="text-[11px] font-display text-white/40 uppercase tracking-wide mb-1.5">In Progress</p>
+              <div className="flex flex-col gap-2">
+                {crafting.map((job) => {
+                  const recipe = RECIPES.find((r) => r.id === job.recipeId)
+                  const remaining = hoursRemaining(player.time, job.completeTime)
+                  return (
+                    <div key={job.jobId} className="rounded-xl border border-[#e8ca8a]/15 bg-[#141622] px-3 py-2.5 flex items-center justify-between gap-2">
+                      <span className="font-display font-semibold text-sm text-[#e8ca8a]">{recipe?.name ?? job.recipeId}</span>
+                      <span className="inline-flex items-center gap-1 font-mono text-xs text-white/60">
+                        <Clock size={12} /> {remaining > 0 ? `${remaining}h remaining` : 'Ready'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-[11px] font-display text-white/40 uppercase tracking-wide mb-1.5">Recipes</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {RECIPES.map((recipe) => {
+                const affordable = canAffordRecipe(inventory, recipe)
+                return (
+                  <div key={recipe.id} className="rounded-2xl p-4 flex flex-col gap-2 border border-[#e8ca8a]/15 bg-[#141622]">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-display font-bold text-sm text-[#e8ca8a]">{recipe.name}</h3>
+                      <span className="inline-flex items-center gap-1 font-mono text-[10px] text-white/40">
+                        <Clock size={11} /> {recipe.craftHours}h
+                      </span>
+                    </div>
+                    {recipe.stationRequired && <p className="font-narrative text-[11px] text-white/40">Station: {recipe.stationRequired}</p>}
+                    <p className="font-narrative text-xs text-white/60">
+                      {recipe.ingredients.map((i) => `${i.qty}x ${i.id.replace(/_/g, ' ')} (${inventory[i.id] ?? 0} held)`).join(', ')}
+                    </p>
+                    <button
+                      onClick={() => onStartCraft(recipe.id)}
+                      disabled={!affordable}
+                      className="mt-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-[#e8ca8a] px-4 py-1.5 font-display text-xs font-semibold text-[#0e1017] disabled:opacity-30"
+                    >
+                      <Hammer size={13} /> Craft
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Realm — single record, no grid; identity fields editable, narration style stays owned by Settings */}

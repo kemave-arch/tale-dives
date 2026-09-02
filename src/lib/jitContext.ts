@@ -9,7 +9,7 @@ const MAX_KNOWN_NAMES = 25 // per category — hard cap so this line's token cos
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
-export function buildContextSlice(state: Campaign, combatResultLine?: string | null): string {
+export function buildContextSlice(state: Campaign, combatResultLine?: string | null, craftReadyLine?: string | null): string {
   const { player, combatMode, proseDepth, narrationStyle, locations, npcs, factions, lore, world, flags, quests, log } = state
 
   const lines = [
@@ -84,6 +84,11 @@ export function buildContextSlice(state: Campaign, combatResultLine?: string | n
 
   // §3.1 example line — only present on a Tactical attack turn (§2 Phase D.2).
   if (combatResultLine) lines.push(combatResultLine)
+
+  // §5.8 — only present when a queued crafting job finished at this exact
+  // location; the narration hook, not the completion itself (that already
+  // happened client-side regardless of where the player is).
+  if (craftReadyLine) lines.push(craftReadyLine)
 
   lines.push(
     `Target Prose Depth: ${proseDepth.label} (${proseDepth.targetTokens})`,

@@ -19,6 +19,7 @@ import { applyQuestUpdate } from './lib/quests.ts'
 import { applyInventoryChanges } from './lib/inventory.ts'
 import { resolveBangCommand } from './lib/bangCommands.ts'
 import { checkCodexReveals } from './lib/discovery.ts'
+import { queueCraftingJob, resolveCraftingJobs } from './lib/crafting.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -252,8 +253,19 @@ export default function App() {
       combatOutcome = { enemyHpAfter, enemyDefeated }
     }
 
+    // §5.8 — a read-only peek at whether any crafting job would resolve at
+    // the player's *current* location, purely to decide whether this turn's
+    // prompt gets the narration hook. This doesn't mutate anything; the
+    // authoritative resolution (which actually updates the queue/inventory)
+    // runs after the turn's real resulting time is known, further below.
+    const craftPeek = resolveCraftingJobs(current.crafting ?? [], current.inventory, current.player.time)
+    const craftReadyHere = craftPeek.completed.filter((c) => c.job.stationLocId === current.player.locId)
+    const craftReadyLine = craftReadyHere.length
+      ? `Craft Ready: ${craftReadyHere.map((c) => `>${c.recipe.output.id.replace(/_/g, ' ')}<`).join(', ')} awaits collection here.`
+      : null
+
     const baseHistory = overrideHistory ?? history
-    const contextSlice = buildContextSlice(current, combatResultLine)
+    const contextSlice = buildContextSlice(current, combatResultLine, craftReadyLine)
     // §6.6 — a !recall or targeted bang dossier queued since the last turn
     // rides along here once, then clears; this is the "make the LLM
     // remember" mechanism, distinct from the always-on capped Known
@@ -313,7 +325,14 @@ export default function App() {
       const nextNpcs = applyNpcUpdates(linked.npcs, turn.npc_mem_up, turn.loc_id)
       const nextQuests = applyQuestUpdate(linked.quests, turn.quest_update)
       const nextFlags = turn.flag_add?.length ? Array.from(new Set([...current.flags, ...turn.flag_add])) : current.flags
-      const nextInventory = applyInventoryChanges(current.inventory, turn.inv_add, turn.inv_rem)
+
+      // §5.8 — the authoritative crafting resolution, against this turn's
+      // actual resulting time/location (nextPlayer.time/.locId, already set
+      // by applyTurn above) rather than the pre-call peek's start-of-turn
+      // snapshot. Its output lands in inventory as the base applyInventoryChanges
+      // below layers this turn's own inv_add/inv_rem on top of.
+      const craftResolution = resolveCraftingJobs(current.crafting ?? [], current.inventory, nextPlayer.time)
+      const nextInventory = applyInventoryChanges(craftResolution.inventory, turn.inv_add, turn.inv_rem)
 
       // §3.2 Turn State Consistency — forced to COMBAT whenever a Tactical
       // result was precomputed; otherwise Gemini's own call, same as always.
@@ -410,6 +429,7 @@ export default function App() {
         combat: nextCombat,
         flags: nextFlags,
         inventory: nextInventory,
+        crafting: craftResolution.jobs,
         lastPlayed: Date.now(),
         turnCount: turnNumber,
         log: [
@@ -425,6 +445,9 @@ export default function App() {
             ...(leveled ? { levelUp: leveledPlayer.level } : {}),
             ...(reveals.revealed.length ? { discoveries: reveals.revealed } : {}),
             ...(classEvolution ? { classEvolution } : {}),
+            ...(craftResolution.completed.length
+              ? { craftReady: craftResolution.completed.map((c) => ({ recipeName: c.recipe.name, outputId: c.recipe.output.id, outputQty: c.recipe.output.qty })) }
+              : {}),
           },
         ],
       }
@@ -552,6 +575,19 @@ export default function App() {
 
   function updateWorld(patch: Partial<WorldData>) {
     setGame((g) => g && { ...g, world: { ...g.world, ...patch } })
+  }
+
+  // §5.8 Crafting — the player-triggered "queue a job" action (Codex's
+  // Workbenches & Recipes category). Ingredients are deducted immediately by
+  // queueCraftingJob itself; a null return (recipe missing or unaffordable)
+  // is a silent no-op since the UI already only offers what's affordable.
+  function startCraftingJob(recipeId: string) {
+    setGame((g) => {
+      if (!g) return g
+      const result = queueCraftingJob(g.crafting ?? [], g.inventory, recipeId, g.player.locId, g.player.time, store.newId('job'))
+      if (!result) return g
+      return { ...g, crafting: result.jobs, inventory: result.inventory, lastPlayed: Date.now() }
+    })
   }
 
   // §5.1b Class Evolution — the manual/CRUD trigger path (Codex's Character
@@ -817,6 +853,7 @@ export default function App() {
         bestiary={game.bestiary}
         flags={game.flags}
         inventory={game.inventory}
+        crafting={game.crafting ?? []}
         onUpdateNpc={(id: string, patch: Partial<NpcEntry> | null) => patchCodexDict('npcs', id, patch as Record<string, unknown> | null)}
         onUpdateFaction={(id: string, patch: Partial<FactionEntry> | null) => patchCodexDict('factions', id, patch as Record<string, unknown> | null)}
         onUpdateLocation={(id: string, patch: Partial<LocationEntry> | null) => patchCodexDict('locations', id, patch as Record<string, unknown> | null)}
@@ -826,6 +863,7 @@ export default function App() {
         onUpdateItem={updateItem}
         onUpdateWorld={updateWorld}
         onEvolveClass={evolveClass}
+        onStartCraft={startCraftingJob}
         initialCategory={codexTarget?.category}
         initialEntryId={codexTarget?.id}
         onBack={() => {

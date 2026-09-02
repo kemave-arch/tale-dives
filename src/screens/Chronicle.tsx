@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock, Repeat,
+  Unlock, Lock, Repeat, Hammer,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -313,6 +313,18 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
             >
               <Unlock size={12} /> Codex Updated: {d.name}
             </button>
+          ))}
+        </div>
+      )}
+      {entry.craftReady && entry.craftReady.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {entry.craftReady.map((c, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary"
+            >
+              <Hammer size={12} /> Craft Ready: {c.recipeName}
+            </span>
           ))}
         </div>
       )}

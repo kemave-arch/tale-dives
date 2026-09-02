@@ -26,6 +26,31 @@ export interface GameTime {
   h: string
 }
 
+// §5.8 Crafting — a local static dictionary, same pattern as the Preset
+// Class Dictionary (data/classes.ts, data/recipes.ts). `stationRequired` is
+// informational only for now (shown on the recipe card) — there's no
+// location-station-type data model yet to enforce "must be at a forge."
+export interface RecipeDef {
+  id: string
+  name: string
+  output: { id: string; qty: number }
+  ingredients: { id: string; qty: number }[]
+  stationRequired?: string
+  craftHours: number
+}
+
+// §5.8 Crafting Queue — per-Tale local state, never sent to Gemini. Ingredients
+// are deducted the instant the job is queued (not on completion), and the
+// output lands in inventory the instant `completeTime` is reached regardless
+// of the player's location — waiting doesn't require sitting at the station.
+export interface CraftingJob {
+  jobId: string
+  recipeId: string
+  stationLocId: string
+  startTime: GameTime
+  completeTime: GameTime
+}
+
 export interface Player {
   name: string
   classId: string
@@ -186,6 +211,7 @@ export interface LogEntry {
   bang?: BangCommandEntry // §6.6 — a rendered bang-command result, not real narration
   discoveries?: { category: KeywordLink['category']; id: string; name: string }[] // §5.12 — Codex entries this turn's deltas just revealed
   classEvolution?: { className: string; reason?: string } // §5.1b — the player's single class slot was just replaced
+  craftReady?: { recipeName: string; outputId: string; outputQty: number }[] // §5.8 — crafting jobs that finished this turn
 }
 
 // §6.6 Slash Commands — an in-fiction shortcut: selecting one sends `prompt`
@@ -221,6 +247,7 @@ export interface Campaign {
   combat: CombatState
   flags: string[] // §5.6 World Impact Ledger
   inventory: Dict<number> // item id -> quantity (§5.9)
+  crafting?: CraftingJob[] // §5.8 — queued/in-progress crafting jobs, never sent to Gemini
   slashCommands?: Dict<SlashCommand> // §6.6 — this Tale's own commands, not marked global in the manager
   log: LogEntry[]
   lastPlayed: number
