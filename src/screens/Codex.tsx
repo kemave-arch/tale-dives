@@ -561,7 +561,10 @@ export default function Codex({
             <DetailPanel>
               <DetailField label="Class" value={player.className} />
               <DetailField label="Level" value={String(player.level)} />
-              <DetailField label="Attributes" value={`STR ${player.attrs.STR} · INT ${player.attrs.INT} · AGI ${player.attrs.AGI}`} />
+              <DetailField
+                label="Attributes"
+                value={`STR ${Math.round(player.attrs.STR)} · INT ${Math.round(player.attrs.INT)} · AGI ${Math.round(player.attrs.AGI)}`}
+              />
               <DetailField label="Pools" value={`HP ${player.hpMax} · MP ${player.mpMax} · ST ${player.stMax}`} />
             </DetailPanel>
           )}
