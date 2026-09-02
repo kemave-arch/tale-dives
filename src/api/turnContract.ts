@@ -1,3 +1,4 @@
+import { PRESET_CLASSES } from '../data/classes.ts'
 import type { ProseDepthConfig } from '../types.ts'
 
 // Gemini call contract — Blueprint §7.2 (System Instructions) and §7.3 (JSON Schema).
@@ -40,7 +41,8 @@ MECHANICS & GROUNDING DEFENSE:
 3. Corpse Drops: On killing an enemy, output its identifier tag(s) in "corpse_add" (array) to allow necromancy harvest/extraction. Include every enemy killed this turn, not just one.
 4. Currency Storage: Deduct or reward currency in base copper ("c" delta field).
 5. Permanent Stat Grants: Only use "stat_grant" for a genuine permanent boost (a blessing, a hard-won transformation) — never for ordinary damage/healing, which belongs in "deltas". Supply only the attribute/pool and the amount; never compute or state a resulting HP/MP/ST max yourself, the client derives that.
-6. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
+6. Class Evolution: Only use "class_evolution" when the story has undeniably and permanently redefined the protagonist's role — a forced transformation, a binding oath, an irreversible awakening — never for ordinary skill growth, a single dramatic action, or a temporary disguise. This should be rare, at most once or twice in a whole campaign. "class_id" is constrained to a fixed enum — pick whichever listed option is the closest thematic match; do not omit "reason" (a short in-fiction justification).
+7. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
 
 export const TURN_SCHEMA = {
   type: 'OBJECT',
@@ -141,6 +143,16 @@ export const TURN_SCHEMA = {
         },
       },
       description: 'One entry per present NPC affected this turn.',
+    },
+    class_evolution: {
+      type: 'OBJECT',
+      description:
+        'Extremely rare — only on a turn that permanently and undeniably redefines the protagonist\'s role. Omit entirely on every ordinary turn.',
+      properties: {
+        class_id: { type: 'STRING', enum: PRESET_CLASSES.map((c) => c.id) },
+        reason: { type: 'STRING', description: 'Short in-fiction justification, <=20 words.' },
+      },
+      required: ['class_id'],
     },
   },
   required: ['nar', 'turn_state', 'time', 'loc_disp', 'loc_id', 'act'],

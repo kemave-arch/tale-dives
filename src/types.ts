@@ -185,6 +185,7 @@ export interface LogEntry {
   locDisp?: string // per-turn location display, same caveat as `time`
   bang?: BangCommandEntry // §6.6 — a rendered bang-command result, not real narration
   discoveries?: { category: KeywordLink['category']; id: string; name: string }[] // §5.12 — Codex entries this turn's deltas just revealed
+  classEvolution?: { className: string; reason?: string } // §5.1b — the player's single class slot was just replaced
 }
 
 // §6.6 Slash Commands — an in-fiction shortcut: selecting one sends `prompt`
@@ -271,6 +272,15 @@ export interface NpcMemoryUpdate {
   mem_summary?: string
 }
 
+// §5.1b Class Evolution — the model may propose replacing the player's
+// single class slot outright on a rare, story-defining turn. `class_id`
+// is schema-constrained (an enum of the Preset Class Dictionary) so this
+// can never resolve to a class the client doesn't recognize.
+export interface ClassEvolutionUpdate {
+  class_id: string
+  reason?: string
+}
+
 export type TurnState =
   | 'PEACE'
   | 'COMBAT'
@@ -299,6 +309,7 @@ export interface TurnResponse {
   flag_add?: string[]
   quest_update?: QuestUpdate
   npc_mem_up?: NpcMemoryUpdate[]
+  class_evolution?: ClassEvolutionUpdate
 }
 
 // Gemini `contents` sliding window (§3.1).

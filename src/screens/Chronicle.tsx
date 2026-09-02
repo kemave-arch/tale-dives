@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock,
+  Unlock, Lock, Repeat,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -247,6 +247,28 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
     )
   }
 
+  // §5.1b Class Evolution triggered manually (Codex CRUD) rather than by a
+  // narrated turn — a synthetic entry (no `nar`) gets its own banner, same
+  // bracketed-divider treatment as a bang command's "Roleplay Paused" beat.
+  // A story-triggered evolution instead rides along on its real turn's own
+  // entry as an inline badge below, since it has narration to attach to.
+  if (entry.classEvolution && !entry.nar) {
+    return (
+      <div ref={setRef} className="flex flex-col items-center gap-2 py-3">
+        <div className="w-full flex items-center gap-3">
+          <div className="flex-1 h-px bg-gold-accent/40" />
+          <span className="flex items-center gap-1.5 font-display text-[10px] uppercase tracking-wide text-gold-primary/70 shrink-0">
+            <Repeat size={11} /> Class Evolution
+          </span>
+          <div className="flex-1 h-px bg-gold-accent/40" />
+        </div>
+        <p className="font-narrative text-sm text-ink text-center">
+          Now a <span className="font-display font-semibold text-gold-primary">{entry.classEvolution.className}</span>
+        </p>
+      </div>
+    )
+  }
+
   const stateMeta = entry.turnState ? TURN_STATE_META[entry.turnState] : null
   const StateIcon = stateMeta?.icon
 
@@ -274,6 +296,11 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
       {entry.levelUp && (
         <p className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary">
           <Star size={12} /> Level {entry.levelUp}
+        </p>
+      )}
+      {entry.classEvolution && (
+        <p className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary">
+          <Repeat size={12} /> Now a {entry.classEvolution.className}
         </p>
       )}
       {entry.discoveries && entry.discoveries.length > 0 && (

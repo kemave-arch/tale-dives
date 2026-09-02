@@ -8,7 +8,7 @@ import NewGame from './screens/NewGame.tsx'
 import Chronicle from './screens/Chronicle.tsx'
 import Codex, { type CategoryId } from './screens/Codex.tsx'
 import SlashCommandManager from './screens/SlashCommandManager.tsx'
-import { getClassById } from './data/classes.ts'
+import { getClassById, findClassById } from './data/classes.ts'
 import { startingAttributes, derivedPools } from './lib/derivedStats.ts'
 import { buildContextSlice } from './lib/jitContext.ts'
 import { applyTurn, type TacticalOverride } from './lib/shadowReferee.ts'
@@ -372,6 +372,23 @@ export default function App() {
         questLevels + chapterLevels,
       )
 
+      // §5.1b Class Evolution — the single class slot is replaced outright,
+      // never retroactively: this turn's own level-up (if any) above still
+      // used the *old* weight vector, and only points earned from the next
+      // level-up forward follow the new one. class_id is schema-constrained
+      // to a real Preset Class Dictionary entry, but findClassById is still
+      // checked directly rather than trusted, and a same-class "evolution"
+      // (already this class) is a no-op rather than a banner.
+      let evolvedPlayer = leveledPlayer
+      let classEvolution: { className: string; reason?: string } | undefined
+      if (turn.class_evolution) {
+        const newClass = findClassById(turn.class_evolution.class_id)
+        if (newClass && newClass.id !== current.player.classId) {
+          evolvedPlayer = { ...leveledPlayer, classId: newClass.id, className: newClass.name }
+          classEvolution = { className: newClass.name, reason: turn.class_evolution.reason }
+        }
+      }
+
       // §5.12 Codex Discovery — zero-token reveal check against this turn's
       // own deltas (flag_add/loc_id/npc_mem_up/quest_update), run last so it
       // sees the final merged flag list from above.
@@ -383,7 +400,7 @@ export default function App() {
 
       const nextCampaign: Campaign = {
         ...current,
-        player: leveledPlayer,
+        player: evolvedPlayer,
         locations: reveals.locations,
         npcs: reveals.npcs,
         factions: reveals.factions,
@@ -403,10 +420,11 @@ export default function App() {
             turnState,
             mood: turn.mood,
             defeated: playerDefeated,
-            time: leveledPlayer.time,
-            locDisp: leveledPlayer.locDisp,
+            time: evolvedPlayer.time,
+            locDisp: evolvedPlayer.locDisp,
             ...(leveled ? { levelUp: leveledPlayer.level } : {}),
             ...(reveals.revealed.length ? { discoveries: reveals.revealed } : {}),
+            ...(classEvolution ? { classEvolution } : {}),
           },
         ],
       }
@@ -534,6 +552,25 @@ export default function App() {
 
   function updateWorld(patch: Partial<WorldData>) {
     setGame((g) => g && { ...g, world: { ...g.world, ...patch } })
+  }
+
+  // §5.1b Class Evolution — the manual/CRUD trigger path (Codex's Character
+  // category), the same "steer state directly" philosophy already used for
+  // auto-logged Codex entries and Discovery reveals. A no-op synthetic log
+  // entry (no `time`/`locDisp`, matching the bang-command pattern) since this
+  // isn't a narrated turn — the Chronicle renders it as its own banner.
+  function evolveClass(classId: string) {
+    setGame((g) => {
+      if (!g) return g
+      const newClass = findClassById(classId)
+      if (!newClass || newClass.id === g.player.classId) return g
+      return {
+        ...g,
+        player: { ...g.player, classId: newClass.id, className: newClass.name },
+        lastPlayed: Date.now(),
+        log: [...g.log, { nar: '', classEvolution: { className: newClass.name } }],
+      }
+    })
   }
 
   // §6.6 Bang Commands — 0 API tokens, resolved and rendered entirely
@@ -770,6 +807,7 @@ export default function App() {
     content = (
       <Codex
         world={game.world}
+        player={game.player}
         log={game.log}
         npcs={game.npcs}
         factions={game.factions}
@@ -787,6 +825,7 @@ export default function App() {
         onUpdateBestiary={(id: string, patch: Partial<BestiaryEntry> | null) => patchCodexDict('bestiary', id, patch as Record<string, unknown> | null)}
         onUpdateItem={updateItem}
         onUpdateWorld={updateWorld}
+        onEvolveClass={evolveClass}
         initialCategory={codexTarget?.category}
         initialEntryId={codexTarget?.id}
         onBack={() => {

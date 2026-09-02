@@ -16,3 +16,11 @@ export const PRESET_CLASSES: ClassDef[] = [
 export function getClassById(id: string): ClassDef {
   return PRESET_CLASSES.find((c) => c.id === id) ?? PRESET_CLASSES[0]
 }
+
+// Strict lookup for §5.1b Class Evolution — unlike getClassById's lenient
+// fallback (used for resolving an already-persisted, trusted classId), a
+// model- or CRUD-proposed evolution target must be validated as real before
+// anything is changed, so an unrecognized id here means "reject," not "warrior."
+export function findClassById(id: string): ClassDef | undefined {
+  return PRESET_CLASSES.find((c) => c.id === id)
+}

@@ -2,16 +2,18 @@ import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeft, ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
-  Pencil, Save, X, Trash2, Plus, Lock,
+  Pencil, Save, X, Trash2, Plus, Lock, User,
 } from 'lucide-react'
 import { slugify } from '../lib/slug.ts'
 import { isHidden } from '../lib/discovery.ts'
-import type { BestiaryEntry, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
+import { PRESET_CLASSES } from '../data/classes.ts'
+import type { BestiaryEntry, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
 
-export type CategoryId = 'realm' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
+export type CategoryId = 'realm' | 'character' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
 
 interface CodexProps {
   world: WorldData
+  player: Player
   log: LogEntry[]
   npcs: Record<string, NpcEntry>
   factions: Record<string, FactionEntry>
@@ -29,6 +31,7 @@ interface CodexProps {
   onUpdateBestiary: (id: string, patch: Partial<BestiaryEntry> | null) => void
   onUpdateItem: (id: string, qty: number | null) => void
   onUpdateWorld: (patch: Partial<WorldData>) => void
+  onEvolveClass: (classId: string) => void
   initialCategory?: CategoryId | null
   initialEntryId?: string | null
   onBack: () => void
@@ -290,6 +293,7 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
 // hand-authored add/edit/delete. `entryId === NEW_ID` is an unsaved draft.
 export default function Codex({
   world,
+  player,
   log,
   npcs,
   factions,
@@ -307,6 +311,7 @@ export default function Codex({
   onUpdateBestiary,
   onUpdateItem,
   onUpdateWorld,
+  onEvolveClass,
   initialCategory,
   initialEntryId,
   onBack,
@@ -332,6 +337,7 @@ export default function Codex({
     { id: 'factions', label: 'Faction', description: 'Political groups, guilds & reputation', icon: ShieldCheck, count: Object.keys(factions).length },
     { id: 'lore', label: 'Lore', description: 'Legends, myths & discovered secrets', icon: ScrollText, count: Object.keys(lore).length },
     { id: 'chapters', label: 'Chapters', description: 'Chronological recap of the tale so far', icon: BookOpen, count: chapters.length },
+    { id: 'character', label: 'Character', description: 'Attributes, class & derived pools', icon: User, count: 1 },
     { id: 'realm', label: 'Realm', description: 'Cosmology, setting, tone & core conflict', icon: Globe, count: 1 },
   ]
 
@@ -496,6 +502,61 @@ export default function Codex({
             </button>
           ))}
         </div>
+      )}
+
+      {/* Character — single record, no grid. The only editable field is Class:
+          §5.1b Class Evolution's manual/CRUD trigger path, same "steer state
+          directly" philosophy as auto-logged entries and Discovery reveals. */}
+      {category === 'character' && (
+        <>
+          <div className="flex justify-end mb-3">
+            <CrudToolbar
+              editing={editing}
+              canDelete={false}
+              onEdit={() => startEdit('__character__', { classId: player.classId })}
+              onSave={() => {
+                if (draft.classId && draft.classId !== player.classId) {
+                  const target = PRESET_CLASSES.find((c) => c.id === draft.classId)
+                  if (target && window.confirm(`Evolve into ${target.name}? Attribute points already earned keep their history — only points earned from here forward follow the new class.`)) {
+                    onEvolveClass(draft.classId)
+                  }
+                }
+                setEditing(false)
+                setDraft({})
+              }}
+              onCancel={cancelEdit}
+              onDelete={() => {}}
+            />
+          </div>
+          {editing ? (
+            <DetailPanel>
+              <label className="block">
+                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Class</span>
+                <select
+                  value={draft.classId ?? player.classId}
+                  onChange={(e) => setDraft((d) => ({ ...d, classId: e.target.value }))}
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                >
+                  {PRESET_CLASSES.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </label>
+              <p className="font-narrative text-xs italic text-white/40">
+                §5.1b Class Evolution — the class slot is replaced outright, no blending. Attribute
+                points already earned are never recalculated; only points earned from here forward
+                follow the new class's growth.
+              </p>
+            </DetailPanel>
+          ) : (
+            <DetailPanel>
+              <DetailField label="Class" value={player.className} />
+              <DetailField label="Level" value={String(player.level)} />
+              <DetailField label="Attributes" value={`STR ${player.attrs.STR} · INT ${player.attrs.INT} · AGI ${player.attrs.AGI}`} />
+              <DetailField label="Pools" value={`HP ${player.hpMax} · MP ${player.mpMax} · ST ${player.stMax}`} />
+            </DetailPanel>
+          )}
+        </>
       )}
 
       {/* Realm — single record, no grid; identity fields editable, narration style stays owned by Settings */}
