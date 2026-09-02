@@ -2,10 +2,11 @@ import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowLeft, ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
-  Pencil, Save, X, Trash2, Plus,
+  Pencil, Save, X, Trash2, Plus, Lock,
 } from 'lucide-react'
 import { slugify } from '../lib/slug.ts'
-import type { BestiaryEntry, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, QuestEntry, WorldData } from '../types.ts'
+import { isHidden } from '../lib/discovery.ts'
+import type { BestiaryEntry, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
 
 export type CategoryId = 'realm' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
 
@@ -37,6 +38,24 @@ interface CodexProps {
 // until Save assigns it a real slug.
 const NEW_ID = '__new__'
 
+// §5.12 — "A condition that can't be validated fails open to state: 'known'
+// rather than shipping an entry the player can never unlock." Only checks
+// triggers with a real dict to check against; `flag` conditions are freeform
+// strings the model may not have produced yet, so those are trusted as-is.
+function validateDiscovery(
+  discovery: Discovery | undefined,
+  dicts: { locations: Record<string, unknown>; npcs: Record<string, unknown>; quests: Record<string, unknown> },
+): Discovery | undefined {
+  if (!discovery || discovery.state !== 'hidden' || !discovery.revealCondition) return discovery
+  const dict =
+    discovery.revealTrigger === 'location_visit' ? dicts.locations :
+    discovery.revealTrigger === 'npc_met' ? dicts.npcs :
+    discovery.revealTrigger === 'quest_complete' ? dicts.quests :
+    null
+  if (!dict || dict[discovery.revealCondition]) return discovery
+  return { ...discovery, state: 'known' }
+}
+
 function genId(name: string, existing: Record<string, unknown>): string {
   const base = slugify(name) || 'entry'
   if (!existing[base]) return base
@@ -48,6 +67,91 @@ function genId(name: string, existing: Record<string, unknown>): string {
 function AutoBadge({ shown }: { shown?: boolean }) {
   if (!shown) return null
   return <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#e8ca8a]/15 text-[#e8ca8a]/80">auto</span>
+}
+
+// §5.12 Codex Discovery — a masked card badge; the entry grid otherwise shows AutoBadge.
+function LockBadge() {
+  return (
+    <span className="text-[#e8ca8a]/50 shrink-0">
+      <Lock size={13} />
+    </span>
+  )
+}
+
+// §5.12 — masked read view for a hidden entry outside CRUD Edit Mode. No field
+// beyond the teaser is exposed here; the full record only ever shows up top
+// once `discovery.state` is flipped to `known` (by a matching reveal check, or
+// hand-edited back to Known in the CRUD form below).
+function MaskedDetail({ teaser }: { teaser?: string }) {
+  return (
+    <DetailPanel>
+      <p className="font-narrative text-sm text-white/50 flex items-center gap-1.5">
+        <Lock size={13} /> ??? — Not yet discovered
+      </p>
+      {teaser && <p className="font-narrative text-xs italic text-white/40">{teaser}</p>}
+    </DetailPanel>
+  )
+}
+
+// §5.12 Codex Discovery CRUD — hand-author or fix reveal logic for any entry,
+// exactly like any other Codex field (the "steer state directly" philosophy
+// already established for auto-logged entries, §5.10).
+function DiscoveryEditor({ discovery, onChange }: { discovery: Discovery | undefined; onChange: (d: Discovery | undefined) => void }) {
+  const hidden = discovery?.state === 'hidden'
+  return (
+    <div className="rounded-lg border border-[#e8ca8a]/15 p-3 flex flex-col gap-2.5">
+      <span className="text-[11px] font-display text-white/40 uppercase tracking-wide flex items-center gap-1">
+        <Lock size={11} /> Discovery (Fog of Lore)
+      </span>
+      <label className="flex items-center gap-2 text-xs text-white/70">
+        <input
+          type="checkbox"
+          checked={hidden}
+          onChange={(e) =>
+            onChange(
+              e.target.checked
+                ? { state: 'hidden', revealTrigger: discovery?.revealTrigger ?? 'manual', revealCondition: discovery?.revealCondition ?? '', teaser: discovery?.teaser ?? '' }
+                : undefined,
+            )
+          }
+          className="accent-[#e8ca8a]"
+        />
+        Hidden until discovered
+      </label>
+      {hidden && (
+        <>
+          <label className="block">
+            <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Reveal Trigger</span>
+            <select
+              value={discovery?.revealTrigger ?? 'manual'}
+              onChange={(e) => onChange({ ...discovery!, state: 'hidden', revealTrigger: e.target.value as RevealTrigger })}
+              className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-xs text-white/90"
+            >
+              <option value="manual">Manual (CRUD only)</option>
+              <option value="flag">World Flag</option>
+              <option value="location_visit">Visit Location (id)</option>
+              <option value="npc_met">Meet NPC (id)</option>
+              <option value="quest_complete">Complete Quest (id)</option>
+            </select>
+          </label>
+          {discovery?.revealTrigger !== 'manual' && (
+            <TextField
+              label="Reveal Condition"
+              value={discovery?.revealCondition ?? ''}
+              onChange={(v) => onChange({ ...discovery!, state: 'hidden', revealCondition: v })}
+              placeholder="flag text, loc_id, npc_id, or quest_id"
+            />
+          )}
+          <TextField
+            label="Teaser"
+            value={discovery?.teaser ?? ''}
+            onChange={(v) => onChange({ ...discovery!, state: 'hidden', teaser: v })}
+            placeholder="A name spoken with unease…"
+          />
+        </>
+      )}
+    </div>
+  )
 }
 
 function StatBar({ label, value }: { label: string; value: number }) {
@@ -176,8 +280,10 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
 }
 
 // Blueprint §6.4D — Category List -> Entry Grid -> Entry Detail. Discovery
-// masking (§5.12) isn't implemented — nothing here is actually hidden yet,
-// since the grounding/seeding system it depends on doesn't exist.
+// masking (§5.12) is implemented (see isHidden/MaskedDetail/DiscoveryEditor
+// above) — an entry only ever becomes hidden via hand-authored CRUD, though,
+// since there is still no seeding/grounding call that pre-populates masked
+// lore on its own.
 //
 // §9 Codex CRUD — every category except Chapters (a generated recap) and
 // Realm's identity fields (narration style stays owned by Settings) supports
@@ -263,6 +369,7 @@ export default function Codex({
       affection: draft.affection,
       memSummary: draft.memSummary,
       deeds: typeof draft.deeds === 'string' ? draft.deeds.split(',').map((s: string) => s.trim()).filter(Boolean) : draft.deeds,
+      discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }),
     })
     setEntryId(id)
     setEditing(false)
@@ -270,7 +377,7 @@ export default function Codex({
 
   function saveFaction() {
     const id = entryId === NEW_ID ? genId(draft.name, factions) : entryId!
-    onUpdateFaction(id, { name: draft.name, repTier: draft.repTier })
+    onUpdateFaction(id, { name: draft.name, repTier: draft.repTier, discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }) })
     setEntryId(id)
     setEditing(false)
   }
@@ -284,6 +391,7 @@ export default function Codex({
       dangerLevel: draft.dangerLevel,
       factionOwner: draft.factionOwner || null,
       standing: draft.standing,
+      discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }),
     })
     setEntryId(id)
     setEditing(false)
@@ -291,14 +399,14 @@ export default function Codex({
 
   function saveLore() {
     const id = entryId === NEW_ID ? genId(draft.name, lore) : entryId!
-    onUpdateLore(id, { name: draft.name, category: draft.category })
+    onUpdateLore(id, { name: draft.name, category: draft.category, discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }) })
     setEntryId(id)
     setEditing(false)
   }
 
   function saveQuest() {
     const id = entryId === NEW_ID ? genId(draft.name, quests) : entryId!
-    onUpdateQuest(id, { name: draft.name, status: draft.status || undefined, note: draft.note })
+    onUpdateQuest(id, { name: draft.name, status: draft.status || undefined, note: draft.note, discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }) })
     setEntryId(id)
     setEditing(false)
   }
@@ -310,6 +418,7 @@ export default function Codex({
       threatTier: draft.threatTier,
       hpMax: draft.hpMax === '' || draft.hpMax === undefined ? undefined : Number(draft.hpMax),
       dmgBase: draft.dmgBase === '' || draft.dmgBase === undefined ? undefined : Number(draft.dmgBase),
+      discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }),
     })
     setEntryId(id)
     setEditing(false)
@@ -340,14 +449,15 @@ export default function Codex({
     setAddingItem(false)
   }
 
+  // §5.12 — a hidden entry's own title bar reads "???" too, not just its card/detail.
   const title =
     editing ? (entryId === NEW_ID ? 'New Entry' : 'Edit Entry') :
-    entryId && category === 'npcs' ? npcs[entryId]?.name :
-    entryId && category === 'factions' ? factions[entryId]?.name :
-    entryId && category === 'locations' ? locations[entryId]?.name :
-    entryId && category === 'lore' ? lore[entryId]?.name :
-    entryId && category === 'quests' ? quests[entryId]?.name :
-    entryId && category === 'bestiary' ? bestiary[entryId]?.name :
+    entryId && category === 'npcs' ? (npcs[entryId] && isHidden(npcs[entryId]) ? '???' : npcs[entryId]?.name) :
+    entryId && category === 'factions' ? (factions[entryId] && isHidden(factions[entryId]) ? '???' : factions[entryId]?.name) :
+    entryId && category === 'locations' ? (locations[entryId] && isHidden(locations[entryId]) ? '???' : locations[entryId]?.name) :
+    entryId && category === 'lore' ? (lore[entryId] && isHidden(lore[entryId]) ? '???' : lore[entryId]?.name) :
+    entryId && category === 'quests' ? (quests[entryId] && isHidden(quests[entryId]) ? '???' : quests[entryId]?.name) :
+    entryId && category === 'bestiary' ? (bestiary[entryId] && isHidden(bestiary[entryId]) ? '???' : bestiary[entryId]?.name) :
     categories.find((c) => c.id === category)?.label ?? 'Codex'
 
   return (
@@ -452,7 +562,13 @@ export default function Codex({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AddButton label="Add NPC" onClick={() => startCreate({ name: '', stage: 'Stranger', trust: 0, affection: 0, memSummary: '', deeds: '' })} />
           {Object.entries(npcs).map(([id, n]) => (
-            <EntryCard key={id} title={n.name} subtitle={`${n.stage} · Trust ${n.trust}`} badge={<AutoBadge shown={n.autoLogged} />} onClick={() => setEntryId(id)} />
+            <EntryCard
+              key={id}
+              title={isHidden(n) ? '???' : n.name}
+              subtitle={isHidden(n) ? (n.discovery?.teaser || 'Not yet discovered.') : `${n.stage} · Trust ${n.trust}`}
+              badge={isHidden(n) ? <LockBadge /> : <AutoBadge shown={n.autoLogged} />}
+              onClick={() => setEntryId(id)}
+            />
           ))}
           {Object.keys(npcs).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No NPCs met yet.</p>}
         </div>
@@ -474,7 +590,10 @@ export default function Codex({
                 value={Array.isArray(draft.deeds) ? draft.deeds.join(', ') : (draft.deeds ?? '')}
                 onChange={(v) => setDraft((d) => ({ ...d, deeds: v }))}
               />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
+          ) : isHidden(npcs[entryId]) ? (
+            <MaskedDetail teaser={npcs[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
               <DetailField label="Stage" value={npcs[entryId].stage} />
@@ -492,7 +611,13 @@ export default function Codex({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AddButton label="Add Faction" onClick={() => startCreate({ name: '', repTier: 0 })} />
           {Object.entries(factions).map(([id, f]) => (
-            <EntryCard key={id} title={f.name} subtitle={`Reputation ${f.repTier > 0 ? '+' : ''}${f.repTier}`} badge={<AutoBadge shown={f.autoLogged} />} onClick={() => setEntryId(id)} />
+            <EntryCard
+              key={id}
+              title={isHidden(f) ? '???' : f.name}
+              subtitle={isHidden(f) ? (f.discovery?.teaser || 'Not yet discovered.') : `Reputation ${f.repTier > 0 ? '+' : ''}${f.repTier}`}
+              badge={isHidden(f) ? <LockBadge /> : <AutoBadge shown={f.autoLogged} />}
+              onClick={() => setEntryId(id)}
+            />
           ))}
           {Object.keys(factions).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No factions encountered yet.</p>}
         </div>
@@ -506,7 +631,10 @@ export default function Codex({
             <DetailPanel>
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <NumberField label="Reputation Tier (-2 to 2)" value={draft.repTier ?? 0} onChange={(v) => setDraft((d) => ({ ...d, repTier: v }))} />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
+          ) : isHidden(factions[entryId]) ? (
+            <MaskedDetail teaser={factions[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
               <DetailField label="Reputation Tier" value={`${factions[entryId].repTier > 0 ? '+' : ''}${factions[entryId].repTier} (of -2 to +2)`} />
@@ -520,7 +648,13 @@ export default function Codex({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AddButton label="Add Location" onClick={() => startCreate({ name: '', region: '', description: '', dangerLevel: '', factionOwner: '', standing: '' })} />
           {Object.entries(locations).map(([id, l]) => (
-            <EntryCard key={id} title={l.name} subtitle={`${l.region} · Danger: ${l.dangerLevel}`} badge={<AutoBadge shown={l.autoLogged} />} onClick={() => setEntryId(id)} />
+            <EntryCard
+              key={id}
+              title={isHidden(l) ? '???' : l.name}
+              subtitle={isHidden(l) ? (l.discovery?.teaser || 'Not yet discovered.') : `${l.region} · Danger: ${l.dangerLevel}`}
+              badge={isHidden(l) ? <LockBadge /> : <AutoBadge shown={l.autoLogged} />}
+              onClick={() => setEntryId(id)}
+            />
           ))}
           {Object.keys(locations).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No locations visited yet.</p>}
         </div>
@@ -538,7 +672,10 @@ export default function Codex({
               <TextField label="Standing" value={draft.standing ?? ''} onChange={(v) => setDraft((d) => ({ ...d, standing: v }))} />
               <TextField label="Faction Owner" value={draft.factionOwner ?? ''} onChange={(v) => setDraft((d) => ({ ...d, factionOwner: v }))} placeholder="none" />
               <TextField label="Description" value={draft.description ?? ''} onChange={(v) => setDraft((d) => ({ ...d, description: v }))} textarea />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
+          ) : isHidden(locations[entryId]) ? (
+            <MaskedDetail teaser={locations[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
               <DetailField label="Region" value={locations[entryId].region} />
@@ -556,7 +693,13 @@ export default function Codex({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AddButton label="Add Lore" onClick={() => startCreate({ name: '', category: '' })} />
           {Object.entries(lore).map(([id, l]) => (
-            <EntryCard key={id} title={l.name} subtitle={l.category} badge={<AutoBadge shown={l.autoLogged} />} onClick={() => setEntryId(id)} />
+            <EntryCard
+              key={id}
+              title={isHidden(l) ? '???' : l.name}
+              subtitle={isHidden(l) ? (l.discovery?.teaser || 'Not yet discovered.') : l.category}
+              badge={isHidden(l) ? <LockBadge /> : <AutoBadge shown={l.autoLogged} />}
+              onClick={() => setEntryId(id)}
+            />
           ))}
           {Object.keys(lore).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No lore uncovered yet.</p>}
         </div>
@@ -570,7 +713,10 @@ export default function Codex({
             <DetailPanel>
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <TextField label="Category" value={draft.category ?? ''} onChange={(v) => setDraft((d) => ({ ...d, category: v }))} placeholder="Cosmology, Magic, History…" />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
+          ) : isHidden(lore[entryId]) ? (
+            <MaskedDetail teaser={lore[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
               <DetailField label="Category" value={lore[entryId].category} />
@@ -584,7 +730,13 @@ export default function Codex({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AddButton label="Add Quest" onClick={() => startCreate({ name: '', status: '', note: '' })} />
           {Object.entries(quests).map(([id, q]) => (
-            <EntryCard key={id} title={q.name} subtitle={q.status ?? 'active'} badge={<AutoBadge shown={q.autoLogged} />} onClick={() => setEntryId(id)} />
+            <EntryCard
+              key={id}
+              title={isHidden(q) ? '???' : q.name}
+              subtitle={isHidden(q) ? (q.discovery?.teaser || 'Not yet discovered.') : (q.status ?? 'active')}
+              badge={isHidden(q) ? <LockBadge /> : <AutoBadge shown={q.autoLogged} />}
+              onClick={() => setEntryId(id)}
+            />
           ))}
           {Object.keys(quests).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No quests tracked yet.</p>}
         </div>
@@ -599,7 +751,10 @@ export default function Codex({
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <TextField label="Status" value={draft.status ?? ''} onChange={(v) => setDraft((d) => ({ ...d, status: v }))} placeholder="advanced, completed, failed" />
               <TextField label="Note" value={draft.note ?? ''} onChange={(v) => setDraft((d) => ({ ...d, note: v }))} textarea />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
+          ) : isHidden(quests[entryId]) ? (
+            <MaskedDetail teaser={quests[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
               <DetailField label="Status" value={quests[entryId].status ?? 'active'} />
@@ -614,7 +769,13 @@ export default function Codex({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <AddButton label="Add Adversary" onClick={() => startCreate({ name: '', threatTier: '', hpMax: '', dmgBase: '' })} />
           {Object.entries(bestiary).map(([id, b]) => (
-            <EntryCard key={id} title={b.name} subtitle={b.threatTier} badge={<AutoBadge shown={b.autoLogged} />} onClick={() => setEntryId(id)} />
+            <EntryCard
+              key={id}
+              title={isHidden(b) ? '???' : b.name}
+              subtitle={isHidden(b) ? (b.discovery?.teaser || 'Not yet discovered.') : b.threatTier}
+              badge={isHidden(b) ? <LockBadge /> : <AutoBadge shown={b.autoLogged} />}
+              onClick={() => setEntryId(id)}
+            />
           ))}
           {Object.keys(bestiary).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No adversaries encountered yet.</p>}
         </div>
@@ -637,7 +798,10 @@ export default function Codex({
               <TextField label="Threat Tier" value={draft.threatTier ?? ''} onChange={(v) => setDraft((d) => ({ ...d, threatTier: v }))} />
               <NumberField label="HP" value={draft.hpMax === '' ? 0 : (draft.hpMax ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, hpMax: v }))} />
               <NumberField label="Base Damage" value={draft.dmgBase === '' ? 0 : (draft.dmgBase ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, dmgBase: v }))} />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
+          ) : isHidden(bestiary[entryId]) ? (
+            <MaskedDetail teaser={bestiary[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
               <DetailField label="Threat Tier" value={bestiary[entryId].threatTier} />

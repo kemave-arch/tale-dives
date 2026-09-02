@@ -18,6 +18,7 @@ import { applyKeywordLinks } from './lib/codex.ts'
 import { applyQuestUpdate } from './lib/quests.ts'
 import { applyInventoryChanges } from './lib/inventory.ts'
 import { resolveBangCommand } from './lib/bangCommands.ts'
+import { checkCodexReveals } from './lib/discovery.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -371,15 +372,24 @@ export default function App() {
         questLevels + chapterLevels,
       )
 
+      // §5.12 Codex Discovery — zero-token reveal check against this turn's
+      // own deltas (flag_add/loc_id/npc_mem_up/quest_update), run last so it
+      // sees the final merged flag list from above.
+      const reveals = checkCodexReveals(
+        { npcs: nextNpcs, locations: nextLocations, factions: linked.factions, lore: linked.lore, quests: nextQuests, bestiary: nextBestiary },
+        turn,
+        nextFlags,
+      )
+
       const nextCampaign: Campaign = {
         ...current,
         player: leveledPlayer,
-        locations: nextLocations,
-        npcs: nextNpcs,
-        factions: linked.factions,
-        lore: linked.lore,
-        quests: nextQuests,
-        bestiary: nextBestiary,
+        locations: reveals.locations,
+        npcs: reveals.npcs,
+        factions: reveals.factions,
+        lore: reveals.lore,
+        quests: reveals.quests,
+        bestiary: reveals.bestiary,
         combat: nextCombat,
         flags: nextFlags,
         inventory: nextInventory,
@@ -396,6 +406,7 @@ export default function App() {
             time: leveledPlayer.time,
             locDisp: leveledPlayer.locDisp,
             ...(leveled ? { levelUp: leveledPlayer.level } : {}),
+            ...(reveals.revealed.length ? { discoveries: reveals.revealed } : {}),
           },
         ],
       }

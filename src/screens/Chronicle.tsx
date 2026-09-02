@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
+  Unlock, Lock,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -9,6 +10,7 @@ import { TURN_STATE_META } from '../lib/turnStates.ts'
 import { formatCurrency } from '../lib/currency.ts'
 import { slugify } from '../lib/slug.ts'
 import { BANG_COMMANDS } from '../lib/bangCommands.ts'
+import { isHidden } from '../lib/discovery.ts'
 import type {
   BestiaryEntry, CombatState, FactionEntry, GameTime, KeywordLink, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry,
   SlashCommand,
@@ -273,6 +275,19 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
         <p className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary">
           <Star size={12} /> Level {entry.levelUp}
         </p>
+      )}
+      {entry.discoveries && entry.discoveries.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {entry.discoveries.map((d) => (
+            <button
+              key={`${d.category}_${d.id}`}
+              onClick={() => onTapTerm(d.name, d.category)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary"
+            >
+              <Unlock size={12} /> Codex Updated: {d.name}
+            </button>
+          ))}
+        </div>
       )}
     </div>
   )
@@ -822,11 +837,20 @@ export default function Chronicle({
         >
           <div className="glass-panel glow-ring rounded-2xl p-4 w-full max-w-xs" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-2">
-              <h3 className="font-display font-bold text-sm text-gold-primary">{popupEntry.name}</h3>
+              <h3 className="font-display font-bold text-sm text-gold-primary flex items-center gap-1.5">
+                {isHidden(popupEntry) && <Lock size={13} />}
+                {isHidden(popupEntry) ? '???' : popupEntry.name}
+              </h3>
               <button onClick={() => setPopup(null)} aria-label="Close" className="text-ink-muted hover:text-ink">
                 <X size={16} />
               </button>
             </div>
+            {/* §5.12 — hidden entries never show real content outside CRUD Edit Mode. */}
+            {isHidden(popupEntry) ? (
+              <p className="font-narrative text-xs italic text-ink-muted">
+                {popupEntry.discovery?.teaser || 'Not yet discovered.'}
+              </p>
+            ) : (
             <div className="font-narrative text-xs space-y-1 text-ink-muted">
               {popup.category === 'npc' && 'stage' in popupEntry && (
                 <>
@@ -850,6 +874,7 @@ export default function Chronicle({
                 </p>
               )}
             </div>
+            )}
             <button
               onClick={() => {
                 onOpenCodexEntry(popup.category, popup.id)

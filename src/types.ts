@@ -44,6 +44,21 @@ export interface Player {
   time: GameTime
 }
 
+// §5.12 Codex Discovery ("Fog of Lore") — an entry with no `discovery` field
+// (or `state: 'known'`) is always fully visible; this is the common case,
+// since only hand-authored CRUD entries can currently become `hidden` (there
+// is no seeding/grounding call yet that pre-populates masked lore). Reveal
+// checks run client-side each turn (§5.12) against the turn's own deltas —
+// no new LLM call, no schema field on the turn response itself.
+export type RevealTrigger = 'flag' | 'location_visit' | 'npc_met' | 'quest_complete' | 'manual'
+
+export interface Discovery {
+  state: 'known' | 'hidden'
+  revealTrigger?: RevealTrigger
+  revealCondition?: string // a flag string, loc_id, npc_id, or quest_id depending on revealTrigger
+  teaser?: string // shown in place of real content while hidden
+}
+
 // §5.10 Locations Codex entry.
 export interface LocationEntry {
   name: string
@@ -53,6 +68,7 @@ export interface LocationEntry {
   factionOwner: string | null
   standing: string
   autoLogged?: boolean
+  discovery?: Discovery
 }
 
 // §5.5/§5.14 NPC Codex entry.
@@ -65,18 +81,21 @@ export interface NpcEntry {
   memSummary: string
   lastSeenLocId: string | null
   autoLogged?: boolean
+  discovery?: Discovery
 }
 
 export interface FactionEntry {
   name: string
   repTier: number
   autoLogged?: boolean
+  discovery?: Discovery
 }
 
 export interface LoreEntry {
   name: string
   category: string
   autoLogged?: boolean
+  discovery?: Discovery
 }
 
 export interface QuestEntry {
@@ -84,6 +103,7 @@ export interface QuestEntry {
   status?: 'advanced' | 'completed' | 'failed'
   note?: string
   autoLogged?: boolean
+  discovery?: Discovery
 }
 
 // §5.13 Bestiary entry — hpMax/dmgBase are only present once a beast has
@@ -95,6 +115,7 @@ export interface BestiaryEntry {
   hpMax?: number
   dmgBase?: number
   autoLogged?: boolean
+  discovery?: Discovery
 }
 
 // §2 Phase D.2 — ephemeral per-encounter state, reset each fight (not part
@@ -163,6 +184,7 @@ export interface LogEntry {
   time?: GameTime // per-turn timestamp, absent on entries logged before this field existed
   locDisp?: string // per-turn location display, same caveat as `time`
   bang?: BangCommandEntry // §6.6 — a rendered bang-command result, not real narration
+  discoveries?: { category: KeywordLink['category']; id: string; name: string }[] // §5.12 — Codex entries this turn's deltas just revealed
 }
 
 // §6.6 Slash Commands — an in-fiction shortcut: selecting one sends `prompt`
