@@ -261,7 +261,15 @@ export default function App() {
           g && {
             ...g,
             lastPlayed: Date.now(),
-            log: [...g.log, { action: actionText, nar: `[Repairing State] ${result.fallbackText}` }],
+            log: [
+              ...g.log,
+              {
+                action: actionText,
+                nar: `[Repairing State] ${result.fallbackText}`,
+                time: g.player.time,
+                locDisp: g.player.locDisp,
+              },
+            ],
           },
         )
         setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])
@@ -366,6 +374,8 @@ export default function App() {
             turnState,
             mood: turn.mood,
             defeated: playerDefeated,
+            time: leveledPlayer.time,
+            locDisp: leveledPlayer.locDisp,
             ...(leveled ? { levelUp: leveledPlayer.level } : {}),
           },
         ],
@@ -431,7 +441,7 @@ export default function App() {
           player: nextPlayer,
           combat: { active: false },
           lastPlayed: Date.now(),
-          log: [...g.log, { nar, turnState: 'DESPAIR' }],
+          log: [...g.log, { nar, turnState: 'DESPAIR', time: nextPlayer.time, locDisp: nextPlayer.locDisp }],
         },
       )
       setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])

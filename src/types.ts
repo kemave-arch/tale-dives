@@ -148,6 +148,8 @@ export interface LogEntry {
   levelUp?: number // §5.1a — set when this turn triggered a Milestone Level-up
   chapterSummary?: string // §2 Phase E — a synthetic entry marking a chapter boundary
   chapterNumber?: number
+  time?: GameTime // per-turn timestamp, absent on entries logged before this field existed
+  locDisp?: string // per-turn location display, same caveat as `time`
 }
 
 // A Tale — the full persisted campaign shape (§6.4B Tales library).
