@@ -1,6 +1,4 @@
 // Client-side Shadow Referee — Blueprint §3.2. Gemini proposes, this validates.
-// v1 scope: Narrative Mode delta bounds only (§5.1d) — Tactical precomputed
-// combat math (§2 Phase D.2) lands as its own feature once this loop is proven.
 
 // §5.1d/§8 item 7: soft-cap share of a max pool a single narrated turn can move.
 // Placeholder tunable — revisit once real playtesting shows the right feel.
@@ -16,13 +14,20 @@ function boundedDelta(delta, max) {
   return clamp(delta, -cap, cap)
 }
 
-export function applyTurn(player, turn) {
+// `tacticalOverride` — §3.2 Combat Math Ownership: in Tactical Mode the
+// client precomputes hp/st before the prompt ever goes out, so whatever
+// Gemini emits in `deltas` for those fields is ignored outright rather than
+// bounds-checked, exactly matching "overwritten if they disagree."
+export function applyTurn(player, turn, tacticalOverride) {
   const deltas = turn.deltas ?? {}
   const next = { ...player }
 
-  next.hp = clamp(player.hp + boundedDelta(deltas.hp, player.hpMax), 0, player.hpMax)
+  const hpDelta = tacticalOverride?.hpDelta ?? boundedDelta(deltas.hp, player.hpMax)
+  const stDelta = tacticalOverride?.stDelta ?? boundedDelta(deltas.st, player.stMax)
+
+  next.hp = clamp(player.hp + hpDelta, 0, player.hpMax)
   next.mp = clamp(player.mp + boundedDelta(deltas.mp, player.mpMax), 0, player.mpMax)
-  next.st = clamp(player.st + boundedDelta(deltas.st, player.stMax), 0, player.stMax)
+  next.st = clamp(player.st + stDelta, 0, player.stMax)
   next.copper = Math.max(0, player.copper + (deltas.c ?? 0))
 
   if (turn.loc_id) next.locId = turn.loc_id

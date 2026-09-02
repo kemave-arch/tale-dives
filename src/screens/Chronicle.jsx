@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Settings as SettingsIcon, Send } from 'lucide-react'
+import { Menu, Settings as SettingsIcon, Send, Swords } from 'lucide-react'
 import { renderNarrative } from '../lib/richText.jsx'
 
 // Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
 // yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
-export default function Chronicle({ player, log, busy, error, onSend, onOpenSettings, onOpenMenu }) {
+export default function Chronicle({ player, combat, log, busy, error, onSend, onOpenSettings, onOpenMenu }) {
   const [input, setInput] = useState('')
   const scrollRef = useRef(null)
 
@@ -49,6 +49,13 @@ export default function Chronicle({ player, log, busy, error, onSend, onOpenSett
         {busy && <p className="font-narrative italic text-sm opacity-50">The thread of fate is being woven...</p>}
         {error && <p className="font-mono text-xs text-rose">{error}</p>}
       </div>
+
+      {combat?.active && (
+        <div className="bg-rose-bg border-t border-rose/30 px-4 py-1.5 font-mono text-xs flex items-center gap-2 text-rose">
+          <Swords size={13} />
+          {combat.enemyName}: {combat.enemyHp}/{combat.enemyHpMax}
+        </div>
+      )}
 
       <footer className="bg-surface-raised border-t border-gold-accent/30 px-4 py-2 font-mono text-xs flex gap-4">
         <span>HP {player.hp}/{player.hpMax}</span>

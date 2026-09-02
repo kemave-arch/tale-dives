@@ -12,6 +12,9 @@ import { applyTurn } from './lib/shadowReferee.js'
 import { ensureLocation } from './lib/locations.js'
 import { applyNpcUpdates } from './lib/npcs.js'
 import { applyKeywordLinks } from './lib/codex.js'
+import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.js'
+import { parseKeywordLinks } from './lib/keywordLinks.js'
+import { slugify } from './lib/slug.js'
 import { runTurn } from './api/providers/gemini.js'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.js'
 import { downloadJSON, readJSONFile } from './lib/backup.js'
@@ -125,7 +128,7 @@ export default function App() {
       protagonistId: protagonistEntry.id,
       world, // §Phase A — kept for reference until the Codex Realm Overview exists
       player,
-      combatMode: 'NARRATIVE', // Tactical combat math isn't implemented yet in this build
+      combatMode: 'TACTICAL', // Blueprint §5.1d default
       proseDepth: PROSE_DEPTHS.BALANCED,
       narrationStyle: world.narrationStyle || DEFAULT_NARRATION_STYLE,
       locations: {}, // §5.10 Locations Codex — populated by auto-registration
@@ -133,7 +136,8 @@ export default function App() {
       factions: {}, // §5.14 — populated by {{Term|faction}} keyword links
       lore: {}, // §5.14 — populated by {{Term|lore}} keyword links
       quests: {}, // §5.14 — populated by {{Term|quest}} keyword links (quest_update integration is still pending)
-      bestiary: {}, // §5.13/§5.14 — populated by {{Term|beast}} keyword links; full stat-block auto-registration lands with Tactical combat
+      bestiary: {}, // §5.13/§5.14 — populated by {{Term|beast}} keyword links, full stat blocks once combat begins
+      combat: { active: false }, // §2 Phase D.2/§5.13 — ephemeral, reset each encounter
       log: [],
       lastPlayed: Date.now(),
     }
@@ -177,8 +181,36 @@ export default function App() {
     setBusy(true)
     setError(null)
 
+    // §2 Phase D.2/§5.1d — Tactical Mode precomputes the exchange before the
+    // prompt goes out, but only once combat is already active (its opening
+    // beat is still Gemini's narrative call, §5.13) and the action isn't a
+    // disengage attempt.
+    const inCombat = current.combatMode === 'TACTICAL' && current.combat?.active && !isDisengaging(actionText)
+    let combatResultLine = null
+    let tacticalOverride = null
+    let combatOutcome = null
+
+    if (inCombat) {
+      const attack = computePlayerAttack(current.player)
+      const enemyHpAfter = Math.max(0, current.combat.enemyHp - attack.damage)
+      const enemyDefeated = enemyHpAfter <= 0
+      const playerDamageTaken = enemyDefeated ? 0 : current.combat.enemyDmgBase
+
+      combatResultLine = describeCombatResult({
+        enemyName: current.combat.enemyName,
+        damage: attack.damage,
+        enemyHp: enemyHpAfter,
+        enemyHpMax: current.combat.enemyHpMax,
+        defeated: enemyDefeated,
+        playerDamageTaken,
+        exhausted: attack.exhausted,
+      })
+      tacticalOverride = { hpDelta: -playerDamageTaken, stDelta: -attack.stCost }
+      combatOutcome = { enemyHpAfter, enemyDefeated }
+    }
+
     const baseHistory = overrideHistory ?? history
-    const contextSlice = buildContextSlice(current)
+    const contextSlice = buildContextSlice(current, combatResultLine)
     const userTurnText = `${contextSlice}\n\nPlayer Action: ${actionText}`
     const newHistory = [...baseHistory, { role: 'user', parts: [{ text: userTurnText }] }]
 
@@ -202,7 +234,7 @@ export default function App() {
       }
 
       const turn = result.turn
-      const { player: nextPlayer, defeated } = applyTurn(current.player, turn)
+      const { player: nextPlayer, defeated: playerDefeated } = applyTurn(current.player, turn, tacticalOverride)
       nextPlayer.time = turn.time ?? current.player.time // Shadow Referee doesn't own time
 
       // Keyword links run first so a {{Term|npc}}/{{Term|loc}} tag's real name
@@ -221,6 +253,47 @@ export default function App() {
       const { dict: nextLocations } = ensureLocation(linked.locations, turn.loc_id, turn.loc_disp)
       const nextNpcs = applyNpcUpdates(linked.npcs, turn.npc_mem_up, turn.loc_id)
 
+      // §3.2 Turn State Consistency — forced to COMBAT whenever a Tactical
+      // result was precomputed; otherwise Gemini's own call, same as always.
+      let turnState = turn.turn_state
+      let nextCombat = current.combat ?? { active: false }
+      let nextBestiary = linked.bestiary
+
+      if (inCombat) {
+        turnState = 'COMBAT'
+        nextCombat = combatOutcome.enemyDefeated
+          ? { active: false }
+          : { ...current.combat, enemyHp: combatOutcome.enemyHpAfter }
+      } else if (turnState === 'COMBAT' && !current.combat?.active) {
+        // Combat is starting narratively this turn — stand up a stat block
+        // (§5.13) for whichever adversary got tagged, if any.
+        const beastLink = parseKeywordLinks(turn.nar).find((l) => l.category === 'beast')
+        if (beastLink) {
+          const enemyId = slugify(beastLink.term)
+          const { dict: withAdversary, entry } = ensureAdversary(
+            nextBestiary,
+            enemyId,
+            beastLink.term,
+            'standard',
+            current.player.level,
+          )
+          nextBestiary = withAdversary
+          nextCombat = {
+            active: true,
+            enemyId,
+            enemyName: beastLink.term,
+            enemyHp: entry.hpMax,
+            enemyHpMax: entry.hpMax,
+            enemyDmgBase: entry.dmgBase,
+          }
+        }
+      } else if (turnState !== 'COMBAT' && current.combat?.active) {
+        // Gemini narratively ended the fight (fled, negotiated, etc.).
+        nextCombat = { active: false }
+      }
+
+      if (playerDefeated) nextCombat = { active: false }
+
       setGame((g) => ({
         ...g,
         player: nextPlayer,
@@ -229,9 +302,10 @@ export default function App() {
         factions: linked.factions,
         lore: linked.lore,
         quests: linked.quests,
-        bestiary: linked.bestiary,
+        bestiary: nextBestiary,
+        combat: nextCombat,
         lastPlayed: Date.now(),
-        log: [...g.log, { action: actionText, nar: turn.nar, turnState: turn.turn_state, defeated }],
+        log: [...g.log, { action: actionText, nar: turn.nar, turnState, defeated: playerDefeated }],
       }))
       setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])
     } catch (err) {
@@ -425,6 +499,7 @@ export default function App() {
     return (
       <Chronicle
         player={game.player}
+        combat={game.combat}
         log={game.log}
         busy={busy}
         error={error}

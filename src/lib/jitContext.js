@@ -4,7 +4,7 @@ import { describePresentNpc, presentNpcs } from './npcs.js'
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
-export function buildContextSlice(state) {
+export function buildContextSlice(state, combatResultLine) {
   const { player, combatMode, proseDepth, narrationStyle, locations, npcs } = state
 
   const lines = [
@@ -22,8 +22,12 @@ export function buildContextSlice(state) {
     lines.push(describePresentNpc(npc))
   }
 
+  lines.push(`Combat Resolution Mode: ${combatMode}`)
+
+  // §3.1 example line — only present on a Tactical attack turn (§2 Phase D.2).
+  if (combatResultLine) lines.push(combatResultLine)
+
   lines.push(
-    `Combat Resolution Mode: ${combatMode}`,
     `Target Prose Depth: ${proseDepth.label} (${proseDepth.targetTokens})`,
     `Narration Style: ${narrationStyle}`,
     `Base Copper Wealth: ${player.copper}`,
