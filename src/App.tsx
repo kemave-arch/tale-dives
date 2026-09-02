@@ -31,7 +31,7 @@ import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { readJSONFile, saveJSON } from './lib/backup.ts'
 import * as store from './lib/store.ts'
 import type {
-  BestiaryEntry, Campaign, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
+  BestiaryEntry, Campaign, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry, Player,
   ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
 } from './types.ts'
 
@@ -431,7 +431,47 @@ export default function App() {
       // after every other MP-affecting change this turn already applied, and
       // dissipates the instant its upkeep can no longer be paid.
       const upkeep = applyMinionUpkeep(current.minions ?? {}, evolvedPlayer.mp)
-      const finalPlayer = upkeep.mp !== evolvedPlayer.mp ? { ...evolvedPlayer, mp: upkeep.mp } : evolvedPlayer
+      const upkeepPlayer = upkeep.mp !== evolvedPlayer.mp ? { ...evolvedPlayer, mp: upkeep.mp } : evolvedPlayer
+
+      // §5.1c Direct Stat Modification (Event/narrative source) — a genuine
+      // permanent boost, never ordinary damage/healing (that's `deltas`).
+      // Same "current grows by the same delta as max, no free top-off" rule
+      // already used by applyLevelUps. Note: this covers only the turn-schema
+      // `stat_grant` path — the Equipment source (item `stat_bonus`, §5.1c)
+      // has no equip system to hang off yet and isn't implemented.
+      let grantedPlayer = upkeepPlayer
+      if (turn.stat_grant) {
+        const grant = turn.stat_grant
+        if (grant.attr) {
+          const nextAttrs = { ...grantedPlayer.attrs, [grant.attr]: grantedPlayer.attrs[grant.attr] + grant.amount }
+          const pools = derivedPools(nextAttrs)
+          grantedPlayer = {
+            ...grantedPlayer,
+            attrs: nextAttrs,
+            hpMax: pools.hpMax,
+            hp: Math.min(pools.hpMax, grantedPlayer.hp + (pools.hpMax - grantedPlayer.hpMax)),
+            mpMax: pools.mpMax,
+            mp: Math.min(pools.mpMax, grantedPlayer.mp + (pools.mpMax - grantedPlayer.mpMax)),
+            stMax: pools.stMax,
+            st: Math.min(pools.stMax, grantedPlayer.st + (pools.stMax - grantedPlayer.stMax)),
+          }
+        } else if (grant.pool) {
+          const maxKey = `${grant.pool}Max` as 'hpMax' | 'mpMax' | 'stMax'
+          grantedPlayer = { ...grantedPlayer, [maxKey]: grantedPlayer[maxKey] + grant.amount, [grant.pool]: grantedPlayer[grant.pool] + grant.amount }
+        }
+      }
+
+      // Defensive final clamp — belt-and-suspenders on top of applyTurn's own
+      // clamping (§3.2 requires hp/mp/st always stay within [0, max]): every
+      // individual mutation above already clamps correctly in isolation, but
+      // this guarantees the invariant holds regardless of which path ran,
+      // rather than trusting each one to compose correctly forever.
+      const finalPlayer: Player = {
+        ...grantedPlayer,
+        hp: Math.max(0, Math.min(grantedPlayer.hpMax, grantedPlayer.hp)),
+        mp: Math.max(0, Math.min(grantedPlayer.mpMax, grantedPlayer.mp)),
+        st: Math.max(0, Math.min(grantedPlayer.stMax, grantedPlayer.st)),
+      }
 
       const nextCampaign: Campaign = {
         ...current,
