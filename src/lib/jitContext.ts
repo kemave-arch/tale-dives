@@ -4,12 +4,13 @@ import type { Campaign } from '../types.ts'
 
 const RECENT_CHAPTER_DIGEST_COUNT = 3
 const MAX_FLAGS_SHOWN = 20
+const MAX_KNOWN_NAMES = 25 // per category — hard cap so this line's token cost stays flat regardless of how long the campaign runs
 
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
 export function buildContextSlice(state: Campaign, combatResultLine?: string | null): string {
-  const { player, combatMode, proseDepth, narrationStyle, locations, npcs, world, flags, quests, log } = state
+  const { player, combatMode, proseDepth, narrationStyle, locations, npcs, factions, lore, world, flags, quests, log } = state
 
   const lines = [
     '[ACTIVE CONTEXT SLICE]',
@@ -30,6 +31,34 @@ export function buildContextSlice(state: Campaign, combatResultLine?: string | n
   // sliding conversation window gets wiped at chapter boundaries (§2 Phase
   // E) and the model has no memory beyond it. Cheap, compact, re-told every
   // turn rather than relying on a full replay.
+
+  // Known Entities — names only, capped per category (MAX_KNOWN_NAMES) so
+  // this line's cost stays flat no matter how long the campaign runs. Exists
+  // so the model checks this list before inventing a new NPC/location/faction
+  // that duplicates one it just can't see in the sliced-down context above —
+  // without this, "not currently present/visited" reads to the model as
+  // "doesn't exist yet."
+  const otherLocationNames = Object.entries(locations ?? {})
+    .filter(([id]) => id !== player.locId)
+    .map(([, l]) => l.name)
+    .slice(-MAX_KNOWN_NAMES)
+  const elsewhereNpcNames = Object.values(npcs ?? {})
+    .filter((n) => n.lastSeenLocId !== player.locId)
+    .map((n) => n.name)
+    .slice(-MAX_KNOWN_NAMES)
+  const factionNames = Object.values(factions ?? {}).map((f) => f.name).slice(-MAX_KNOWN_NAMES)
+  const loreNames = Object.values(lore ?? {}).map((l) => l.name).slice(-MAX_KNOWN_NAMES)
+
+  const knownSegments = [
+    otherLocationNames.length && `Locations: ${otherLocationNames.join(', ')}`,
+    elsewhereNpcNames.length && `NPCs: ${elsewhereNpcNames.join(', ')}`,
+    factionNames.length && `Factions: ${factionNames.join(', ')}`,
+    loreNames.length && `Lore: ${loreNames.join(', ')}`,
+  ].filter(Boolean)
+  if (knownSegments.length > 0) {
+    lines.push(`Known Entities (already exist — do not reintroduce under a new name) — ${knownSegments.join(' | ')}`)
+  }
+
   if (world?.background?.trim()) {
     lines.push(`World Premise: ${world.background.trim()}`)
   }

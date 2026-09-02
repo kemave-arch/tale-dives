@@ -16,6 +16,7 @@ import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
 import { applyQuestUpdate } from './lib/quests.ts'
 import { applyInventoryChanges } from './lib/inventory.ts'
+import { resolveBangCommand } from './lib/bangCommands.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -81,6 +82,7 @@ export default function App() {
   const [history, setHistory] = useState<HistoryTurn[]>([]) // Gemini `contents` sliding window (§3.1)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [pendingRecall, setPendingRecall] = useState<string | null>(null) // §6.6 — a targeted/full !recall snapshot waiting to ride along on the next real turn
 
   useEffect(() => { store.saveApiSettings(apiSettings) }, [apiSettings])
   useEffect(() => { store.saveUiPrefs(uiPrefs) }, [uiPrefs])
@@ -247,7 +249,13 @@ export default function App() {
 
     const baseHistory = overrideHistory ?? history
     const contextSlice = buildContextSlice(current, combatResultLine)
-    const userTurnText = `${contextSlice}\n\nPlayer Action: ${actionText}`
+    // §6.6 — a !recall or targeted bang dossier queued since the last turn
+    // rides along here once, then clears; this is the "make the LLM
+    // remember" mechanism, distinct from the always-on capped Known
+    // Entities line the context slice already carries.
+    const recallBlock = pendingRecall ? `\n\n${pendingRecall}` : ''
+    const userTurnText = `${contextSlice}${recallBlock}\n\nPlayer Action: ${actionText}`
+    if (pendingRecall) setPendingRecall(null)
     const newHistory: HistoryTurn[] = [...baseHistory, { role: 'user', parts: [{ text: userTurnText }] }]
 
     try {
@@ -509,6 +517,19 @@ export default function App() {
     setGame((g) => g && { ...g, world: { ...g.world, ...patch } })
   }
 
+  // §6.6 Bang Commands — 0 API tokens, resolved and rendered entirely
+  // client-side. An unrecognized "!word" still renders a small note rather
+  // than being silently swallowed, so mistyped commands are visibly not-lost.
+  function handleBangCommand(raw: string) {
+    if (!game) return
+    const result = resolveBangCommand(raw, game)
+    const bang = result?.entry ?? { command: raw.slice(1).split(/\s/)[0] || '?', rows: [], note: `Unknown command "${raw}".` }
+    setGame((g) => g && { ...g, lastPlayed: Date.now(), log: [...g.log, { nar: '', bang }] })
+    if (result?.recallText) {
+      setPendingRecall((prev) => (prev ? `${prev}\n\n${result.recallText}` : result.recallText))
+    }
+  }
+
   function openSettings(from: Screen) {
     setSettingsReturnTo(from)
     setScreen('settings')
@@ -727,6 +748,7 @@ export default function App() {
         quests={game.quests}
         bestiary={game.bestiary}
         onSend={sendAction}
+        onBangCommand={handleBangCommand}
         onOpenSettings={() => openSettings('chronicle')}
         onOpenMenu={() => setScreen('mainmenu')}
         onOpenCodex={() => {

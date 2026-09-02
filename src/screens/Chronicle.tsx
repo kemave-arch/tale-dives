@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
-  ChevronUp, ChevronDown, ChevronsDown, History,
+  ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
 import { TURN_STATE_META } from '../lib/turnStates.ts'
 import { formatCurrency } from '../lib/currency.ts'
 import { slugify } from '../lib/slug.ts'
+import { BANG_COMMANDS } from '../lib/bangCommands.ts'
 import type {
   BestiaryEntry, CombatState, FactionEntry, GameTime, KeywordLink, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry,
 } from '../types.ts'
@@ -26,6 +28,7 @@ interface ChronicleProps {
   quests: Record<string, QuestEntry>
   bestiary: Record<string, BestiaryEntry>
   onSend: (action: string) => void
+  onBangCommand: (raw: string) => void
   onOpenSettings: () => void
   onOpenMenu: () => void
   onOpenCodex: () => void
@@ -62,6 +65,23 @@ function CurrencyBadge({ copper }: { copper: number }) {
     (c > 0 || (p === 0 && g === 0 && s === 0)) && `${c}C`,
   ].filter(Boolean)
   return <span className="font-mono text-[10px] text-[#e8ca8a] shrink-0">{parts.join(' ')}</span>
+}
+
+// §6.6 Bang Commands — in-game-styled framing per category (icon + a dossier
+// title), no raw "!command" console text, so the paused-roleplay moment
+// still reads as part of the game's own UI rather than a debug console.
+const BANG_DISPLAY: Record<string, { icon: LucideIcon; label: string }> = {
+  npc: { icon: Users, label: 'NPC Dossier' },
+  items: { icon: Backpack, label: 'Inventory Ledger' },
+  location: { icon: MapIcon, label: 'Known Locations' },
+  faction: { icon: ShieldCheck, label: 'Faction Standings' },
+  quests: { icon: Target, label: 'Active Quests' },
+  bestiary: { icon: Skull, label: 'Bestiary Log' },
+  recall: { icon: BookOpen, label: 'Codex Recall' },
+}
+
+function bangDisplay(command: string): { icon: LucideIcon; label: string } {
+  return BANG_DISPLAY[command.toLowerCase()] ?? { icon: HelpCircle, label: 'Unclear Reference' }
 }
 
 function formatTimestamp(time: GameTime, locDisp: string): string {
@@ -155,6 +175,58 @@ interface TurnBlockProps {
 const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, registerRef }: TurnBlockProps) {
   const setRef = useCallback((el: HTMLDivElement | null) => registerRef(globalIndex, el), [globalIndex, registerRef])
 
+  if (entry.bang) {
+    const { command, target, rows, note } = entry.bang
+    const { icon: DossierIcon, label } = bangDisplay(command)
+    return (
+      <div ref={setRef} className="flex flex-col gap-2 py-1">
+        {/* §6.6 — bang commands are out-of-fiction, so they're bracketed like a
+            chapter boundary: a divider announcing the pause, the result, then
+            a matching divider closing it and resuming the tale. Styled as an
+            in-game dossier reveal, not a raw "!command" console dump. */}
+        <div className="w-full flex items-center gap-3">
+          <div className="flex-1 h-px bg-gold-accent/40" />
+          <span className="flex items-center gap-1.5 font-display text-[10px] uppercase tracking-wide text-gold-primary/70 shrink-0">
+            <Pause size={11} /> Roleplay Paused
+          </span>
+          <div className="flex-1 h-px bg-gold-accent/40" />
+        </div>
+
+        <div className="rounded-xl border border-gold-primary/25 bg-gold-accent/10 px-3 py-2.5">
+          <div className="flex items-center gap-1.5 mb-2">
+            <DossierIcon size={13} className="text-gold-primary/80 shrink-0" />
+            <span className="font-display text-xs font-bold uppercase tracking-wide text-gold-primary">
+              {label}
+              {target && <span className="text-ink-muted normal-case font-normal"> — {target}</span>}
+            </span>
+          </div>
+          {rows.length > 0 && (
+            <div className="space-y-1">
+              {rows.map((row, i) => (
+                <div key={row.id ?? i} className="flex items-baseline gap-2 text-xs">
+                  {row.category ? (
+                    <button
+                      onClick={() => onTapTerm(row.name, row.category!)}
+                      className="font-display font-semibold text-ink hover:text-gold-primary shrink-0 underline decoration-dotted decoration-gold-primary/40 underline-offset-2"
+                    >
+                      {row.name}
+                    </button>
+                  ) : (
+                    <span className="font-display font-semibold text-ink shrink-0">{row.name}</span>
+                  )}
+                  <span className="text-ink-muted truncate">{row.fields.join(' · ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {note && <p className="font-narrative italic text-[11px] text-ink-muted mt-1.5">{note}</p>}
+        </div>
+
+        <div className="w-full h-px bg-gold-accent/40" />
+      </div>
+    )
+  }
+
   if (entry.chapterSummary) {
     return (
       <div ref={setRef} className="flex flex-col items-center gap-2 py-3">
@@ -220,12 +292,15 @@ export default function Chronicle({
   quests,
   bestiary,
   onSend,
+  onBangCommand,
   onOpenSettings,
   onOpenMenu,
   onOpenCodex,
   onOpenCodexEntry,
 }: ChronicleProps) {
   const [input, setInput] = useState('')
+  const [bangHighlight, setBangHighlight] = useState(0)
+  const [bangDismissed, setBangDismissed] = useState(false)
   const [popup, setPopup] = useState<PopupTarget | null>(null)
   const [visibleCount, setVisibleCount] = useState(WINDOW_SIZE)
   const [currentBlock, setCurrentBlock] = useState<number | null>(null)
@@ -325,9 +400,32 @@ export default function Chronicle({
   }, [])
 
   function send() {
-    if (!input.trim() || busy) return
-    onSend(input.trim())
+    const text = input.trim()
+    if (!text || busy) return
+    // §6.6 Bang Commands — resolved entirely client-side (0 API tokens), so
+    // they bypass the busy-gated turn pipeline and never touch onSend.
+    if (text.startsWith('!')) {
+      onBangCommand(text)
+    } else {
+      onSend(text)
+    }
     setInput('')
+  }
+
+  // §6.6 Command Palette — suggestions only while the player is still typing
+  // the command word itself ("!" or "!np"); once a space appears they've
+  // moved on to a target, so the dropdown gets out of the way.
+  const bangWordMatch = /^!(\w*)$/.exec(input)
+  const bangSuggestions =
+    !bangDismissed && bangWordMatch
+      ? BANG_COMMANDS.filter((c) => c.name.startsWith(bangWordMatch[1].toLowerCase()))
+      : []
+
+  function selectBangSuggestion(name: string) {
+    setInput(`!${name} `)
+    setBangHighlight(0)
+    setBangDismissed(false)
+    textareaRef.current?.focus()
   }
 
   function loadEarlierTurns() {
@@ -535,20 +633,20 @@ export default function Chronicle({
           </div>
         )}
 
-        <div className="px-3 pt-1.5">
+        <div className="px-3">
           <button
             onClick={() => setStatsCollapsed((v) => !v)}
             aria-label={statsCollapsed ? 'Expand stats' : 'Collapse stats'}
-            className="w-full flex items-center justify-center py-px text-white/40 hover:text-[#e8ca8a]"
+            className="w-full flex items-center justify-center leading-none text-white/40 hover:text-[#e8ca8a]"
           >
-            {statsCollapsed ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+            {statsCollapsed ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
           </button>
           <div
             className="grid transition-[grid-template-rows] duration-200 ease-out"
             style={{ gridTemplateRows: statsCollapsed ? '0fr' : '1fr' }}
           >
             <div className="overflow-hidden">
-              <div className="px-1 pb-1.5 flex items-center gap-3 text-white/80">
+              <div className="px-1 pb-0.5 flex items-center gap-3 text-white/80">
                 <PoolBar label="HP" value={player.hp} max={player.hpMax} colorVar="#fb3552" />
                 <PoolBar label="MP" value={player.mp} max={player.mpMax} colorVar="#22d3ee" />
                 <PoolBar label="ST" value={player.st} max={player.stMax} colorVar="#34d399" />
@@ -558,13 +656,59 @@ export default function Chronicle({
           </div>
         </div>
 
-        <div className="px-3 pt-2 pb-2.5 flex gap-2 items-end">
+        <div className="relative px-3 pt-0.5 pb-1.5 flex gap-2 items-end">
+          {/* §6.6 Command Palette — pops up above the input while the "!word"
+              itself is being typed; arrow keys/Enter navigate it, matching
+              regular typed text once a target follows the space. */}
+          {bangSuggestions.length > 0 && (
+            <div className="absolute left-3 right-3 bottom-full mb-1.5 rounded-xl border border-[#e8ca8a]/25 bg-[#141622]/60 backdrop-blur-sm shadow-2xl overflow-hidden">
+              {bangSuggestions.map((cmd, i) => (
+                <button
+                  key={cmd.name}
+                  onClick={() => selectBangSuggestion(cmd.name)}
+                  onMouseEnter={() => setBangHighlight(i)}
+                  className={`w-full text-left px-3 py-2 flex items-center justify-between gap-3 transition-colors ${
+                    i === bangHighlight ? 'bg-[#e8ca8a]/15' : ''
+                  }`}
+                >
+                  <span className="font-mono text-xs font-semibold text-[#e8ca8a] shrink-0">{cmd.usage}</span>
+                  <span className="text-[11px] text-white/50 truncate">{cmd.description}</span>
+                </button>
+              ))}
+            </div>
+          )}
           <textarea
             ref={textareaRef}
             rows={1}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value)
+              setBangHighlight(0)
+              setBangDismissed(false)
+            }}
             onKeyDown={(e) => {
+              if (bangSuggestions.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setBangHighlight((h) => (h + 1) % bangSuggestions.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setBangHighlight((h) => (h - 1 + bangSuggestions.length) % bangSuggestions.length)
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  selectBangSuggestion(bangSuggestions[bangHighlight].name)
+                  return
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setBangDismissed(true)
+                  return
+                }
+              }
               if (e.key === 'Enter' && !e.shiftKey) {
                 e.preventDefault()
                 send()

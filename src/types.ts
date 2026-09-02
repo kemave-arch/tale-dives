@@ -139,6 +139,18 @@ export interface ProtagonistData {
   isDefault?: boolean
 }
 
+// §6.6 Bang Commands — a client-side (0-token) quick-reference table or
+// single-entry dossier rendered straight into the parchment, never sent to
+// the model as narration. `recallText` (when set) is the plain-text snapshot
+// folded into the *next* real turn's context so a targeted lookup like
+// "!NPC Elana" also refreshes the model's memory of her, not just the player's.
+export interface BangCommandEntry {
+  command: string // display label, e.g. "NPC", "Recall"
+  target?: string // the raw text after the command, if any
+  rows: { name: string; id?: string; category?: KeywordLink['category']; fields: string[] }[]
+  note?: string // dossier detail (deeds/memory), "not found", truncation notice, etc.
+}
+
 export interface LogEntry {
   action?: string
   nar: string
@@ -150,6 +162,7 @@ export interface LogEntry {
   chapterNumber?: number
   time?: GameTime // per-turn timestamp, absent on entries logged before this field existed
   locDisp?: string // per-turn location display, same caveat as `time`
+  bang?: BangCommandEntry // §6.6 — a rendered bang-command result, not real narration
 }
 
 // A Tale — the full persisted campaign shape (§6.4B Tales library).
