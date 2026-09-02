@@ -42,7 +42,8 @@ MECHANICS & GROUNDING DEFENSE:
 4. Currency Storage: Deduct or reward currency in base copper ("c" delta field).
 5. Permanent Stat Grants: Only use "stat_grant" for a genuine permanent boost (a blessing, a hard-won transformation) — never for ordinary damage/healing, which belongs in "deltas". Supply only the attribute/pool and the amount; never compute or state a resulting HP/MP/ST max yourself, the client derives that.
 6. Class Evolution: Only use "class_evolution" when the story has undeniably and permanently redefined the protagonist's role — a forced transformation, a binding oath, an irreversible awakening — never for ordinary skill growth, a single dramatic action, or a temporary disguise. This should be rare, at most once or twice in a whole campaign. "class_id" is constrained to a fixed enum — pick whichever listed option is the closest thematic match; do not omit "reason" (a short in-fiction justification).
-7. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
+7. Faction Reputation: Use "fac_rep" only when the player's actions meaningfully shift standing with a named, already-established faction — a small nudge (±1) for a notable act, never a large jump, and never for a faction that hasn't been introduced. Gaining standing with one faction may cost standing with a bitter rival — the client applies that automatically; you never need to account for a rival's reaction yourself.
+8. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
 
 export const TURN_SCHEMA = {
   type: 'OBJECT',
@@ -153,6 +154,18 @@ export const TURN_SCHEMA = {
         reason: { type: 'STRING', description: 'Short in-fiction justification, <=20 words.' },
       },
       required: ['class_id'],
+    },
+    fac_rep: {
+      type: 'ARRAY',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          faction_id: { type: 'STRING' },
+          delta: { type: 'INTEGER', minimum: -2, maximum: 2 },
+        },
+        required: ['faction_id', 'delta'],
+      },
+      description: 'Optional. A small reputation nudge per faction meaningfully affected this turn — omit for ordinary turns.',
     },
   },
   required: ['nar', 'turn_state', 'time', 'loc_disp', 'loc_id', 'act'],

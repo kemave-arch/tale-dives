@@ -129,6 +129,7 @@ export interface NpcEntry {
 export interface FactionEntry {
   name: string
   repTier: number
+  rivalId?: string | null // §5.4 App-Side Rivalry — another faction's id; a rep change here mirrors an inverse change there, 0 tokens
   autoLogged?: boolean
   discovery?: Discovery
 }
@@ -328,6 +329,14 @@ export interface ClassEvolutionUpdate {
   reason?: string
 }
 
+// §5.4 5-Tier Faction Reputation — a small, event-driven nudge to a named
+// faction's standing (-2 to +2 scale). App-Side Rivalry (§5.4) then mirrors
+// an inverse delta onto that faction's `rivalId`, entirely client-side.
+export interface FactionRepChange {
+  faction_id: string
+  delta: number
+}
+
 export type TurnState =
   | 'PEACE'
   | 'COMBAT'
@@ -357,6 +366,7 @@ export interface TurnResponse {
   quest_update?: QuestUpdate
   npc_mem_up?: NpcMemoryUpdate[]
   class_evolution?: ClassEvolutionUpdate
+  fac_rep?: FactionRepChange[]
 }
 
 // Gemini `contents` sliding window (§3.1).

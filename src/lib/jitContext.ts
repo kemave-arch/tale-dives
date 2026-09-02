@@ -1,4 +1,4 @@
-import { describeKnownLocation } from './locations.ts'
+import { describeKnownLocation, territoryHostileLine } from './locations.ts'
 import { describePresentNpc, presentNpcs } from './npcs.ts'
 import type { Campaign } from '../types.ts'
 
@@ -20,7 +20,11 @@ export function buildContextSlice(state: Campaign, combatResultLine?: string | n
 
   // §3.1 — only re-told once a Codex entry exists; first visit to a place omits it.
   const known = locations?.[player.locId]
-  if (known) lines.push(describeKnownLocation(known))
+  if (known) {
+    lines.push(describeKnownLocation(known, factions))
+    const hostileLine = territoryHostileLine(known, factions)
+    if (hostileLine) lines.push(hostileLine)
+  }
 
   // §5.5 Proximity Slicing — an NPC not currently here costs 0 context tokens.
   for (const npc of presentNpcs(npcs, player.locId)) {

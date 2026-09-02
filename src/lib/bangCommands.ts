@@ -1,4 +1,5 @@
 import { slugify } from './slug.ts'
+import { effectiveStanding, repTierLabel } from './factions.ts'
 import type {
   BangCommandEntry, BestiaryEntry, Campaign, FactionEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry,
 } from '../types.ts'
@@ -64,11 +65,17 @@ function capped<T>(items: T[]): { shown: T[]; note?: string } {
 function npcRow(id: string, n: NpcEntry): BangCommandEntry['rows'][number] {
   return { name: n.name, id, category: 'npc', fields: [n.stage, `Trust ${n.trust}`, `Affection ${n.affection}`] }
 }
-function locationRow(id: string, l: LocationEntry): BangCommandEntry['rows'][number] {
-  return { name: l.name, id, category: 'loc', fields: [l.region, `Danger: ${l.dangerLevel}`, l.standing] }
+function locationRow(id: string, l: LocationEntry, factions: Record<string, FactionEntry>): BangCommandEntry['rows'][number] {
+  return { name: l.name, id, category: 'loc', fields: [l.region, `Danger: ${l.dangerLevel}`, effectiveStanding(l, factions)] }
 }
-function factionRow(id: string, f: FactionEntry): BangCommandEntry['rows'][number] {
-  return { name: f.name, id, category: 'faction', fields: [`Reputation ${f.repTier > 0 ? '+' : ''}${f.repTier}`] }
+function factionRow(id: string, f: FactionEntry, factions: Record<string, FactionEntry>): BangCommandEntry['rows'][number] {
+  const rivalName = f.rivalId ? factions[f.rivalId]?.name : undefined
+  return {
+    name: f.name,
+    id,
+    category: 'faction',
+    fields: [`Reputation ${f.repTier > 0 ? '+' : ''}${f.repTier} (${repTierLabel(f.repTier)})`, ...(rivalName ? [`Rival: ${rivalName}`] : [])],
+  }
 }
 function questRow(id: string, q: QuestEntry): BangCommandEntry['rows'][number] {
   return { name: q.name, id, category: 'quest', fields: [q.status ?? 'active', ...(q.note ? [q.note] : [])] }
@@ -129,21 +136,21 @@ export function resolveBangCommand(raw: string, campaign: Campaign): BangResult 
     case 'locations': {
       if (target) {
         const found = findEntry(campaign.locations, target)
-        const row = found ? locationRow(found[0], found[1]) : null
+        const row = found ? locationRow(found[0], found[1], campaign.factions ?? {}) : null
         const note = found?.[1].description
         return dossierResult('Location', target, row, note, 'Known Location')
       }
-      const rows = Object.entries(campaign.locations ?? {}).map(([id, l]) => locationRow(id, l))
+      const rows = Object.entries(campaign.locations ?? {}).map(([id, l]) => locationRow(id, l, campaign.factions ?? {}))
       return tableResult('Location', rows, 'No locations visited yet.')
     }
     case 'faction':
     case 'factions': {
       if (target) {
         const found = findEntry(campaign.factions, target)
-        const row = found ? factionRow(found[0], found[1]) : null
+        const row = found ? factionRow(found[0], found[1], campaign.factions ?? {}) : null
         return dossierResult('Faction', target, row, undefined, 'Known Faction')
       }
-      const rows = Object.entries(campaign.factions ?? {}).map(([id, f]) => factionRow(id, f))
+      const rows = Object.entries(campaign.factions ?? {}).map(([id, f]) => factionRow(id, f, campaign.factions ?? {}))
       return tableResult('Faction', rows, 'No factions encountered yet.')
     }
     case 'quest':
@@ -175,8 +182,8 @@ export function resolveBangCommand(raw: string, campaign: Campaign): BangResult 
     }
     case 'recall': {
       const npcRows = capped(Object.entries(campaign.npcs ?? {}).map(([id, n]) => npcRow(id, n)))
-      const locRows = capped(Object.entries(campaign.locations ?? {}).map(([id, l]) => locationRow(id, l)))
-      const facRows = capped(Object.entries(campaign.factions ?? {}).map(([id, f]) => factionRow(id, f)))
+      const locRows = capped(Object.entries(campaign.locations ?? {}).map(([id, l]) => locationRow(id, l, campaign.factions ?? {})))
+      const facRows = capped(Object.entries(campaign.factions ?? {}).map(([id, f]) => factionRow(id, f, campaign.factions ?? {})))
       const questRows = capped(Object.entries(campaign.quests ?? {}).map(([id, q]) => questRow(id, q)))
       const bestRows = capped(Object.entries(campaign.bestiary ?? {}).map(([id, b]) => bestiaryRow(id, b)))
       const loreRows = capped(Object.entries(campaign.lore ?? {}).map(([id, l]) => loreRow(id, l)))

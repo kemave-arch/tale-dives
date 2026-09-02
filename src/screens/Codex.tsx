@@ -10,6 +10,7 @@ import { PRESET_CLASSES } from '../data/classes.ts'
 import { RECIPES } from '../data/recipes.ts'
 import { canAffordRecipe } from '../lib/crafting.ts'
 import { hoursRemaining } from '../lib/gameTime.ts'
+import { deriveStanding, effectiveStanding, repTierLabel } from '../lib/factions.ts'
 import type { BestiaryEntry, CraftingJob, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
 
 export type CategoryId = 'realm' | 'character' | 'crafting' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
@@ -391,7 +392,7 @@ export default function Codex({
 
   function saveFaction() {
     const id = entryId === NEW_ID ? genId(draft.name, factions) : entryId!
-    onUpdateFaction(id, { name: draft.name, repTier: draft.repTier, discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }) })
+    onUpdateFaction(id, { name: draft.name, repTier: draft.repTier, rivalId: draft.rivalId || null, discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }) })
     setEntryId(id)
     setEditing(false)
   }
@@ -742,7 +743,7 @@ export default function Codex({
             <EntryCard
               key={id}
               title={isHidden(f) ? '???' : f.name}
-              subtitle={isHidden(f) ? (f.discovery?.teaser || 'Not yet discovered.') : `Reputation ${f.repTier > 0 ? '+' : ''}${f.repTier}`}
+              subtitle={isHidden(f) ? (f.discovery?.teaser || 'Not yet discovered.') : `${repTierLabel(f.repTier)} (${f.repTier > 0 ? '+' : ''}${f.repTier})`}
               badge={isHidden(f) ? <LockBadge /> : <AutoBadge shown={f.autoLogged} />}
               onClick={() => setEntryId(id)}
             />
@@ -759,13 +760,33 @@ export default function Codex({
             <DetailPanel>
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <NumberField label="Reputation Tier (-2 to 2)" value={draft.repTier ?? 0} onChange={(v) => setDraft((d) => ({ ...d, repTier: v }))} />
+              <label className="block">
+                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Rival Faction (§5.4)</span>
+                <select
+                  value={draft.rivalId ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, rivalId: e.target.value || null }))}
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                >
+                  <option value="">None</option>
+                  {Object.entries(factions).filter(([id]) => id !== entryId).map(([id, f]) => (
+                    <option key={id} value={id}>{f.name}</option>
+                  ))}
+                </select>
+                <span className="text-[10px] text-white/35">A rep change here mirrors an inverse change on the rival, automatically.</span>
+              </label>
               <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
           ) : isHidden(factions[entryId]) ? (
             <MaskedDetail teaser={factions[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
-              <DetailField label="Reputation Tier" value={`${factions[entryId].repTier > 0 ? '+' : ''}${factions[entryId].repTier} (of -2 to +2)`} />
+              <DetailField
+                label="Reputation Tier"
+                value={`${repTierLabel(factions[entryId].repTier)} (${factions[entryId].repTier > 0 ? '+' : ''}${factions[entryId].repTier} of -2 to +2)`}
+              />
+              {factions[entryId].rivalId && factions[factions[entryId].rivalId!] && (
+                <DetailField label="Rival Faction" value={factions[factions[entryId].rivalId!].name} />
+              )}
             </DetailPanel>
           )}
         </>
@@ -797,8 +818,27 @@ export default function Codex({
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <TextField label="Region" value={draft.region ?? ''} onChange={(v) => setDraft((d) => ({ ...d, region: v }))} />
               <TextField label="Danger Level" value={draft.dangerLevel ?? ''} onChange={(v) => setDraft((d) => ({ ...d, dangerLevel: v }))} />
-              <TextField label="Standing" value={draft.standing ?? ''} onChange={(v) => setDraft((d) => ({ ...d, standing: v }))} />
-              <TextField label="Faction Owner" value={draft.factionOwner ?? ''} onChange={(v) => setDraft((d) => ({ ...d, factionOwner: v }))} placeholder="none" />
+              <label className="block">
+                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Faction Owner (§5.11)</span>
+                <select
+                  value={draft.factionOwner ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, factionOwner: e.target.value || null }))}
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                >
+                  <option value="">None (independent territory)</option>
+                  {Object.entries(factions).map(([id, f]) => (
+                    <option key={id} value={id}>{f.name}</option>
+                  ))}
+                </select>
+              </label>
+              {draft.factionOwner && factions[draft.factionOwner] ? (
+                <p className="font-narrative text-xs text-white/50 italic">
+                  Standing is derived from {factions[draft.factionOwner].name}'s reputation:{' '}
+                  <span className="text-white/80 not-italic">{deriveStanding(factions[draft.factionOwner].repTier)}</span>
+                </p>
+              ) : (
+                <TextField label="Standing" value={draft.standing ?? ''} onChange={(v) => setDraft((d) => ({ ...d, standing: v }))} />
+              )}
               <TextField label="Description" value={draft.description ?? ''} onChange={(v) => setDraft((d) => ({ ...d, description: v }))} textarea />
               <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
@@ -808,8 +848,10 @@ export default function Codex({
             <DetailPanel>
               <DetailField label="Region" value={locations[entryId].region} />
               <DetailField label="Danger Level" value={locations[entryId].dangerLevel} />
-              <DetailField label="Standing" value={locations[entryId].standing} />
-              {locations[entryId].factionOwner && <DetailField label="Faction Owner" value={locations[entryId].factionOwner!} />}
+              <DetailField label="Standing" value={effectiveStanding(locations[entryId], factions)} />
+              {locations[entryId].factionOwner && (
+                <DetailField label="Faction Owner" value={factions[locations[entryId].factionOwner!]?.name ?? locations[entryId].factionOwner!} />
+              )}
               <DetailField label="Description" value={locations[entryId].description} />
             </DetailPanel>
           )}

@@ -21,6 +21,7 @@ import { resolveBangCommand } from './lib/bangCommands.ts'
 import { checkCodexReveals } from './lib/discovery.ts'
 import { queueCraftingJob, resolveCraftingJobs } from './lib/crafting.ts'
 import { applyMinionUpkeep, attemptSummon, type SummonCommand } from './lib/summoning.ts'
+import { applyFactionRepDeltas } from './lib/factions.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -327,6 +328,10 @@ export default function App() {
       const nextQuests = applyQuestUpdate(linked.quests, turn.quest_update)
       const nextFlags = turn.flag_add?.length ? Array.from(new Set([...current.flags, ...turn.flag_add])) : current.flags
 
+      // §5.4 App-Side Rivalry — a rep change to one faction mirrors an
+      // inverse change onto its `rivalId` counterpart, entirely client-side.
+      const nextFactions = applyFactionRepDeltas(linked.factions, turn.fac_rep ?? [])
+
       // §5.3 — every corpse this turn's combat produced becomes harvestable
       // for a future `!arise`, until spent.
       const nextCorpses = turn.corpse_add?.length ? [...(current.corpses ?? []), ...turn.corpse_add] : (current.corpses ?? [])
@@ -417,7 +422,7 @@ export default function App() {
       // own deltas (flag_add/loc_id/npc_mem_up/quest_update), run last so it
       // sees the final merged flag list from above.
       const reveals = checkCodexReveals(
-        { npcs: nextNpcs, locations: nextLocations, factions: linked.factions, lore: linked.lore, quests: nextQuests, bestiary: nextBestiary },
+        { npcs: nextNpcs, locations: nextLocations, factions: nextFactions, lore: linked.lore, quests: nextQuests, bestiary: nextBestiary },
         turn,
         nextFlags,
       )
