@@ -1,5 +1,5 @@
 // Blueprint §6.4B Load User Files — plain browser download/upload, no server.
-export function downloadJSON(filename, data) {
+export function downloadJSON(filename: string, data: unknown): void {
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -9,12 +9,12 @@ export function downloadJSON(filename, data) {
   URL.revokeObjectURL(url)
 }
 
-export function readJSONFile(file) {
+export function readJSONFile(file: File): Promise<any> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
       try {
-        resolve(JSON.parse(reader.result))
+        resolve(JSON.parse(reader.result as string))
       } catch (err) {
         reject(err)
       }

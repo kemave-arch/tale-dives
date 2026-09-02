@@ -1,26 +1,38 @@
+import type { Player, TurnResponse } from '../types.ts'
+
 // Client-side Shadow Referee — Blueprint §3.2. Gemini proposes, this validates.
 
 // §5.1d/§8 item 7: soft-cap share of a max pool a single narrated turn can move.
 // Placeholder tunable — revisit once real playtesting shows the right feel.
 const NARRATIVE_MAGNITUDE_CAP = 0.5
 
-function clamp(value, min, max) {
+function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-function boundedDelta(delta, max) {
+function boundedDelta(delta: number | undefined, max: number): number {
   if (!delta) return 0
   const cap = Math.round(max * NARRATIVE_MAGNITUDE_CAP)
   return clamp(delta, -cap, cap)
+}
+
+export interface TacticalOverride {
+  hpDelta?: number
+  stDelta?: number
+}
+
+export interface ApplyTurnResult {
+  player: Player
+  defeated: boolean
 }
 
 // `tacticalOverride` — §3.2 Combat Math Ownership: in Tactical Mode the
 // client precomputes hp/st before the prompt ever goes out, so whatever
 // Gemini emits in `deltas` for those fields is ignored outright rather than
 // bounds-checked, exactly matching "overwritten if they disagree."
-export function applyTurn(player, turn, tacticalOverride) {
+export function applyTurn(player: Player, turn: TurnResponse, tacticalOverride?: TacticalOverride): ApplyTurnResult {
   const deltas = turn.deltas ?? {}
-  const next = { ...player }
+  const next: Player = { ...player }
 
   const hpDelta = tacticalOverride?.hpDelta ?? boundedDelta(deltas.hp, player.hpMax)
   const stDelta = tacticalOverride?.stDelta ?? boundedDelta(deltas.st, player.stMax)

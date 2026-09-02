@@ -7,7 +7,7 @@ const TITLES = new Set([
   'dr', 'mr', 'mrs', 'ms', 'general', 'colonel', 'sergeant', 'father', 'mother', 'elder',
 ])
 
-export function slugify(text) {
+export function slugify(text: string): string {
   const words = text
     .trim()
     .toLowerCase()

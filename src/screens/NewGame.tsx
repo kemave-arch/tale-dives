@@ -1,18 +1,26 @@
 import { useState } from 'react'
 import { ArrowLeft, ArrowRight, UserCircle } from 'lucide-react'
-import { PRESET_CLASSES } from '../data/classes.js'
+import { PRESET_CLASSES } from '../data/classes.ts'
+import type { ProtagonistData } from '../types.ts'
+
+interface NewGameProps {
+  protagonistTemplates?: ProtagonistData[]
+  initial?: ProtagonistData | null
+  onBack: () => void
+  onBegin: (protagonist: ProtagonistData) => void
+}
 
 // Stand-in for the full Phase A/B creation pipeline (§2) — just enough to get
 // a protagonist onto the board and prove the turn loop. Grounded/free-form
 // classes (§Phase B.2a) aren't built yet. Also doubles as the Protagonist
 // Library's create/edit form (§6.4B).
-export default function NewGame({ protagonistTemplates = [], initial, onBack, onBegin }) {
-  const [templateId, setTemplateId] = useState(initial?.id ?? null)
+export default function NewGame({ protagonistTemplates = [], initial, onBack, onBegin }: NewGameProps) {
+  const [templateId, setTemplateId] = useState<string | null | undefined>(initial?.id ?? null)
   const [name, setName] = useState(initial?.name ?? '')
   const [classId, setClassId] = useState(initial?.classId ?? PRESET_CLASSES[0].id)
   const [opening, setOpening] = useState(initial?.opening ?? '')
 
-  function applyTemplate(t) {
+  function applyTemplate(t: ProtagonistData) {
     setTemplateId(t.id)
     setName(t.name)
     setClassId(t.classId)

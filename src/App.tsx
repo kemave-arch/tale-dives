@@ -1,56 +1,64 @@
 import { useEffect, useState } from 'react'
-import Title from './screens/Title.jsx'
-import Settings from './screens/Settings.jsx'
-import MainMenu from './screens/MainMenu.jsx'
-import WorldSetup from './screens/WorldSetup.jsx'
-import NewGame from './screens/NewGame.jsx'
-import Chronicle from './screens/Chronicle.jsx'
-import { getClassById } from './data/classes.js'
-import { startingAttributes, derivedPools } from './lib/derivedStats.js'
-import { buildContextSlice } from './lib/jitContext.js'
-import { applyTurn } from './lib/shadowReferee.js'
-import { ensureLocation } from './lib/locations.js'
-import { applyNpcUpdates } from './lib/npcs.js'
-import { applyKeywordLinks } from './lib/codex.js'
-import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.js'
-import { parseKeywordLinks } from './lib/keywordLinks.js'
-import { slugify } from './lib/slug.js'
-import { runTurn } from './api/providers/gemini.js'
-import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.js'
-import { downloadJSON, readJSONFile } from './lib/backup.js'
-import * as store from './lib/store.js'
+import Title from './screens/Title.tsx'
+import Settings, { type SettingsSavePayload } from './screens/Settings.tsx'
+import MainMenu from './screens/MainMenu.tsx'
+import WorldSetup from './screens/WorldSetup.tsx'
+import NewGame from './screens/NewGame.tsx'
+import Chronicle from './screens/Chronicle.tsx'
+import { getClassById } from './data/classes.ts'
+import { startingAttributes, derivedPools } from './lib/derivedStats.ts'
+import { buildContextSlice } from './lib/jitContext.ts'
+import { applyTurn, type TacticalOverride } from './lib/shadowReferee.ts'
+import { ensureLocation } from './lib/locations.ts'
+import { applyNpcUpdates } from './lib/npcs.ts'
+import { applyKeywordLinks } from './lib/codex.ts'
+import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
+import { parseKeywordLinks } from './lib/keywordLinks.ts'
+import { slugify } from './lib/slug.ts'
+import { runTurn } from './api/providers/gemini.ts'
+import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
+import { downloadJSON, readJSONFile } from './lib/backup.ts'
+import * as store from './lib/store.ts'
+import type { Campaign, CombatState, Dict, HistoryTurn, ProtagonistData, TurnState, WorldData } from './types.ts'
 
-function findDefault(dict) {
+type Screen = 'title' | 'settings' | 'mainmenu' | 'worldsetup' | 'newgame' | 'chronicle'
+type CreationMode = 'tale' | 'library'
+
+function findDefault<T extends { isDefault?: boolean }>(dict: Dict<T>): T | null {
   return Object.values(dict).find((e) => e.isDefault) ?? null
 }
 
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
+}
+
 export default function App() {
-  const [screen, setScreen] = useState('title')
-  const [settingsReturnTo, setSettingsReturnTo] = useState('title')
+  const [screen, setScreen] = useState<Screen>('title')
+  const [settingsReturnTo, setSettingsReturnTo] = useState<Screen>('title')
 
   const [apiSettings, setApiSettings] = useState(store.loadApiSettings)
   const [uiPrefs, setUiPrefs] = useState(store.loadUiPrefs)
-  const [worlds, setWorlds] = useState(store.loadWorlds)
-  const [protagonists, setProtagonists] = useState(store.loadProtagonists)
-  const [campaigns, setCampaigns] = useState(store.loadCampaigns)
-  const [activeCampaignId, setActiveCampaignId] = useState(store.loadActiveCampaignId)
+  const [worlds, setWorlds] = useState<Dict<WorldData>>(store.loadWorlds)
+  const [protagonists, setProtagonists] = useState<Dict<ProtagonistData>>(store.loadProtagonists)
+  const [campaigns, setCampaigns] = useState<Dict<Campaign>>(store.loadCampaigns)
+  const [activeCampaignId, setActiveCampaignId] = useState<string | null>(store.loadActiveCampaignId)
 
-  const [game, setGame] = useState(() => {
+  const [game, setGame] = useState<Campaign | null>(() => {
     const id = store.loadActiveCampaignId()
     const all = store.loadCampaigns()
     return id && all[id] ? all[id] : null
   })
 
   // §Phase A/B — held between the World Setup and New Game steps.
-  const [pendingWorld, setPendingWorld] = useState(null)
-  const [worldSetupMode, setWorldSetupMode] = useState('tale') // 'tale' | 'library'
-  const [worldSetupInitial, setWorldSetupInitial] = useState(null)
-  const [newGameMode, setNewGameMode] = useState('tale') // 'tale' | 'library'
-  const [newGameInitial, setNewGameInitial] = useState(null)
+  const [pendingWorld, setPendingWorld] = useState<WorldData | null>(null)
+  const [worldSetupMode, setWorldSetupMode] = useState<CreationMode>('tale')
+  const [worldSetupInitial, setWorldSetupInitial] = useState<WorldData | null>(null)
+  const [newGameMode, setNewGameMode] = useState<CreationMode>('tale')
+  const [newGameInitial, setNewGameInitial] = useState<ProtagonistData | null>(null)
 
-  const [history, setHistory] = useState([]) // Gemini `contents` sliding window (§3.1)
+  const [history, setHistory] = useState<HistoryTurn[]>([]) // Gemini `contents` sliding window (§3.1)
   const [busy, setBusy] = useState(false)
-  const [error, setError] = useState(null)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => { store.saveApiSettings(apiSettings) }, [apiSettings])
   useEffect(() => { store.saveUiPrefs(uiPrefs) }, [uiPrefs])
@@ -70,21 +78,21 @@ export default function App() {
     setCampaigns((c) => ({ ...c, [game.id]: game }))
   }, [game])
 
-  function upsertWorld(worldData, existingId) {
+  function upsertWorld(worldData: WorldData, existingId?: string | null): WorldData {
     const id = existingId ?? store.newId('world')
-    const entry = { ...worldData, id, isDefault: worlds[id]?.isDefault ?? false }
+    const entry: WorldData = { ...worldData, id, isDefault: worlds[id]?.isDefault ?? false }
     setWorlds((w) => ({ ...w, [id]: entry }))
     return entry
   }
 
-  function upsertProtagonist(pData, existingId, className) {
+  function upsertProtagonist(pData: ProtagonistData, existingId: string | null | undefined, className: string): ProtagonistData {
     const id = existingId ?? store.newId('protagonist')
-    const entry = { ...pData, id, className, isDefault: protagonists[id]?.isDefault ?? false }
+    const entry: ProtagonistData = { ...pData, id, className, isDefault: protagonists[id]?.isDefault ?? false }
     setProtagonists((p) => ({ ...p, [id]: entry }))
     return entry
   }
 
-  function beginCampaign(protagonistData) {
+  function beginCampaign(protagonistData: ProtagonistData) {
     const cls = getClassById(protagonistData.classId)
     const attrs = startingAttributes(cls.weights)
     const { hpMax, mpMax, stMax } = derivedPools(attrs)
@@ -106,8 +114,9 @@ export default function App() {
       time: { d: 1, h: '08:00 AM' },
     }
 
-    const world = pendingWorld ?? {
+    const world: WorldData = pendingWorld ?? {
       name: 'Untitled World',
+      mode: 'original',
       background: '',
       genreTone: '',
       conflict: '',
@@ -120,12 +129,12 @@ export default function App() {
     const protagonistEntry = upsertProtagonist(protagonistData, protagonistData.id, cls.name)
 
     const campaignId = store.newId('campaign')
-    const campaign = {
+    const campaign: Campaign = {
       id: campaignId,
       title: `${player.name}'s Tale`,
       synopsis: (protagonistData.opening || world.background || '').slice(0, 140),
-      worldId: worldEntry.id,
-      protagonistId: protagonistEntry.id,
+      worldId: worldEntry.id!,
+      protagonistId: protagonistEntry.id!,
       world, // §Phase A — kept for reference until the Codex Realm Overview exists
       player,
       combatMode: 'TACTICAL', // Blueprint §5.1d default
@@ -156,7 +165,7 @@ export default function App() {
       world.background?.trim() && `World Background: ${world.background.trim()}`,
       world.genreTone?.trim() && `Genre & Tone: ${world.genreTone.trim()}`,
       world.conflict?.trim() && `Core Regional Conflict: ${world.conflict.trim()}`,
-    ].filter(Boolean)
+    ].filter(Boolean) as string[]
 
     const briefLine = protagonistData.opening?.trim()
       ? `Tale Dive Brief — open Turn 1 here: ${protagonistData.opening.trim()}`
@@ -170,7 +179,7 @@ export default function App() {
     sendAction(firstAction, campaign, [])
   }
 
-  async function sendAction(actionText, overrideGame, overrideHistory) {
+  async function sendAction(actionText: string, overrideGame?: Campaign, overrideHistory?: HistoryTurn[]) {
     const current = overrideGame ?? game
     if (!current) return
     if (!apiSettings.apiKey) {
@@ -186,21 +195,22 @@ export default function App() {
     // beat is still Gemini's narrative call, §5.13) and the action isn't a
     // disengage attempt.
     const inCombat = current.combatMode === 'TACTICAL' && current.combat?.active && !isDisengaging(actionText)
-    let combatResultLine = null
-    let tacticalOverride = null
-    let combatOutcome = null
+    let combatResultLine: string | null = null
+    let tacticalOverride: TacticalOverride | undefined
+    let combatOutcome: { enemyHpAfter: number; enemyDefeated: boolean } | null = null
 
     if (inCombat) {
+      const combat = current.combat // invariant: active=true always carries enemyHp/enemyDmgBase (set together in the branch below)
       const attack = computePlayerAttack(current.player)
-      const enemyHpAfter = Math.max(0, current.combat.enemyHp - attack.damage)
+      const enemyHpAfter = Math.max(0, combat.enemyHp! - attack.damage)
       const enemyDefeated = enemyHpAfter <= 0
-      const playerDamageTaken = enemyDefeated ? 0 : current.combat.enemyDmgBase
+      const playerDamageTaken = enemyDefeated ? 0 : combat.enemyDmgBase!
 
       combatResultLine = describeCombatResult({
-        enemyName: current.combat.enemyName,
+        enemyName: combat.enemyName,
         damage: attack.damage,
         enemyHp: enemyHpAfter,
-        enemyHpMax: current.combat.enemyHpMax,
+        enemyHpMax: combat.enemyHpMax,
         defeated: enemyDefeated,
         playerDamageTaken,
         exhausted: attack.exhausted,
@@ -212,7 +222,7 @@ export default function App() {
     const baseHistory = overrideHistory ?? history
     const contextSlice = buildContextSlice(current, combatResultLine)
     const userTurnText = `${contextSlice}\n\nPlayer Action: ${actionText}`
-    const newHistory = [...baseHistory, { role: 'user', parts: [{ text: userTurnText }] }]
+    const newHistory: HistoryTurn[] = [...baseHistory, { role: 'user', parts: [{ text: userTurnText }] }]
 
     try {
       const result = await runTurn({
@@ -224,16 +234,18 @@ export default function App() {
       })
 
       if (!result.ok) {
-        setGame((g) => ({
-          ...g,
-          lastPlayed: Date.now(),
-          log: [...g.log, { action: actionText, nar: `[Repairing State] ${result.fallbackText}` }],
-        }))
+        setGame((g) =>
+          g && {
+            ...g,
+            lastPlayed: Date.now(),
+            log: [...g.log, { action: actionText, nar: `[Repairing State] ${result.fallbackText}` }],
+          },
+        )
         setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])
         return
       }
 
-      const turn = result.turn
+      const turn = result.turn!
       const { player: nextPlayer, defeated: playerDefeated } = applyTurn(current.player, turn, tacticalOverride)
       nextPlayer.time = turn.time ?? current.player.time // Shadow Referee doesn't own time
 
@@ -255,11 +267,11 @@ export default function App() {
 
       // §3.2 Turn State Consistency — forced to COMBAT whenever a Tactical
       // result was precomputed; otherwise Gemini's own call, same as always.
-      let turnState = turn.turn_state
-      let nextCombat = current.combat ?? { active: false }
+      let turnState: TurnState = turn.turn_state
+      let nextCombat: CombatState = current.combat ?? { active: false }
       let nextBestiary = linked.bestiary
 
-      if (inCombat) {
+      if (inCombat && combatOutcome) {
         turnState = 'COMBAT'
         nextCombat = combatOutcome.enemyDefeated
           ? { active: false }
@@ -294,33 +306,35 @@ export default function App() {
 
       if (playerDefeated) nextCombat = { active: false }
 
-      setGame((g) => ({
-        ...g,
-        player: nextPlayer,
-        locations: nextLocations,
-        npcs: nextNpcs,
-        factions: linked.factions,
-        lore: linked.lore,
-        quests: linked.quests,
-        bestiary: nextBestiary,
-        combat: nextCombat,
-        lastPlayed: Date.now(),
-        log: [...g.log, { action: actionText, nar: turn.nar, turnState, defeated: playerDefeated }],
-      }))
+      setGame((g) =>
+        g && {
+          ...g,
+          player: nextPlayer,
+          locations: nextLocations,
+          npcs: nextNpcs,
+          factions: linked.factions,
+          lore: linked.lore,
+          quests: linked.quests,
+          bestiary: nextBestiary,
+          combat: nextCombat,
+          lastPlayed: Date.now(),
+          log: [...g.log, { action: actionText, nar: turn.nar, turnState, defeated: playerDefeated }],
+        },
+      )
       setHistory([...newHistory, { role: 'model', parts: [{ text: result.raw }] }])
     } catch (err) {
-      setError(`The thread of fate falters... (${err.message})`)
+      setError(`The thread of fate falters... (${errorMessage(err)})`)
     } finally {
       setBusy(false)
     }
   }
 
-  function openSettings(from) {
+  function openSettings(from: Screen) {
     setSettingsReturnTo(from)
     setScreen('settings')
   }
 
-  function startNewStory(worldId, protagonistId) {
+  function startNewStory(worldId?: string, protagonistId?: string) {
     const world = worldId ? worlds[worldId] : findDefault(worlds)
     const protagonist = protagonistId ? protagonists[protagonistId] : findDefault(protagonists)
     setWorldSetupMode('tale')
@@ -344,11 +358,11 @@ export default function App() {
         uiPrefs={uiPrefs}
         game={game}
         onBack={() => setScreen(settingsReturnTo)}
-        onSave={({ apiSettings: nextApi, uiPrefs: nextUi, proseDepthKey, combatMode }) => {
+        onSave={({ apiSettings: nextApi, uiPrefs: nextUi, proseDepthKey, combatMode }: SettingsSavePayload) => {
           setApiSettings(nextApi)
           setUiPrefs(nextUi)
           if (game) {
-            setGame((g) => ({ ...g, proseDepth: PROSE_DEPTHS[proseDepthKey], combatMode }))
+            setGame((g) => g && { ...g, proseDepth: PROSE_DEPTHS[proseDepthKey], combatMode })
           }
           setScreen(settingsReturnTo)
         }}
@@ -361,7 +375,7 @@ export default function App() {
             apiSettings: { ...apiSettings, apiKey: undefined },
           })
         }
-        onImportJson={async (file) => {
+        onImportJson={async (file: File) => {
           try {
             const data = await readJSONFile(file)
             if (data.worlds || data.protagonists || data.campaigns) {

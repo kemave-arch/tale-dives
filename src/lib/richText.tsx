@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react'
+
 // Blueprint §4.2 Mandatory Rich Text Markup — renders the four narrative
 // markers as styled inline spans instead of leaking raw [brackets]/>angle
 // brackets</>quotes'/{{tags}} syntax into what the player reads. Tapping
@@ -17,11 +19,11 @@
 const OUTER_RE = /\[([^\]]+)\]|>([^<]+)<|(?<!\w)'(.+?)'(?!\w)/g
 const TAG_RE = /\{\{([^{}|]+)\|(\w+)\}\}/g
 
-function renderTags(text, keyPrefix) {
-  const nodes = []
+function renderTags(text: string, keyPrefix: string): ReactNode[] {
+  const nodes: ReactNode[] = []
   let lastIndex = 0
   let key = 0
-  let match
+  let match: RegExpExecArray | null
 
   TAG_RE.lastIndex = 0
   while ((match = TAG_RE.exec(text))) {
@@ -40,12 +42,12 @@ function renderTags(text, keyPrefix) {
   return nodes
 }
 
-export function renderNarrative(text) {
+export function renderNarrative(text: string | undefined): ReactNode[] | null {
   if (!text) return null
-  const nodes = []
+  const nodes: ReactNode[] = []
   let lastIndex = 0
   let key = 0
-  let match
+  let match: RegExpExecArray | null
 
   OUTER_RE.lastIndex = 0
   while ((match = OUTER_RE.exec(text))) {

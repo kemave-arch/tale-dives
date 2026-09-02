@@ -1,15 +1,26 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
+import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen, Globe, UserCircle, Plus, Upload, Download, Trash2, Play, Sparkles, Star, Settings as SettingsIcon,
 } from 'lucide-react'
+import type { Campaign, Dict, ProtagonistData, WorldData } from '../types.ts'
 
 const TABS = [
   { id: 'tales', label: 'Tales', icon: BookOpen },
   { id: 'worlds', label: 'Worlds', icon: Globe },
   { id: 'protagonists', label: 'Protagonists', icon: UserCircle },
-]
+] as const
 
-function IconButton({ icon: Icon, label, onClick, tone = 'default' }) {
+type Tone = 'default' | 'action' | 'danger'
+
+interface IconButtonProps {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  tone?: Tone
+}
+
+function IconButton({ icon: Icon, label, onClick, tone = 'default' }: IconButtonProps) {
   const toneClass =
     tone === 'danger'
       ? 'text-rose hover:bg-rose-bg'
@@ -28,7 +39,14 @@ function IconButton({ icon: Icon, label, onClick, tone = 'default' }) {
   )
 }
 
-function DashedCard({ icon: Icon, label, onClick, children }) {
+interface DashedCardProps {
+  icon: LucideIcon
+  label: string
+  onClick: () => void
+  children?: ReactNode
+}
+
+function DashedCard({ icon: Icon, label, onClick, children }: DashedCardProps) {
   return (
     <button
       onClick={onClick}
@@ -41,6 +59,24 @@ function DashedCard({ icon: Icon, label, onClick, children }) {
       {children}
     </button>
   )
+}
+
+interface MainMenuProps {
+  worlds: Dict<WorldData>
+  protagonists: Dict<ProtagonistData>
+  campaigns: Dict<Campaign>
+  onResume: (id: string) => void
+  onNewSession: (worldId?: string, protagonistId?: string) => void
+  onDeleteCampaign: (id: string) => void
+  onExportCampaign: (id: string) => void
+  onImportCampaign: (file: File) => void
+  onNewWorld: () => void
+  onSetDefaultWorld: (id: string) => void
+  onDeleteWorld: (id: string) => void
+  onNewProtagonist: () => void
+  onSetDefaultProtagonist: (id: string) => void
+  onDeleteProtagonist: (id: string) => void
+  onOpenSettings: () => void
 }
 
 export default function MainMenu({
@@ -59,9 +95,9 @@ export default function MainMenu({
   onSetDefaultProtagonist,
   onDeleteProtagonist,
   onOpenSettings,
-}) {
-  const [tab, setTab] = useState('tales')
-  const importRef = useRef(null)
+}: MainMenuProps) {
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('tales')
+  const importRef = useRef<HTMLInputElement>(null)
 
   const taleList = Object.values(campaigns).sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))
   const worldList = Object.values(worlds)
@@ -141,9 +177,9 @@ export default function MainMenu({
                   icon={Star}
                   label={world.isDefault ? 'Default world' : 'Set as default'}
                   tone={world.isDefault ? 'action' : 'default'}
-                  onClick={() => onSetDefaultWorld(world.id)}
+                  onClick={() => onSetDefaultWorld(world.id!)}
                 />
-                <IconButton icon={Trash2} label="Delete" tone="danger" onClick={() => onDeleteWorld(world.id)} />
+                <IconButton icon={Trash2} label="Delete" tone="danger" onClick={() => onDeleteWorld(world.id!)} />
               </div>
             </div>
           ))}
@@ -162,9 +198,9 @@ export default function MainMenu({
                   icon={Star}
                   label={p.isDefault ? 'Default protagonist' : 'Set as default'}
                   tone={p.isDefault ? 'action' : 'default'}
-                  onClick={() => onSetDefaultProtagonist(p.id)}
+                  onClick={() => onSetDefaultProtagonist(p.id!)}
                 />
-                <IconButton icon={Trash2} label="Delete" tone="danger" onClick={() => onDeleteProtagonist(p.id)} />
+                <IconButton icon={Trash2} label="Delete" tone="danger" onClick={() => onDeleteProtagonist(p.id!)} />
               </div>
             </div>
           ))}

@@ -1,10 +1,11 @@
-import { describeKnownLocation } from './locations.js'
-import { describePresentNpc, presentNpcs } from './npcs.js'
+import { describeKnownLocation } from './locations.ts'
+import { describePresentNpc, presentNpcs } from './npcs.ts'
+import type { Campaign } from '../types.ts'
 
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
-export function buildContextSlice(state, combatResultLine) {
+export function buildContextSlice(state: Campaign, combatResultLine?: string | null): string {
   const { player, combatMode, proseDepth, narrationStyle, locations, npcs } = state
 
   const lines = [

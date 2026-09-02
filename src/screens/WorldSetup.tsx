@@ -1,21 +1,29 @@
 import { useState } from 'react'
 import { ArrowLeft, ArrowRight, Globe } from 'lucide-react'
-import { DEFAULT_NARRATION_STYLE } from '../api/turnContract.js'
+import { DEFAULT_NARRATION_STYLE } from '../api/turnContract.ts'
+import type { WorldData } from '../types.ts'
+
+interface WorldSetupProps {
+  worldTemplates?: WorldData[]
+  initial?: WorldData | null
+  onBack: () => void
+  onContinue: (world: WorldData) => void
+}
 
 // Blueprint §Phase A.1 — Original Mode world setup, now also usable as the
 // World Library's create/edit form (§6.4B) since both need the same fields.
 // Inspired Mode (§Phase A.2, title/author -> grounded world-fabrication call)
 // isn't built yet — it needs Gemini's search-grounding tool alongside
 // structured JSON output in the same call, which needs its own verification.
-export default function WorldSetup({ worldTemplates = [], initial, onBack, onContinue }) {
-  const [templateId, setTemplateId] = useState(initial?.id ?? null)
+export default function WorldSetup({ worldTemplates = [], initial, onBack, onContinue }: WorldSetupProps) {
+  const [templateId, setTemplateId] = useState<string | null | undefined>(initial?.id ?? null)
   const [name, setName] = useState(initial?.name ?? '')
   const [genreTone, setGenreTone] = useState(initial?.genreTone ?? '')
   const [conflict, setConflict] = useState(initial?.conflict ?? '')
   const [background, setBackground] = useState(initial?.background ?? '')
   const [narrationStyle, setNarrationStyle] = useState(initial?.narrationStyle ?? DEFAULT_NARRATION_STYLE)
 
-  function applyTemplate(t) {
+  function applyTemplate(t: WorldData) {
     setTemplateId(t.id)
     setName(t.name)
     setGenreTone(t.genreTone ?? '')

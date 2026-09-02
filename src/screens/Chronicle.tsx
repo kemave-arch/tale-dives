@@ -1,12 +1,24 @@
 import { useState, useRef, useEffect } from 'react'
 import { Menu, Settings as SettingsIcon, Send, Swords } from 'lucide-react'
-import { renderNarrative } from '../lib/richText.jsx'
+import { renderNarrative } from '../lib/richText.tsx'
+import type { CombatState, LogEntry, Player } from '../types.ts'
+
+interface ChronicleProps {
+  player: Player
+  combat?: CombatState
+  log: LogEntry[]
+  busy: boolean
+  error: string | null
+  onSend: (action: string) => void
+  onOpenSettings: () => void
+  onOpenMenu: () => void
+}
 
 // Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
 // yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
-export default function Chronicle({ player, combat, log, busy, error, onSend, onOpenSettings, onOpenMenu }) {
+export default function Chronicle({ player, combat, log, busy, error, onSend, onOpenSettings, onOpenMenu }: ChronicleProps) {
   const [input, setInput] = useState('')
-  const scrollRef = useRef(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })

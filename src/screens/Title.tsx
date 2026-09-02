@@ -1,7 +1,12 @@
 import { Settings as SettingsIcon } from 'lucide-react'
 
+interface TitleProps {
+  onEnter: () => void
+  onSettings: () => void
+}
+
 // Blueprint §6.4A — v1 scaffold: wordmark, tagline, ENTER into the Main Menu.
-export default function Title({ onEnter, onSettings }) {
+export default function Title({ onEnter, onSettings }: TitleProps) {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-canvas text-ink px-6 text-center">
       <h1 className="font-display font-black text-5xl tracking-wide text-gold-primary">TALE DIVES</h1>

@@ -1,15 +1,16 @@
-import { ensureEntry } from './autoRegister.js'
-import { slugify } from './slug.js'
+import { ensureEntry } from './autoRegister.ts'
+import { slugify } from './slug.ts'
+import type { Dict, NpcEntry, NpcMemoryUpdate } from '../types.ts'
 
 // §5.5 Romance & Key Contact Memory Engine + §5.14 auto-registration.
 // npc_mem_up only ever carries an id, never a display name — a title-cased
 // version of it is the fallback display name when no {{Term|npc}} keyword
 // link (§4.2/§5.14, lib/codex.js) has already registered a nicer one.
-function titleCaseId(id) {
+function titleCaseId(id: string): string {
   return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
-export function emptyNpc(name) {
+export function emptyNpc(name: string): Omit<NpcEntry, 'autoLogged'> {
   return { name, affection: 0, trust: 0, stage: 'Stranger', deeds: [], memSummary: '', lastSeenLocId: null }
 }
 
@@ -21,19 +22,23 @@ const STAGES = [
   { max: Infinity, label: 'Beloved' },
 ]
 
-function stageFor(affection) {
-  return STAGES.find((s) => affection <= s.max).label
+function stageFor(affection: number): string {
+  return STAGES.find((s) => affection <= s.max)!.label
 }
 
-function clamp(v, min, max) {
+function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v))
 }
 
 // Applies one turn's npc_mem_up entries. `locId` tags who was present where,
 // standing in for real proximity tracking (§5.5) until presence is a schema
 // field of its own rather than inferred from "who got a memory update."
-export function applyNpcUpdates(npcs, updates = [], locId) {
-  let dict = npcs ?? {}
+export function applyNpcUpdates(
+  npcs: Dict<NpcEntry> | undefined,
+  updates: NpcMemoryUpdate[] = [],
+  locId?: string,
+): Dict<NpcEntry> {
+  let dict: Dict<NpcEntry> = npcs ?? {}
 
   for (const u of updates) {
     if (!u.npc_id) continue
@@ -69,10 +74,10 @@ export function applyNpcUpdates(npcs, updates = [], locId) {
 
 // §3.1 "Present NPCs" line — only for NPCs last seen at the active location,
 // so an absent NPC costs 0 context tokens (§5.5 Proximity Slicing).
-export function describePresentNpc(entry) {
+export function describePresentNpc(entry: NpcEntry): string {
   return `NPC: ${entry.name} | Stage: ${entry.stage} | Trust: ${entry.trust} | Mem: "${entry.memSummary}"`
 }
 
-export function presentNpcs(npcs, locId) {
+export function presentNpcs(npcs: Dict<NpcEntry> | undefined, locId: string): NpcEntry[] {
   return Object.values(npcs ?? {}).filter((n) => n.lastSeenLocId === locId)
 }

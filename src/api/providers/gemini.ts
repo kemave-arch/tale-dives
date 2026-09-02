@@ -1,10 +1,15 @@
 // Gemini provider adapter — Blueprint §7.1 (call shape) and §3.3 (self-healing pipeline).
-import { SYSTEM_INSTRUCTIONS, TURN_SCHEMA } from '../turnContract.js'
+import { SYSTEM_INSTRUCTIONS, TURN_SCHEMA } from '../turnContract.ts'
+import type { HistoryTurn, RunTurnResult } from '../../types.ts'
 
 const BASE_URL = 'https://generativelanguage.googleapis.com/v1beta/models'
 
+export class GeminiApiError extends Error {
+  status?: number
+}
+
 // Stage 1 (Regex Sanitizer): strip markdown fences / trailing commas before parsing.
-function sanitize(raw) {
+function sanitize(raw: string): string {
   return raw
     .trim()
     .replace(/^```(?:json)?/i, '')
@@ -13,15 +18,16 @@ function sanitize(raw) {
     .trim()
 }
 
+const NAR_ESCAPES: Record<string, string> = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\', '/': '/' }
+
 // Stage 3 (Fallback Reader) helper — §3.3: "extracts pure prose between quotes
 // and renders it directly," not the raw JSON blob. Walks the "nar" field's
 // string content by hand (rather than a single regex) so a response cut off
 // mid-string by MAX_TOKENS still yields whatever prose made it out.
-function extractNarrative(raw) {
+function extractNarrative(raw: string): string | null {
   const match = raw.match(/"nar"\s*:\s*"/)
-  if (!match) return null
+  if (!match || match.index === undefined) return null
 
-  const ESCAPES = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\', '/': '/' }
   let result = ''
   for (let i = match.index + match[0].length; i < raw.length; i++) {
     const ch = raw[i]
@@ -32,7 +38,7 @@ function extractNarrative(raw) {
         result += String.fromCharCode(parseInt(raw.slice(i + 2, i + 6), 16))
         i += 5
       } else {
-        result += ESCAPES[next] ?? next
+        result += NAR_ESCAPES[next] ?? next
         i += 1
       }
       continue
@@ -42,7 +48,20 @@ function extractNarrative(raw) {
   return result || null
 }
 
-async function requestOnce({ apiKey, model, temperature, maxOutputTokens, history }) {
+interface RequestParams {
+  apiKey: string
+  model: string
+  temperature: number
+  maxOutputTokens: number
+  history: HistoryTurn[]
+}
+
+interface RawResponse {
+  text: string
+  finishReason?: string
+}
+
+async function requestOnce({ apiKey, model, temperature, maxOutputTokens, history }: RequestParams): Promise<RawResponse> {
   // Key goes in a header, not the URL — keeps it out of browser history and network logs.
   const url = `${BASE_URL}/${encodeURIComponent(model)}:generateContent`
 
@@ -66,21 +85,21 @@ async function requestOnce({ apiKey, model, temperature, maxOutputTokens, histor
   if (!res.ok) {
     const errBody = await res.json().catch(() => ({}))
     const message = errBody?.error?.message ?? `HTTP ${res.status}`
-    const err = new Error(message)
+    const err = new GeminiApiError(message)
     err.status = res.status
     throw err
   }
 
   const data = await res.json()
   const finishReason = data?.candidates?.[0]?.finishReason
-  const text = data?.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? ''
+  const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
 
   return { text, finishReason }
 }
 
 // Stage 0: one silent retry on request failure (§3.3).
-export async function runTurn({ apiKey, model, temperature, maxOutputTokens, history }) {
-  let lastError
+export async function runTurn({ apiKey, model, temperature, maxOutputTokens, history }: RequestParams): Promise<RunTurnResult> {
+  let lastError: unknown
   for (let attempt = 1; attempt <= 2; attempt++) {
     try {
       const { text, finishReason } = await requestOnce({ apiKey, model, temperature, maxOutputTokens, history })

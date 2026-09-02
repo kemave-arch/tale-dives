@@ -1,13 +1,33 @@
 import { useRef, useState } from 'react'
 import { Cpu, SlidersHorizontal, Database, Info, X, Save, Download, Upload, RotateCcw } from 'lucide-react'
-import { PROSE_DEPTHS } from '../api/turnContract.js'
+import { PROSE_DEPTHS } from '../api/turnContract.ts'
+import type { ApiSettings, Campaign, CombatMode, Skin, UiPrefs } from '../types.ts'
 
 const TABS = [
   { id: 'model', label: 'AI Model', icon: Cpu },
   { id: 'gameplay', label: 'Gameplay', icon: SlidersHorizontal },
   { id: 'backup', label: 'Backup', icon: Database },
   { id: 'about', label: 'About', icon: Info },
-]
+] as const
+
+export interface SettingsSavePayload {
+  apiSettings: ApiSettings
+  uiPrefs: UiPrefs
+  proseDepthKey: keyof typeof PROSE_DEPTHS
+  combatMode: CombatMode
+}
+
+interface SettingsProps {
+  apiSettings: ApiSettings
+  uiPrefs: UiPrefs
+  game: Campaign | null
+  onBack: () => void
+  onSave: (payload: SettingsSavePayload) => void
+  onExportActive: () => void
+  onBackupAll: () => void
+  onImportJson: (file: File) => void
+  onResetDefaults: () => void
+}
 
 // Blueprint §6.4E — one drawer, reused pre-campaign and in-story. Gameplay
 // controls (Prose Depth/Combat Mode) only apply once a Tale is active.
@@ -21,15 +41,17 @@ export default function Settings({
   onBackupAll,
   onImportJson,
   onResetDefaults,
-}) {
-  const [tab, setTab] = useState('model')
+}: SettingsProps) {
+  const [tab, setTab] = useState<(typeof TABS)[number]['id']>('model')
   const [model, setModel] = useState(apiSettings.model)
   const [apiKey, setApiKey] = useState(apiSettings.apiKey)
   const [temperature, setTemperature] = useState(apiSettings.temperature)
-  const [skin, setSkin] = useState(uiPrefs.skin)
-  const [proseDepthKey, setProseDepthKey] = useState(game?.proseDepth?.label ?? 'BALANCED')
-  const [combatMode, setCombatMode] = useState(game?.combatMode ?? 'NARRATIVE')
-  const importRef = useRef(null)
+  const [skin, setSkin] = useState<Skin>(uiPrefs.skin)
+  const [proseDepthKey, setProseDepthKey] = useState<keyof typeof PROSE_DEPTHS>(
+    (game?.proseDepth?.label as keyof typeof PROSE_DEPTHS) ?? 'BALANCED',
+  )
+  const [combatMode, setCombatMode] = useState<CombatMode>(game?.combatMode ?? 'NARRATIVE')
+  const importRef = useRef<HTMLInputElement>(null)
 
   function save() {
     onSave({
@@ -112,7 +134,7 @@ export default function Settings({
             <div>
               <p className="text-sm font-display mb-1">Prose Depth</p>
               <div className="flex gap-2">
-                {Object.keys(PROSE_DEPTHS).map((key) => (
+                {(Object.keys(PROSE_DEPTHS) as (keyof typeof PROSE_DEPTHS)[]).map((key) => (
                   <button
                     key={key}
                     onClick={() => setProseDepthKey(key)}
@@ -131,7 +153,7 @@ export default function Settings({
             <div>
               <p className="text-sm font-display mb-1">Combat Resolution Mode</p>
               <div className="flex gap-2">
-                {['TACTICAL', 'NARRATIVE'].map((m) => (
+                {(['TACTICAL', 'NARRATIVE'] as const).map((m) => (
                   <button
                     key={m}
                     onClick={() => setCombatMode(m)}
@@ -149,10 +171,12 @@ export default function Settings({
             <div>
               <p className="text-sm font-display mb-1">Skin</p>
               <div className="flex gap-2">
-                {[
-                  { id: 'parchment', label: 'Parchment' },
-                  { id: 'obsidian', label: 'Obsidian' },
-                ].map((s) => (
+                {(
+                  [
+                    { id: 'parchment', label: 'Parchment' },
+                    { id: 'obsidian', label: 'Obsidian' },
+                  ] as const
+                ).map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setSkin(s.id)}

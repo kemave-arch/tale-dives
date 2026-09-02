@@ -1,11 +1,25 @@
-import { ensureEntry } from './autoRegister.js'
-import { slugify } from './slug.js'
-import { parseKeywordLinks } from './keywordLinks.js'
-import { ensureLocation } from './locations.js'
-import { emptyNpc } from './npcs.js'
+import { ensureEntry } from './autoRegister.ts'
+import { slugify } from './slug.ts'
+import { parseKeywordLinks } from './keywordLinks.ts'
+import { ensureLocation } from './locations.ts'
+import { emptyNpc } from './npcs.ts'
+import type { BestiaryEntry, Dict, FactionEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry } from '../types.ts'
 
-function ensureStub(dict, id, factory) {
+function ensureStub<T extends { autoLogged?: boolean }>(
+  dict: Dict<T> | undefined,
+  id: string,
+  factory: () => Omit<T, 'autoLogged'>,
+): Dict<T> {
   return ensureEntry(dict, id, factory).dict
+}
+
+export interface CodexDicts {
+  locations: Dict<LocationEntry>
+  npcs: Dict<NpcEntry>
+  factions: Dict<FactionEntry>
+  lore: Dict<LoreEntry>
+  quests: Dict<QuestEntry>
+  bestiary: Dict<BestiaryEntry>
 }
 
 // §5.14 — applies every {{Term|category}} mention in this turn's prose to the
@@ -14,7 +28,7 @@ function ensureStub(dict, id, factory) {
 // npc_mem_up) — this ADDS entries for things only mentioned in passing, and
 // gives both paths a real display name (a keyword tag's Term) instead of a
 // bare id, provided this runs before those other paths each turn.
-export function applyKeywordLinks(codex, nar) {
+export function applyKeywordLinks(codex: CodexDicts, nar: string | undefined): CodexDicts {
   let { locations, npcs, factions, lore, quests, bestiary } = codex
 
   for (const { term, category } of parseKeywordLinks(nar)) {

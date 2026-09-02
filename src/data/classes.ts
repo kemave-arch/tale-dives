@@ -1,5 +1,7 @@
+import type { ClassDef } from '../types.ts'
+
 // Preset Class Dictionary — Blueprint §5.1a. Each weight vector sums to 1.0.
-export const PRESET_CLASSES = [
+export const PRESET_CLASSES: ClassDef[] = [
   { id: 'warrior', name: 'Warrior', weights: { STR: 0.6, INT: 0.1, AGI: 0.3 } },
   { id: 'assassin', name: 'Assassin', weights: { STR: 0.15, INT: 0.15, AGI: 0.7 } },
   { id: 'dragon_rider', name: 'Dragon Rider', weights: { STR: 0.35, INT: 0.3, AGI: 0.35 } },
@@ -11,6 +13,6 @@ export const PRESET_CLASSES = [
   { id: 'paladin', name: 'Paladin', weights: { STR: 0.4, INT: 0.4, AGI: 0.2 } },
 ]
 
-export function getClassById(id) {
+export function getClassById(id: string): ClassDef {
   return PRESET_CLASSES.find((c) => c.id === id) ?? PRESET_CLASSES[0]
 }

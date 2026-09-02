@@ -1,3 +1,5 @@
+import type { ProseDepthConfig } from '../types.ts'
+
 // Gemini call contract — Blueprint §7.2 (System Instructions) and §7.3 (JSON Schema).
 // Kept byte-identical to the spec text; this is the single biggest lever for
 // prompt caching (§3.4) since only the JIT context slice changes turn to turn.
@@ -138,7 +140,7 @@ export const TURN_SCHEMA = {
 }
 
 // §4.4/§7.1 shared Prose Depth table — token ceiling only, never model choice.
-export const PROSE_DEPTHS = {
+export const PROSE_DEPTHS: Record<'CONCISE' | 'BALANCED' | 'IMMERSIVE', ProseDepthConfig> = {
   CONCISE: { label: 'CONCISE', targetTokens: '~600-800 tokens', maxOutputTokens: 1280 },
   BALANCED: { label: 'BALANCED', targetTokens: '~1,100-1,400 tokens', maxOutputTokens: 2048 },
   IMMERSIVE: { label: 'IMMERSIVE', targetTokens: '~1,800-2,600 tokens', maxOutputTokens: 3584 },
