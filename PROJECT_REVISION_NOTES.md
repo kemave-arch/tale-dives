@@ -4,9 +4,10 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`72f7ef9`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`fbdef88`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
-that distinction matters below.
+that distinction matters below. **Check the Revision log at the bottom first** — it's the
+fastest way to see what's changed since your last read of this file.
 
 ## 0. How to resume
 
@@ -60,8 +61,9 @@ slicing), `shadowReferee.ts` (client-side validation of model-proposed deltas), 
 + `keywordLinks.ts` (`{{Term|category}}` auto-registration), `locations.ts`, `npcs.ts`,
 `quests.ts`, `inventory.ts` (per-domain state appliers), `combat.ts` (Tactical combat
 math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts` (`!`
-client-side commands), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`,
-`autoRegister.ts`, `turnStates.ts`, `backup.ts` (JSON download/upload only).
+client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks, new this
+session), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`,
+`turnStates.ts`, `backup.ts` (JSON download/upload only).
 
 **API** (`src/api/`): `turnContract.ts` (system prompt + `TURN_SCHEMA`),
 `providers/gemini.ts` (the *only* provider implementation — `runTurn`, `runSummary`).
@@ -70,7 +72,7 @@ client-side commands), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.t
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `72f7ef9`. See `git log --oneline` for
+Everything below is implemented and working as of `fbdef88`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -105,6 +107,19 @@ the literal commit sequence; the summary here groups by feature, not commit.
 - **Autocomplete dropdown opacity** — both the bang and slash dropdowns use
   `bg-[#141622]/60` + `backdrop-blur-sm` (60% opacity, per explicit user request this
   session).
+- **§5.12 Codex Discovery ("Fog of Lore")** (this session, commit `fbdef88`) — every
+  Codex entry can carry a `discovery` object (`src/types.ts`'s `Discovery` type: `state`
+  known/hidden, `revealTrigger`, `revealCondition`, `teaser`). Reveal checks run
+  client-side every turn (`src/lib/discovery.ts`'s `checkCodexReveals`, called from
+  `App.tsx`'s `sendAction`) against `flag_add`/`loc_id`/`npc_mem_up`/`quest_update` —
+  zero extra tokens, zero new turn-schema fields. A reveal surfaces an inline "Codex
+  Updated" badge in the Chronicle log. Masking is enforced in both the Chronicle's
+  tap-to-open popup card and the full Codex UI (grid cards + detail view show
+  `???`/teaser/Lock treatment) — except inside CRUD Edit Mode, which always shows the
+  full record plus an editable Discovery panel so a player can hand-author their own
+  reveals. **Caveat**: there's still no seeding/grounding call that pre-populates hidden
+  lore on its own — today an entry only becomes hidden via manual CRUD. See Tier 3 item
+  #10 (Class Evolution) below, which was expected to reuse this reveal-badge treatment.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -120,8 +135,10 @@ assumption.
    a trigger mechanism (story-driven, per the blueprint — likely a new field on
    `TurnResponse`/`turnContract.ts`'s schema the model can set), a client-side handler in
    `App.tsx` analogous to `applyLevelUps`, and a UI toast/banner treatment (blueprint
-   explicitly says: same treatment as a Codex Discovery reveal — *which also isn't built*,
-   so that reference pattern needs to be established here first or independently).
+   says: same treatment as a Codex Discovery reveal — **that reference pattern now
+   exists**, see §3 above and `Chronicle.tsx`'s `entry.discoveries` badge rendering in
+   `TurnBlock` — reuse that same inline-pill pattern for the evolution banner rather than
+   inventing a new one).
 
 2. **#12 Crafting & Resource Management** (blueprint §5.8) — timestamp-based, 0-token,
    client-resolved. **Zero implementation.** No queue/recipe/workbench type anywhere in
@@ -139,18 +156,13 @@ assumption.
    get access — ties into Class Evolution above, since evolving into a summoner-type
    class should presumably grant it), and combat integration in `combat.ts`.
 
-4. **#14 Faction rivalry + Codex Discovery ("Fog of Lore")** — two separate blueprint
-   sections, both unbuilt:
-   - **Faction rivalry / standing derivation** (§5.4/§5.11): `FactionEntry` is currently
-     just `{ name, repTier, autoLogged? }` — no faction-vs-faction relationship graph, no
-     derived standing math. `LocationEntry.standing` is a hand-authored/model-set string,
-     not computed from faction rep at all.
-   - **Codex Discovery / Fog of Lore** (§5.12): explicitly flagged as unbuilt by an
-     existing in-code comment at `src/screens/Codex.tsx:178-180`. No
-     `hidden`/`discovered`/`masked` field exists on any Codex entry type. No `???`/teaser
-     rendering. This is a prerequisite several *other* pending features reference (Class
-     Evolution's UI treatment, per above), so it may be worth sequencing this one first
-     within the batch rather than last.
+4. **#14 Faction rivalry** (blueprint §5.4/§5.11) — **still zero implementation.**
+   `FactionEntry` is currently just `{ name, repTier, autoLogged?, discovery? }` — no
+   faction-vs-faction relationship graph, no derived standing math. `LocationEntry.standing`
+   is a hand-authored/model-set string, not computed from faction rep at all. (Codex
+   Discovery / "Fog of Lore", the other half of this item as originally scoped, **is now
+   built** — see §3 above and `src/lib/discovery.ts`. This item is faction rivalry only
+   going forward.)
 
 5. **#15 Inspired Mode** (blueprint §Phase A.2) — adapting a real novel/series via
    title/author grounding (Gemini search-grounding tool + structured JSON output in the
@@ -200,13 +212,13 @@ Per the standing instruction this session was given:
 
 ## 6. Suggested resumption order
 
-1. Pick up Tier 3 item #14's Codex Discovery half first if practical — it's a stated
-   dependency/reference-pattern for #10's UI treatment, so building it first avoids
-   redoing #10's toast/banner work later.
+1. ~~Pick up Tier 3 item #14's Codex Discovery half first~~ — **done** (commit `fbdef88`).
 2. Work the rest of the Tier 3 list in order (#10 → #12 → #13 → #14 remainder → #15 →
    #16), committing and pushing after each, and **repeat this notes-file update after
    each major chunk** (append a dated entry below rather than rewriting history above) —
-   this was the explicit instruction that produced this file in the first place.
+   this was the explicit instruction that produced this file in the first place. #10
+   (Class Evolution) is the natural next pick — its reveal-banner UI dependency on Codex
+   Discovery is now satisfied.
 3. Do the full verify-and-fix pass across existing functions/components.
 4. Do the final beautification pass last.
 5. Always run `npm run typecheck` and `npm run build` clean, and manually click through
@@ -219,3 +231,18 @@ Per the standing instruction this session was given:
 - **2026-09-03** — Initial version of this document, written after committing and pushing
   the Slash Command Manager feature (`72f7ef9`). Tier 3 list above is the starting point
   for all future work; nothing in §4 has been started yet.
+- **2026-09-03** — Codex Discovery / "Fog of Lore" (blueprint §5.12) implemented and
+  pushed (`fbdef88`). This closes the Codex Discovery half of what was originally Tier 3
+  item #14 — that item is now faction-rivalry-only. Verified live in the dev server:
+  created a hidden Lore entry via CRUD with a `flag`-trigger reveal condition, confirmed
+  it renders as `???` + teaser + Lock badge in both the Codex grid and the Chronicle's
+  tap-to-open popup, confirmed CRUD Edit Mode still shows the full record while hidden
+  (masking exception per spec), and confirmed toggling the state back to Known correctly
+  un-masks it everywhere. Did not verify the automatic in-turn reveal path (that would
+  require spending a real Gemini API call) — that logic (`checkCodexReveals` in
+  `src/lib/discovery.ts`) is straightforward, typechecked, and code-reviewed, but a
+  future session should watch for it the first time a real flag/location/NPC/quest
+  reveal fires during actual play, since it hasn't been observed live yet. `npm run
+  typecheck` and `npm run build` both clean. Next up per §6: Tier 3 item #10 (Class
+  Evolution), which can now reuse the `entry.discoveries` inline-badge pattern in
+  `Chronicle.tsx`'s `TurnBlock` for its own reveal banner.
