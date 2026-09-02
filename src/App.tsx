@@ -6,7 +6,7 @@ import MainMenu from './screens/MainMenu.tsx'
 import WorldSetup from './screens/WorldSetup.tsx'
 import NewGame from './screens/NewGame.tsx'
 import Chronicle from './screens/Chronicle.tsx'
-import Codex from './screens/Codex.tsx'
+import Codex, { type CategoryId } from './screens/Codex.tsx'
 import { getClassById } from './data/classes.ts'
 import { startingAttributes, derivedPools } from './lib/derivedStats.ts'
 import { buildContextSlice } from './lib/jitContext.ts'
@@ -24,7 +24,16 @@ import { runTurn, runSummary } from './api/providers/gemini.ts'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { downloadJSON, readJSONFile } from './lib/backup.ts'
 import * as store from './lib/store.ts'
-import type { Campaign, CombatState, Dict, HistoryTurn, ProtagonistData, TurnState, WorldData } from './types.ts'
+import type { Campaign, CombatState, Dict, HistoryTurn, KeywordLink, ProtagonistData, TurnState, WorldData } from './types.ts'
+
+const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
+  npc: 'npcs',
+  loc: 'locations',
+  faction: 'factions',
+  lore: 'lore',
+  quest: 'quests',
+  beast: 'bestiary',
+}
 
 type Screen = 'title' | 'settings' | 'mainmenu' | 'worldsetup' | 'newgame' | 'chronicle' | 'codex'
 type CreationMode = 'tale' | 'library'
@@ -64,6 +73,7 @@ export default function App() {
   const [worldSetupInitial, setWorldSetupInitial] = useState<WorldData | null>(null)
   const [newGameMode, setNewGameMode] = useState<CreationMode>('tale')
   const [newGameInitial, setNewGameInitial] = useState<ProtagonistData | null>(null)
+  const [codexTarget, setCodexTarget] = useState<{ category: CategoryId; id: string } | null>(null)
 
   const [history, setHistory] = useState<HistoryTurn[]>([]) // Gemini `contents` sliding window (§3.1)
   const [busy, setBusy] = useState(false)
@@ -638,7 +648,12 @@ export default function App() {
         bestiary={game.bestiary}
         flags={game.flags}
         inventory={game.inventory}
-        onBack={() => setScreen('chronicle')}
+        initialCategory={codexTarget?.category}
+        initialEntryId={codexTarget?.id}
+        onBack={() => {
+          setCodexTarget(null)
+          setScreen('chronicle')
+        }}
       />
     )
   } else if (screen === 'chronicle' && game) {
@@ -649,10 +664,23 @@ export default function App() {
         log={game.log}
         busy={busy}
         error={error}
+        npcs={game.npcs}
+        locations={game.locations}
+        factions={game.factions}
+        lore={game.lore}
+        quests={game.quests}
+        bestiary={game.bestiary}
         onSend={sendAction}
         onOpenSettings={() => openSettings('chronicle')}
         onOpenMenu={() => setScreen('mainmenu')}
-        onOpenCodex={() => setScreen('codex')}
+        onOpenCodex={() => {
+          setCodexTarget(null)
+          setScreen('codex')
+        }}
+        onOpenCodexEntry={(category, id) => {
+          setCodexTarget({ category: KEYWORD_CATEGORY_TO_CODEX[category], id })
+          setScreen('codex')
+        }}
       />
     )
   } else {

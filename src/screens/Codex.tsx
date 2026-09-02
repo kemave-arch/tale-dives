@@ -5,7 +5,7 @@ import {
 } from 'lucide-react'
 import type { BestiaryEntry, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, QuestEntry, WorldData } from '../types.ts'
 
-type CategoryId = 'realm' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'inventory'
+export type CategoryId = 'realm' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'inventory'
 
 interface CodexProps {
   world: WorldData
@@ -18,6 +18,8 @@ interface CodexProps {
   bestiary: Record<string, BestiaryEntry>
   flags: string[]
   inventory: Record<string, number>
+  initialCategory?: CategoryId | null
+  initialEntryId?: string | null
   onBack: () => void
 }
 
@@ -62,9 +64,23 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 // Blueprint §6.4D — Category List -> Entry Grid -> Entry Detail. Discovery
 // masking (§5.12) isn't implemented — nothing here is actually hidden yet,
 // since the grounding/seeding system it depends on doesn't exist.
-export default function Codex({ world, log, npcs, factions, locations, lore, quests, bestiary, flags, inventory, onBack }: CodexProps) {
-  const [category, setCategory] = useState<CategoryId | null>(null)
-  const [entryId, setEntryId] = useState<string | null>(null)
+export default function Codex({
+  world,
+  log,
+  npcs,
+  factions,
+  locations,
+  lore,
+  quests,
+  bestiary,
+  flags,
+  inventory,
+  initialCategory,
+  initialEntryId,
+  onBack,
+}: CodexProps) {
+  const [category, setCategory] = useState<CategoryId | null>(initialCategory ?? null)
+  const [entryId, setEntryId] = useState<string | null>(initialEntryId ?? null)
 
   const chapters = log.filter((e) => e.chapterSummary)
 
