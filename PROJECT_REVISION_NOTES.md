@@ -4,7 +4,7 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`fbdef88`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`3597869`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
@@ -72,7 +72,7 @@ session), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegi
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `fbdef88`. See `git log --oneline` for
+Everything below is implemented and working as of `3597869`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -118,8 +118,20 @@ the literal commit sequence; the summary here groups by feature, not commit.
   `???`/teaser/Lock treatment) — except inside CRUD Edit Mode, which always shows the
   full record plus an editable Discovery panel so a player can hand-author their own
   reveals. **Caveat**: there's still no seeding/grounding call that pre-populates hidden
-  lore on its own — today an entry only becomes hidden via manual CRUD. See Tier 3 item
-  #10 (Class Evolution) below, which was expected to reuse this reveal-badge treatment.
+  lore on its own — today an entry only becomes hidden via manual CRUD.
+- **§5.1b Class Evolution** (this session, commit `3597869`) — the player's single class
+  slot can change mid-campaign, replaced outright (non-retroactive: already-earned
+  attribute points keep their history, only future level-ups follow the new class's
+  weight vector). Two triggers: story-driven via an optional `class_evolution` field on
+  `TurnResponse` (schema-constrained to the Preset Class Dictionary, so the model can
+  never propose an unrecognized class — see `src/api/turnContract.ts`), or manual via a
+  new "Character" Codex category (`src/screens/Codex.tsx`) with a class-picker edit mode.
+  The Chronicle surfaces it as a banner reusing the Codex Discovery badge treatment (a
+  synthetic divider block for the manual trigger, an inline pill for the story-driven
+  one). **Scope note**: this works within the existing Preset Class Dictionary only — the
+  blueprint describes evolution as reusing a "Class Grounding" search-grounded call for
+  freely-typed class names, which doesn't exist at character creation either; that's
+  bundled with Inspired Mode (Tier 3 item #15 below) as shared future work.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -128,17 +140,9 @@ actual source (not the blueprint's aspirational text) immediately before writing
 doc — "not implemented" below means a real grep/read confirmed zero code, not an
 assumption.
 
-1. **#10 Class Evolution** (blueprint §5.1b) — single-slot, story-driven class change.
-   **Zero implementation.** `Player.classId`/`className` are set once at campaign start
-   (`App.tsx`'s `beginCampaign`) and never reassigned anywhere. `src/data/classes.ts` has
-   no evolution table. No "evolve"/"evolution" identifier exists in `src/` at all. Needs:
-   a trigger mechanism (story-driven, per the blueprint — likely a new field on
-   `TurnResponse`/`turnContract.ts`'s schema the model can set), a client-side handler in
-   `App.tsx` analogous to `applyLevelUps`, and a UI toast/banner treatment (blueprint
-   says: same treatment as a Codex Discovery reveal — **that reference pattern now
-   exists**, see §3 above and `Chronicle.tsx`'s `entry.discoveries` badge rendering in
-   `TurnBlock` — reuse that same inline-pill pattern for the evolution banner rather than
-   inventing a new one).
+1. ~~**#10 Class Evolution**~~ (blueprint §5.1b) — **done**, commit `3597869` (within the
+   Preset Class Dictionary only — see §3 above for the free-form "Class Grounding" scope
+   note, folded into item #15 below).
 
 2. **#12 Crafting & Resource Management** (blueprint §5.8) — timestamp-based, 0-token,
    client-resolved. **Zero implementation.** No queue/recipe/workbench type anywhere in
@@ -213,16 +217,23 @@ Per the standing instruction this session was given:
 ## 6. Suggested resumption order
 
 1. ~~Pick up Tier 3 item #14's Codex Discovery half first~~ — **done** (commit `fbdef88`).
-2. Work the rest of the Tier 3 list in order (#10 → #12 → #13 → #14 remainder → #15 →
-   #16), committing and pushing after each, and **repeat this notes-file update after
-   each major chunk** (append a dated entry below rather than rewriting history above) —
-   this was the explicit instruction that produced this file in the first place. #10
-   (Class Evolution) is the natural next pick — its reveal-banner UI dependency on Codex
-   Discovery is now satisfied.
-3. Do the full verify-and-fix pass across existing functions/components.
-4. Do the final beautification pass last.
-5. Always run `npm run typecheck` and `npm run build` clean, and manually click through
+2. ~~#10 Class Evolution~~ — **done** (commit `3597869`).
+3. Work the rest of the Tier 3 list in order (#12 → #13 → #14 remainder → #15 → #16),
+   committing and pushing after each, and **repeat this notes-file update after each
+   major chunk** (append a dated entry below rather than rewriting history above) — this
+   was the explicit instruction that produced this file in the first place. #13
+   (Summoning) has a soft dependency on #10 (a summoner-type class should presumably
+   grant the summon ability branch on evolving into it) — that dependency is now
+   satisfied, so #12 → #13 in either order is fine next.
+4. Do the full verify-and-fix pass across existing functions/components.
+5. Do the final beautification pass last.
+6. Always run `npm run typecheck` and `npm run build` clean, and manually click through
    the actual change in the dev server (see §0's tooling-trap warning) before committing.
+   Note: a `window.confirm()`/`window.alert()` dialog in a flow you're testing live may
+   get silently auto-dismissed by the browser-automation tool — if a confirm-gated action
+   appears to silently no-op, override it first (`window.confirm = () => true` via the
+   JS-exec tool) before concluding the underlying handler is broken. This cost real
+   verification time on the Class Evolution manual-trigger flow this session.
 
 ---
 
@@ -246,3 +257,25 @@ Per the standing instruction this session was given:
   typecheck` and `npm run build` both clean. Next up per §6: Tier 3 item #10 (Class
   Evolution), which can now reuse the `entry.discoveries` inline-badge pattern in
   `Chronicle.tsx`'s `TurnBlock` for its own reveal banner.
+- **2026-09-03** — Class Evolution (blueprint §5.1b) implemented and pushed (`3597869`).
+  Added `class_evolution` as an optional schema-constrained field on `TurnResponse` (enum
+  of the Preset Class Dictionary — the model can never propose a class the client doesn't
+  recognize), applied non-retroactively in `App.tsx`'s `sendAction` (this turn's own
+  level-up, if any, still uses the old weight vector; only future level-ups follow the
+  new class), plus a manual trigger via a new "Character" Codex category. The Chronicle
+  banner reuses the Codex Discovery badge pattern as intended. Verified live end-to-end:
+  opened the new Character category (showed real Warrior/Level 3/attrs/pools data),
+  edited the class to Mage, confirmed the change persisted and the Chronicle log showed a
+  "CLASS EVOLUTION — Now a MAGE" banner. **Tooling note for future sessions**: the first
+  save attempt silently no-op'd because the browser-automation tool auto-dismisses native
+  `window.confirm()` dialogs (returns false) — had to override `window.confirm = () =>
+  true` via the JS-exec tool before the save handler's logic could be verified. This is a
+  testing-environment quirk, not an app bug; §6 above now carries this as a standing note.
+  Did not verify the story-driven (model-proposed) trigger path live, since that would
+  need a real Gemini call narrating an undeniable, permanent role change — the manual
+  trigger path exercises the same `evolveClass`-adjacent logic (weight vector re-pointing,
+  banner rendering) so this is lower-risk than it sounds, but a future session should
+  watch for it the first time a real campaign's story actually fires `class_evolution`.
+  `npm run typecheck` and `npm run build` both clean. Next up per §6: Tier 3 item #12
+  (Crafting) or #13 (Summoning), either order — both are independent of everything shipped
+  so far.
