@@ -142,7 +142,8 @@ export interface ProtagonistData {
 export interface LogEntry {
   action?: string
   nar: string
-  turnState?: string
+  turnState?: TurnState
+  mood?: string
   defeated?: boolean
   levelUp?: number // §5.1a — set when this turn triggered a Milestone Level-up
   chapterSummary?: string // §2 Phase E — a synthetic entry marking a chapter boundary
@@ -237,6 +238,7 @@ export interface TurnResponse {
   loc_disp: string
   loc_id: string
   dist?: 'c' | 'm' | 'f' | 'none'
+  mood?: string
   deltas?: TurnDelta
   inv_add?: InventoryChange[]
   inv_rem?: InventoryChange[]

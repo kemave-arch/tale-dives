@@ -353,6 +353,7 @@ export default function App() {
             action: actionText,
             nar: turn.nar,
             turnState,
+            mood: turn.mood,
             defeated: playerDefeated,
             ...(leveled ? { levelUp: leveledPlayer.level } : {}),
           },

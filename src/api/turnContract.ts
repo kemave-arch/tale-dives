@@ -62,6 +62,10 @@ export const TURN_SCHEMA = {
     loc_disp: { type: 'STRING' },
     loc_id: { type: 'STRING' },
     dist: { type: 'STRING', enum: ['c', 'm', 'f', 'none'] },
+    mood: {
+      type: 'STRING',
+      description: 'A short 3-6 word ambient sensory tag for this turn, e.g. "Cold mountain mist, swirling ash motes".',
+    },
     deltas: {
       type: 'OBJECT',
       description:

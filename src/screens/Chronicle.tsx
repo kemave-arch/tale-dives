@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
-import { Menu, Settings as SettingsIcon, Send, Swords, Star, BookOpen, Library } from 'lucide-react'
+import { Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle } from 'lucide-react'
 import { renderNarrative } from '../lib/richText.tsx'
+import { TURN_STATE_META } from '../lib/turnStates.ts'
+import { formatCurrency } from '../lib/currency.ts'
 import type { CombatState, LogEntry, Player } from '../types.ts'
 
 interface ChronicleProps {
@@ -13,6 +15,30 @@ interface ChronicleProps {
   onOpenSettings: () => void
   onOpenMenu: () => void
   onOpenCodex: () => void
+}
+
+function PoolBar({ label, value, max, colorVar }: { label: string; value: number; max: number; colorVar: string }) {
+  const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0
+  return (
+    <div className="flex items-center gap-1.5 flex-1 min-w-0">
+      <span className="w-5 shrink-0 font-mono text-[10px] opacity-70">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-gold-accent/15 overflow-hidden min-w-[24px]">
+        <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: colorVar }} />
+      </div>
+      <span className="shrink-0 font-mono text-[10px] opacity-70">{value}/{max}</span>
+    </div>
+  )
+}
+
+function CurrencyBadge({ copper }: { copper: number }) {
+  const { p, g, s, c } = formatCurrency(copper)
+  const parts = [
+    p > 0 && `${p}P`,
+    g > 0 && `${g}G`,
+    (s > 0 || (p === 0 && g === 0)) && `${s}S`,
+    (c > 0 || (p === 0 && g === 0 && s === 0)) && `${c}C`,
+  ].filter(Boolean)
+  return <span className="font-mono text-[10px] text-gold-primary shrink-0">{parts.join(' ')}</span>
 }
 
 // Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
@@ -54,22 +80,39 @@ export default function Chronicle({ player, combat, log, busy, error, onSend, on
             The tale hasn't begun. Type an action below to dive in.
           </p>
         )}
-        {log.map((entry, i) =>
-          entry.chapterSummary ? (
-            <div key={i} className="flex flex-col items-center gap-2 py-3">
-              <div className="w-full flex items-center gap-3">
-                <div className="flex-1 h-px bg-gold-accent/30" />
-                <span className="flex items-center gap-1.5 font-display text-xs text-gold-primary shrink-0">
-                  <BookOpen size={13} /> Chapter {entry.chapterNumber}
-                </span>
-                <div className="flex-1 h-px bg-gold-accent/30" />
+        {log.map((entry, i) => {
+          if (entry.chapterSummary) {
+            return (
+              <div key={i} className="flex flex-col items-center gap-2 py-3">
+                <div className="w-full flex items-center gap-3">
+                  <div className="flex-1 h-px bg-gold-accent/30" />
+                  <span className="flex items-center gap-1.5 font-display text-xs text-gold-primary shrink-0">
+                    <BookOpen size={13} /> Chapter {entry.chapterNumber}
+                  </span>
+                  <div className="flex-1 h-px bg-gold-accent/30" />
+                </div>
+                <p className="font-narrative italic text-xs text-ink-muted text-center max-w-md">{entry.chapterSummary}</p>
               </div>
-              <p className="font-narrative italic text-xs text-ink-muted text-center max-w-md">{entry.chapterSummary}</p>
-            </div>
-          ) : (
-            <div key={i} className="space-y-1">
-              {entry.action && (
-                <p className="font-mono text-xs text-gold-primary">&gt; {entry.action}</p>
+            )
+          }
+
+          const stateMeta = entry.turnState ? TURN_STATE_META[entry.turnState] : null
+          const StateIcon = stateMeta?.icon
+
+          return (
+            <div key={i} className="space-y-1 border-l-2 pl-3" style={{ borderColor: stateMeta ? `${stateMeta.accent}55` : 'transparent' }}>
+              <div className="flex items-center gap-2 flex-wrap">
+                {entry.action && <p className="font-mono text-xs text-gold-primary">&gt; {entry.action}</p>}
+                {StateIcon && stateMeta && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-display" style={{ color: stateMeta.accent }}>
+                    <StateIcon size={11} /> {stateMeta.label}
+                  </span>
+                )}
+              </div>
+              {entry.mood && (
+                <p className="inline-flex items-center gap-1 text-[11px] italic text-ink-muted">
+                  <Sparkle size={10} /> {entry.mood}
+                </p>
               )}
               <p className="font-narrative text-sm leading-relaxed whitespace-pre-wrap">{renderNarrative(entry.nar)}</p>
               {entry.levelUp && (
@@ -78,24 +121,25 @@ export default function Chronicle({ player, combat, log, busy, error, onSend, on
                 </p>
               )}
             </div>
-          ),
-        )}
+          )
+        })}
         {busy && <p className="font-narrative italic text-sm opacity-50">The thread of fate is being woven...</p>}
         {error && <p className="font-mono text-xs text-rose">{error}</p>}
       </div>
 
       {combat?.active && (
-        <div className="bg-rose-bg border-t border-rose/30 px-4 py-1.5 font-mono text-xs flex items-center gap-2 text-rose">
-          <Swords size={13} />
-          {combat.enemyName}: {combat.enemyHp}/{combat.enemyHpMax}
+        <div className="bg-surface-raised border-t border-rose/30 px-4 py-1.5">
+          <PoolBar label={combat.enemyName?.slice(0, 3).toUpperCase() ?? 'ENM'} value={combat.enemyHp ?? 0} max={combat.enemyHpMax ?? 1} colorVar="#e11d48" />
         </div>
       )}
 
-      <footer className="bg-surface-raised border-t border-gold-accent/30 px-4 py-2 font-mono text-xs flex gap-4">
-        <span>HP {player.hp}/{player.hpMax}</span>
-        <span>MP {player.mp}/{player.mpMax}</span>
-        <span>ST {player.st}/{player.stMax}</span>
-        <span className="ml-auto">{player.copper}c</span>
+      <footer className="bg-surface-raised border-t border-gold-accent/30 px-4 py-2 flex flex-col gap-1">
+        <div className="flex items-center gap-3">
+          <PoolBar label="HP" value={player.hp} max={player.hpMax} colorVar="#e11d48" />
+          <PoolBar label="MP" value={player.mp} max={player.mpMax} colorVar="#0891b2" />
+          <PoolBar label="ST" value={player.st} max={player.stMax} colorVar="#059669" />
+          <CurrencyBadge copper={player.copper} />
+        </div>
       </footer>
 
       <div className="bg-surface-raised border-t border-gold-accent/50 px-4 py-3 flex gap-2">
