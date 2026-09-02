@@ -143,6 +143,8 @@ export interface LogEntry {
   turnState?: string
   defeated?: boolean
   levelUp?: number // §5.1a — set when this turn triggered a Milestone Level-up
+  chapterSummary?: string // §2 Phase E — a synthetic entry marking a chapter boundary
+  chapterNumber?: number
 }
 
 // A Tale — the full persisted campaign shape (§6.4B Tales library).
@@ -166,6 +168,7 @@ export interface Campaign {
   combat: CombatState
   log: LogEntry[]
   lastPlayed: number
+  turnCount: number // real narrated turns only — decoupled from log.length, which also holds synthetic chapter-recap entries
 }
 
 export interface ApiSettings {

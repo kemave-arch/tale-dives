@@ -13,10 +13,10 @@ import { ensureLocation } from './lib/locations.ts'
 import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
-import { applyLevelUps, isChapterBoundary } from './lib/leveling.ts'
+import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
 import { slugify } from './lib/slug.ts'
-import { runTurn } from './api/providers/gemini.ts'
+import { runTurn, runSummary } from './api/providers/gemini.ts'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { downloadJSON, readJSONFile } from './lib/backup.ts'
 import * as store from './lib/store.ts'
@@ -155,6 +155,7 @@ export default function App() {
       combat: { active: false }, // §2 Phase D.2/§5.13 — ephemeral, reset each encounter
       log: [],
       lastPlayed: Date.now(),
+      turnCount: 0,
     }
 
     setGame(campaign)
@@ -315,7 +316,7 @@ export default function App() {
       // §5.1a Milestone Leveling — +1 per completed quest this turn, +1 at
       // every Chapter Milestone boundary (§8 item 5's Secret-quest question
       // is moot for now since quest_update doesn't track a tier at all yet).
-      const turnNumber = current.log.length + 1
+      const turnNumber = (current.turnCount ?? 0) + 1 // ?? tolerates saves from before turnCount existed
       const questLevels = turn.quest_update?.status === 'completed' ? 1 : 0
       const chapterLevels = isChapterBoundary(turnNumber) ? 1 : 0
       const { player: leveledPlayer, leveled } = applyLevelUps(
@@ -335,6 +336,7 @@ export default function App() {
         bestiary: nextBestiary,
         combat: nextCombat,
         lastPlayed: Date.now(),
+        turnCount: turnNumber,
         log: [
           ...current.log,
           {
@@ -355,6 +357,13 @@ export default function App() {
       // the fatal blow itself is committed, rather than leaving the player
       // stuck at 0 HP with nothing to do.
       if (playerDefeated) resolveDefeat(nextCampaign, historyWithResponse)
+
+      // §2 Phase E Chapter Milestone — same boundary trigger as the
+      // chapter-level-up above; the recap call reads historyWithResponse
+      // (this turn included) before the sliding window gets flushed.
+      if (chapterLevels > 0) {
+        recapChapter(historyWithResponse, Math.floor(turnNumber / CHAPTER_TURN_INTERVAL))
+      }
     } catch (err) {
       setError(`The thread of fate falters... (${errorMessage(err)})`)
     } finally {
@@ -408,6 +417,27 @@ export default function App() {
       setError(`The thread of fate falters... (${errorMessage(err)})`)
     } finally {
       setBusy(false)
+    }
+  }
+
+  // §2 Phase E Chapter Milestone — plain-text 2-sentence recap, then flush
+  // the sliding history window: "past conversation turns are flushed... while
+  // persistent summary cards are saved locally." A missed recap costs only
+  // flavor (the log entry), so failures are swallowed rather than surfaced —
+  // the window keeps growing and the next boundary just retries.
+  async function recapChapter(historyForSummary: HistoryTurn[], chapterNumber: number) {
+    try {
+      const summary = await runSummary({
+        apiKey: apiSettings.apiKey,
+        model: apiSettings.model,
+        temperature: apiSettings.temperature,
+        history: historyForSummary,
+      })
+
+      setGame((g) => g && { ...g, log: [...g.log, { nar: '', chapterSummary: summary, chapterNumber }] })
+      setHistory([])
+    } catch {
+      // swallowed — see comment above
     }
   }
 

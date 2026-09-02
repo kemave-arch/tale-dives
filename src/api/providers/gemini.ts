@@ -119,3 +119,50 @@ export async function runTurn({ apiKey, model, temperature, maxOutputTokens, his
   }
   throw lastError
 }
+
+interface SummaryParams {
+  apiKey: string
+  model: string
+  temperature: number
+  history: HistoryTurn[]
+}
+
+// §2 Phase E Chapter Milestone — a plain-text (not JSON-schema) follow-up
+// call over the same conversation history, asking for a 2-sentence recap.
+// Deliberately its own request rather than folding a summary field into
+// TURN_SCHEMA (§3.6: every field but `nar` stays a compact mechanism, and a
+// chapter summary is prose that only exists once every ~15 turns — it isn't
+// worth carrying on every single turn's schema).
+export async function runSummary({ apiKey, model, temperature, history }: SummaryParams): Promise<string> {
+  const url = `${BASE_URL}/${encodeURIComponent(model)}:generateContent`
+
+  const body = {
+    contents: [
+      ...history,
+      {
+        role: 'user',
+        parts: [
+          {
+            text: 'Summarize this chapter of the story so far in exactly two sentences, third person, focusing only on major plot developments. Output ONLY the two sentences — no preamble, no markdown.',
+          },
+        ],
+      },
+    ],
+    generationConfig: { temperature, maxOutputTokens: 200 },
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': apiKey },
+    body: JSON.stringify(body),
+  })
+
+  if (!res.ok) {
+    const errBody = await res.json().catch(() => ({}))
+    throw new GeminiApiError(errBody?.error?.message ?? `HTTP ${res.status}`)
+  }
+
+  const data = await res.json()
+  const text = data?.candidates?.[0]?.content?.parts?.map((p: { text?: string }) => p.text ?? '').join('') ?? ''
+  return text.trim()
+}
