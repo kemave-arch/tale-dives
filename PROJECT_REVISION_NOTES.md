@@ -4,7 +4,7 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`9a2fed0`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`43d5ad8`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
@@ -82,7 +82,7 @@ types not yet in TS's bundled DOM lib, new this session.
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `9a2fed0`. See `git log --oneline` for
+Everything below is implemented and working as of `43d5ad8`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -270,21 +270,40 @@ confirming/scoping if Crafting (#12) is picked up, since its UI hook depends on 
 
 Per the standing instruction this session was given:
 
-- **Verify all existing functions/components and fix issues found.** Not yet done as a
-  systematic pass. This session verified each Tier 3 feature specifically as it was built
-  (see the Revision log below — it works correctly, confirmed live in-browser each time),
-  but has not done a full sweep of the rest of the app (Codex CRUD, combat math, leveling
-  edge cases, chapter recap, defeat/recovery flow, etc.). **One concrete lead for that
-  pass**: during a live Faction Rivalry test turn, the test character's ST (stamina) pool
-  was observed at a negative value (`-2/29`) in the Chronicle HUD after a `[Shadow Step]`
-  skill use — §3.2's Shadow Referee is specified to clamp `deltas.hp/mp/st` to `[0, max]`
-  always, so a negative displayed value suggests either a clamping gap somewhere in
-  `shadowReferee.ts`/`combat.ts`, or (less likely) a display-only formatting issue. Not
-  investigated further this session — this note is the starting point for whoever does
-  the verify pass, not a diagnosis.
-- **Final "beautification of the entire app" pass.** Not started — this is explicitly the
-  *last* step per the standing instruction, after the Tier 3 list and the verification
-  pass above are both done.
+- **Verify all existing functions/components and fix issues found.** Started this session
+  (commits `f43488d`, `43d5ad8`) — not an exhaustive sweep, but real findings were fixed:
+  - **Fixed**: `turn.stat_grant` (§5.1c permanent stat boosts) was fully defined in the
+    schema and prompted to the model but never actually applied anywhere client-side — a
+    real, silent gap predating this session. Now applied as a permanent attribute/pool-max
+    increase in `App.tsx`'s `sendAction`. Scope note: only the Event/narrative source is
+    covered — the Equipment source (item `stat_bonus`) has no equip system to hang off
+    yet.
+  - **Fixed**: added a defensive final clamp on `player.hp/mp/st` in the same function.
+    This was prompted by live testing surfacing `mp: -2` on the test campaign (the
+    earlier lead about a negative *ST* value was a misreading of the HUD — the actual
+    stored/corrupted field was **MP**, not ST; verified via direct `localStorage`
+    inspection, not the screenshot). Every individual mutation path (`applyTurn`,
+    `applyLevelUps`, `applyMinionUpkeep`) was code-reviewed and clamps correctly in
+    isolation, so the exact repro was never conclusively pinned down — the fix makes the
+    [0, max] invariant hold regardless of which path produced a value, rather than
+    depending on every current and future path composing correctly. Verified live: the
+    corrupted test campaign's `mp` (-2) self-healed to 0 on the very next turn taken.
+  - **Fixed**: quest auto-registration (from a bare `quest_update` with no prior
+    `{{Term|quest}}` keyword link) showed a raw slug id as its display name
+    (`find_the_lost_sigil`) instead of a title-cased fallback — `npc_mem_up` already had
+    this right; `quests.ts` now shares the same helper (moved to `slug.ts`).
+  - **Reviewed, no issues found**: `shadowReferee.ts` (`applyTurn`'s own clamping),
+    `combat.ts` (attack/exhaustion math, disengage detection), `derivedStats.ts`,
+    `leveling.ts` (aside from the areas above), `quests.ts`/`inventory.ts`/`npcs.ts`'s
+    delta-application logic.
+  - **Not yet covered**: a full live click-through of Codex CRUD for every category
+    (Quests/Bestiary specifically — NPCs/Factions/Locations/Items/Character/Crafting were
+    all exercised live while building other features this session and work correctly;
+    Quests/Bestiary share the exact same generic CRUD code path so are lower-risk but
+    untested directly), the defeat/recovery flow (`resolveDefeat`), and chapter recap
+    (`recapChapter`) beyond the one instance observed firing correctly mid-session.
+- **Final "beautification of the entire app" pass.** Lightly started alongside the verify
+  pass (a JSX indentation cleanup in Settings.tsx) but not the full pass — see §6 below.
 
 ## 6. Suggested resumption order
 
@@ -306,9 +325,25 @@ Per the standing instruction this session was given:
    something other than 429 — a 400 means the combination genuinely isn't supported and
    needs a different approach (e.g. two sequential calls instead of one); a 200 means it's
    clear to build.
-8. Do the full verify-and-fix pass across existing functions/components — see §5 above for
-   one concrete lead already surfaced (a possible ST clamping gap).
-9. Do the final beautification pass last.
+8. The verify-and-fix pass is **started, not finished** — commits `f43488d`/`43d5ad8`
+   fixed three real issues (see §5 above: an unimplemented `stat_grant`, a defensive
+   HP/MP/ST clamp, quest auto-name casing). Remaining, concrete next steps for whoever
+   continues it: live click-through of Quests/Bestiary Codex CRUD specifically (lower
+   risk than most since they share the exact code path already exercised for other
+   categories, but genuinely untested), the defeat/recovery flow, and chapter recap
+   beyond the one instance already observed working. Don't assume more bugs exist without
+   evidence — the pass so far found real issues by reading code and by noticing a live
+   HUD anomaly, not by pattern-matching for problems that turned out not to exist (the
+   session's own earlier "ST clamping" lead was itself a misreading of which pool was
+   actually affected — see §5's correction).
+9. Do the final beautification pass — **very lightly started** (one JSX cleanup in
+   Settings.tsx, no visual/UX changes) but the real pass hasn't happened. This is a big,
+   underspecified scope ("the entire app") — reasonable interpretation: a focused pass
+   for concrete inconsistencies (spacing, copy, icon choices, empty-state messaging)
+   across screens, not a redesign. Suggest starting from Title → Main Menu → Chronicle →
+   Codex in that order (the order a new player actually encounters them) and noting
+   anything that looks unfinished or inconsistent with the "illuminated manuscript"
+   obsidian-dark chrome established everywhere else (blueprint §6.1).
 10. Always run `npm run typecheck` and `npm run build` clean, and manually click through
    the actual change in the dev server (see §0's tooling-trap warning) before committing.
    Note: a `window.confirm()`/`window.alert()` dialog in a flow you're testing live may
@@ -465,3 +500,25 @@ Per the standing instruction this session was given:
   other Tier 3 list item is now done.** Pivoting to the explicitly-requested
   verify-and-fix pass next, since it needs no further Gemini API calls (mostly code
   review + local-state UI exercises) and the grounding-quota block doesn't affect it.
+- **2026-09-03** — Verify-and-fix pass, first batch (commits `f43488d`, `43d5ad8`). Started
+  by investigating the earlier-flagged "negative ST" lead directly against live
+  `localStorage` state (not another screenshot read) — **correction: it was actually MP
+  that was negative (`-2`), not ST** — the earlier lead misread which HUD column was
+  affected. Traced the actual cause as far as code review allowed: every individual pool
+  mutation (`applyTurn`'s clamp in `shadowReferee.ts`, `applyLevelUps` in `leveling.ts`,
+  `applyMinionUpkeep` in `summoning.ts`) is correct in isolation, so the exact repro
+  wasn't conclusively pinned down — spent real time on this before concluding a
+  root-cause diagnosis wasn't going to be reachable through static review alone, and
+  pivoted to a defensive fix instead of continuing to guess. While investigating, found
+  and fixed a real, separate, unrelated bug: `turn.stat_grant` (§5.1c) has been fully
+  defined in the schema and prompted to the model since before this session started, but
+  nothing anywhere in the client ever read or applied it — a silent, complete no-op every
+  time the model used it. Also fixed quest auto-registration's display-name casing
+  (shared the existing NPC pattern via a new `titleCaseId` export in `slug.ts`) and a
+  cosmetic JSX indentation issue in Settings.tsx. Verified live: the corrupted test
+  campaign's `mp` (-2) self-healed to 0 on the very next turn after the defensive clamp
+  shipped. `npm run typecheck` and `npm run build` both clean after every change.
+  **This is a first batch, not a completed pass** — §5/§6 above list concrete remaining
+  work (Quests/Bestiary CRUD live click-through, defeat/recovery flow, chapter recap).
+  Next up: continue the verify pass or move to the beautification pass — see §6's
+  reasoning for why either order is defensible at this point.
