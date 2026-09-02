@@ -51,6 +51,23 @@ export interface CraftingJob {
   completeTime: GameTime
 }
 
+// §5.3 Three-Branch Summoning & Minion Engine — a class-gated, 0-token,
+// client-resolved mechanic (same "!" bang-command family as the read-only
+// dossiers, just with a real state-mutating side effect): `!arise` (Dark
+// Monarch), `!raise_skeleton` (Classic Necromancer), `!summon` (Contract
+// Gate Summoner). A minion persists on the Campaign until dismissed or (for
+// a `familiar`) its upkeep can no longer be paid.
+export type SummonBranch = 'shadow' | 'skeleton' | 'familiar'
+
+export interface Minion {
+  id: string
+  name: string
+  branch: SummonBranch
+  hpMax: number
+  mpUpkeep?: number // only `familiar`-branch minions carry ongoing upkeep
+  summonedAt: GameTime
+}
+
 export interface Player {
   name: string
   classId: string
@@ -212,6 +229,7 @@ export interface LogEntry {
   discoveries?: { category: KeywordLink['category']; id: string; name: string }[] // §5.12 — Codex entries this turn's deltas just revealed
   classEvolution?: { className: string; reason?: string } // §5.1b — the player's single class slot was just replaced
   craftReady?: { recipeName: string; outputId: string; outputQty: number }[] // §5.8 — crafting jobs that finished this turn
+  minionsDissipated?: string[] // §5.3 — familiar-branch minions whose upkeep couldn't be paid this turn
 }
 
 // §6.6 Slash Commands — an in-fiction shortcut: selecting one sends `prompt`
@@ -248,6 +266,8 @@ export interface Campaign {
   flags: string[] // §5.6 World Impact Ledger
   inventory: Dict<number> // item id -> quantity (§5.9)
   crafting?: CraftingJob[] // §5.8 — queued/in-progress crafting jobs, never sent to Gemini
+  minions?: Dict<Minion> // §5.3 — the player's persistent summoned army
+  corpses?: string[] // §5.3 — harvestable slain-enemy tags accumulated from corpse_add, consumed by `!arise`
   slashCommands?: Dict<SlashCommand> // §6.6 — this Tale's own commands, not marked global in the manager
   log: LogEntry[]
   lastPlayed: number

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, memo } from 'react'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock, Repeat, Hammer,
+  Unlock, Lock, Repeat, Hammer, Ghost,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -83,6 +83,10 @@ const BANG_DISPLAY: Record<string, { icon: LucideIcon; label: string }> = {
   quests: { icon: Target, label: 'Active Quests' },
   bestiary: { icon: Skull, label: 'Bestiary Log' },
   recall: { icon: BookOpen, label: 'Codex Recall' },
+  minions: { icon: Users, label: 'Minion Roster' },
+  arise: { icon: Ghost, label: 'Shadow Extraction' },
+  raise_skeleton: { icon: Skull, label: 'Reanimation' },
+  summon: { icon: Sparkle, label: 'Planar Gate' },
 }
 
 function bangDisplay(command: string): { icon: LucideIcon; label: string } {
@@ -324,6 +328,18 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
               className="inline-flex items-center gap-1.5 rounded-full bg-gold-accent/15 border border-gold-accent/40 px-3 py-1 font-display text-xs text-gold-primary"
             >
               <Hammer size={12} /> Craft Ready: {c.recipeName}
+            </span>
+          ))}
+        </div>
+      )}
+      {entry.minionsDissipated && entry.minionsDissipated.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {entry.minionsDissipated.map((name, i) => (
+            <span
+              key={i}
+              className="inline-flex items-center gap-1.5 rounded-full bg-white/10 border border-white/20 px-3 py-1 font-display text-xs text-ink-muted"
+            >
+              <Ghost size={12} /> {name} dissipated (unpaid upkeep)
             </span>
           ))}
         </div>

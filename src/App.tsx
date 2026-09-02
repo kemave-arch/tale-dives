@@ -20,6 +20,7 @@ import { applyInventoryChanges } from './lib/inventory.ts'
 import { resolveBangCommand } from './lib/bangCommands.ts'
 import { checkCodexReveals } from './lib/discovery.ts'
 import { queueCraftingJob, resolveCraftingJobs } from './lib/crafting.ts'
+import { applyMinionUpkeep, attemptSummon, type SummonCommand } from './lib/summoning.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -326,6 +327,10 @@ export default function App() {
       const nextQuests = applyQuestUpdate(linked.quests, turn.quest_update)
       const nextFlags = turn.flag_add?.length ? Array.from(new Set([...current.flags, ...turn.flag_add])) : current.flags
 
+      // §5.3 — every corpse this turn's combat produced becomes harvestable
+      // for a future `!arise`, until spent.
+      const nextCorpses = turn.corpse_add?.length ? [...(current.corpses ?? []), ...turn.corpse_add] : (current.corpses ?? [])
+
       // §5.8 — the authoritative crafting resolution, against this turn's
       // actual resulting time/location (nextPlayer.time/.locId, already set
       // by applyTurn above) rather than the pre-call peek's start-of-turn
@@ -417,9 +422,17 @@ export default function App() {
         nextFlags,
       )
 
+      // §5.3 — a `familiar`-branch minion drains its MP upkeep every turn,
+      // after every other MP-affecting change this turn already applied, and
+      // dissipates the instant its upkeep can no longer be paid.
+      const upkeep = applyMinionUpkeep(current.minions ?? {}, evolvedPlayer.mp)
+      const finalPlayer = upkeep.mp !== evolvedPlayer.mp ? { ...evolvedPlayer, mp: upkeep.mp } : evolvedPlayer
+
       const nextCampaign: Campaign = {
         ...current,
-        player: evolvedPlayer,
+        player: finalPlayer,
+        minions: upkeep.minions,
+        corpses: nextCorpses,
         locations: reveals.locations,
         npcs: reveals.npcs,
         factions: reveals.factions,
@@ -440,14 +453,15 @@ export default function App() {
             turnState,
             mood: turn.mood,
             defeated: playerDefeated,
-            time: evolvedPlayer.time,
-            locDisp: evolvedPlayer.locDisp,
+            time: finalPlayer.time,
+            locDisp: finalPlayer.locDisp,
             ...(leveled ? { levelUp: leveledPlayer.level } : {}),
             ...(reveals.revealed.length ? { discoveries: reveals.revealed } : {}),
             ...(classEvolution ? { classEvolution } : {}),
             ...(craftResolution.completed.length
               ? { craftReady: craftResolution.completed.map((c) => ({ recipeName: c.recipe.name, outputId: c.recipe.output.id, outputQty: c.recipe.output.qty })) }
               : {}),
+            ...(upkeep.dissipated.length ? { minionsDissipated: upkeep.dissipated } : {}),
           },
         ],
       }
@@ -609,11 +623,50 @@ export default function App() {
     })
   }
 
+  // §5.3 Summoning — arise/raise_skeleton/summon are also "!" bang commands
+  // (0 tokens, client-resolved) but, unlike the read-only dossiers in
+  // bangCommands.ts, they mutate real state (MP, inventory, corpses,
+  // minions). Intercepted here, before the read-only path, since App.tsx is
+  // where all state mutation already lives (evolveClass, startCraftingJob).
+  const SUMMON_COMMANDS = new Set(['arise', 'raise_skeleton', 'summon'])
+
+  function handleSummonCommand(command: SummonCommand) {
+    setGame((g) => {
+      if (!g) return g
+      const outcome = attemptSummon(command, g, store.newId('minion'))
+      const nextMinions = outcome.minion ? { ...(g.minions ?? {}), [outcome.minion.id]: outcome.minion } : g.minions
+      return {
+        ...g,
+        lastPlayed: Date.now(),
+        corpses: outcome.patch?.corpses ?? g.corpses,
+        inventory: outcome.patch?.inventory ?? g.inventory,
+        player: outcome.patch?.playerMp !== undefined ? { ...g.player, mp: outcome.patch.playerMp } : g.player,
+        minions: nextMinions,
+        log: [
+          ...g.log,
+          {
+            nar: '',
+            bang: {
+              command,
+              rows: outcome.minion ? [{ name: outcome.minion.name, id: outcome.minion.id, fields: [outcome.minion.branch, `${outcome.minion.hpMax} HP`] }] : [],
+              note: outcome.note,
+            },
+          },
+        ],
+      }
+    })
+  }
+
   // §6.6 Bang Commands — 0 API tokens, resolved and rendered entirely
   // client-side. An unrecognized "!word" still renders a small note rather
   // than being silently swallowed, so mistyped commands are visibly not-lost.
   function handleBangCommand(raw: string) {
     if (!game) return
+    const word = raw.slice(1).trim().split(/\s/)[0]?.toLowerCase()
+    if (word && SUMMON_COMMANDS.has(word)) {
+      handleSummonCommand(word as SummonCommand)
+      return
+    }
     const result = resolveBangCommand(raw, game)
     const bang = result?.entry ?? { command: raw.slice(1).split(/\s/)[0] || '?', rows: [], note: `Unknown command "${raw}".` }
     setGame((g) => g && { ...g, lastPlayed: Date.now(), log: [...g.log, { nar: '', bang }] })

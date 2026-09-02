@@ -24,6 +24,10 @@ export const BANG_COMMANDS: { name: string; usage: string; description: string }
   { name: 'quests', usage: '!quests [name]', description: 'Tracked objectives, or one in detail' },
   { name: 'bestiary', usage: '!bestiary [name]', description: 'Adversaries encountered so far' },
   { name: 'recall', usage: '!recall', description: 'Full Codex snapshot — also reminds the AI' },
+  { name: 'minions', usage: '!minions', description: 'Your current summoned army' },
+  { name: 'arise', usage: '!arise', description: 'Dark Monarch — extract a shadow from a slain corpse' },
+  { name: 'raise_skeleton', usage: '!raise_skeleton', description: 'Necromancer — reanimate skeletal infantry (1 Bone Dust)' },
+  { name: 'summon', usage: '!summon', description: 'Contract Gate Summoner — call a planar familiar' },
 ]
 
 const RECALL_ROW_CAP = 60
@@ -160,6 +164,14 @@ export function resolveBangCommand(raw: string, campaign: Campaign): BangResult 
       }
       const rows = Object.entries(campaign.bestiary ?? {}).map(([id, b]) => bestiaryRow(id, b))
       return tableResult('Bestiary', rows, 'No adversaries encountered yet.')
+    }
+    case 'minions': {
+      const rows = Object.entries(campaign.minions ?? {}).map(([id, m]) => ({
+        name: m.name,
+        id,
+        fields: [m.branch, `${m.hpMax} HP`, ...(m.mpUpkeep ? [`${m.mpUpkeep} MP/turn upkeep`] : [])],
+      }))
+      return tableResult('Minions', rows, 'No minions summoned yet.')
     }
     case 'recall': {
       const npcRows = capped(Object.entries(campaign.npcs ?? {}).map(([id, n]) => npcRow(id, n)))
