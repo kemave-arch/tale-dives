@@ -4,7 +4,7 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`ccec6d1`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`9a3158e`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
@@ -62,9 +62,10 @@ slicing), `shadowReferee.ts` (client-side validation of model-proposed deltas), 
 `quests.ts`, `inventory.ts` (per-domain state appliers), `combat.ts` (Tactical combat
 math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts` (`!`
 client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `crafting.ts`
-+ `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic, new this session),
-`currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`,
-`turnStates.ts`, `backup.ts` (JSON download/upload only).
++ `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic), `summoning.ts`
+(§5.3 Summoning/Minion engine, new this session), `currency.ts`, `derivedStats.ts`,
+`richText.tsx`, `slug.ts`, `autoRegister.ts`, `turnStates.ts`, `backup.ts` (JSON
+download/upload only).
 
 **API** (`src/api/`): `turnContract.ts` (system prompt + `TURN_SCHEMA`),
 `providers/gemini.ts` (the *only* provider implementation — `runTurn`, `runSummary`).
@@ -74,7 +75,7 @@ Dictionary, new this session).
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `ccec6d1`. See `git log --oneline` for
+Everything below is implemented and working as of `9a3158e`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -145,6 +146,17 @@ the literal commit sequence; the summary here groups by feature, not commit.
   skipped (no location-station-type data model exists — any recipe can be queued from
   anywhere), and "Resource Management" (perishable material decay, the other half of
   §5.8) is not built — it needs a static item-metadata dictionary that doesn't exist yet.
+- **§5.3 Three-Branch Summoning & Minion Engine** (this session, commit `9a3158e`) — a
+  class-gated, 0-token mechanic in the same architectural family as the read-only "!" bang
+  commands: `!arise` (Dark Monarch), `!raise_skeleton` (Classic Necromancer, spends 1 Bone
+  Dust + MP), `!summon` (Contract Gate Summoner, spends MP for an ongoing-upkeep
+  familiar), plus a read-only `!minions` roster (added to `bangCommands.ts`'s existing
+  switch). `src/lib/summoning.ts` holds the class-branch gating and per-turn MP-upkeep
+  drain (a familiar dissipates, with a Chronicle notice, the instant its upkeep can't be
+  paid). **Scope note**: Shadow Extraction's blueprint gate ("specific slain boss tags")
+  is simplified to "any harvestable corpse" — there's no boss/elite threat-tier tagging
+  mechanism in the Bestiary yet (every adversary auto-registers at 'standard' tier). MP
+  costs/upkeep and minion `hpMax` are invented balance defaults, not blueprint-specified.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -161,12 +173,9 @@ assumption.
    half only), commit `ccec6d1`. See §3 above for the scope notes (no station-location
    enforcement, no perishable-material decay).
 
-3. **#13 Three-Branch Summoning & Minion Engine** (blueprint §5.3) — class-specific
-   summon/minion ability kits. **Zero implementation** beyond one class's flavor *name*
-   ("Contract Gate Summoner" in `classes.ts`) with no mechanics attached. Needs: a
-   `Minion`/`Summon` type, per-class ability gating (only classes that grant this branch
-   get access — ties into Class Evolution above, since evolving into a summoner-type
-   class should presumably grant it), and combat integration in `combat.ts`.
+3. ~~**#13 Three-Branch Summoning & Minion Engine**~~ (blueprint §5.3) — **done**, commit
+   `9a3158e`. See §3 above for the scope note (Shadow Extraction's "boss corpse" gate
+   simplified to "any corpse," since Bestiary has no boss/elite tier tagging yet).
 
 4. **#14 Faction rivalry** (blueprint §5.4/§5.11) — **still zero implementation.**
    `FactionEntry` is currently just `{ name, repTier, autoLogged?, discovery? }` — no
@@ -227,15 +236,15 @@ Per the standing instruction this session was given:
 1. ~~Pick up Tier 3 item #14's Codex Discovery half first~~ — **done** (commit `fbdef88`).
 2. ~~#10 Class Evolution~~ — **done** (commit `3597869`).
 3. ~~#12 Crafting & Resource Management~~ — **done** (crafting-queue half), commit `ccec6d1`.
-4. Work the rest of the Tier 3 list (#13 → #14 remainder → #15 → #16), committing and
+4. ~~#13 Three-Branch Summoning & Minion Engine~~ — **done**, commit `9a3158e`.
+5. Work the rest of the Tier 3 list (#14 remainder → #15 → #16), committing and
    pushing after each, and **repeat this notes-file update after each major chunk**
    (append a dated entry below rather than rewriting history above) — this was the
-   explicit instruction that produced this file in the first place. #13 (Summoning) is
-   the natural next pick — its soft dependency on #10 (a summoner-type class should
-   presumably grant the summon ability branch on evolving into it) is already satisfied.
-5. Do the full verify-and-fix pass across existing functions/components.
-6. Do the final beautification pass last.
-7. Always run `npm run typecheck` and `npm run build` clean, and manually click through
+   explicit instruction that produced this file in the first place. #14's remainder
+   (faction rivalry/standing derivation) is the natural next pick.
+6. Do the full verify-and-fix pass across existing functions/components.
+7. Do the final beautification pass last.
+8. Always run `npm run typecheck` and `npm run build` clean, and manually click through
    the actual change in the dev server (see §0's tooling-trap warning) before committing.
    Note: a `window.confirm()`/`window.alert()` dialog in a flow you're testing live may
    get silently auto-dismissed by the browser-automation tool — if a confirm-gated action
@@ -302,3 +311,20 @@ Per the standing instruction this session was given:
   `npm run build` both clean. Scope cuts (station-location enforcement, perishable decay)
   are documented in §3/§4 above — read those before assuming either exists.
   Next up per §6: Tier 3 item #13 (Summoning & Minion Engine).
+- **2026-09-03** — Three-Branch Summoning & Minion Engine (blueprint §5.3) implemented and
+  pushed (`9a3158e`). Added `src/lib/summoning.ts` (class-branch gating, the three
+  `attemptSummon` outcomes, per-turn `applyMinionUpkeep`), extended `bangCommands.ts` with
+  a read-only `!minions` roster, and intercepted `!arise`/`!raise_skeleton`/`!summon` in
+  `App.tsx`'s `handleBangCommand` before the read-only path (these mutate real state —
+  MP, inventory, corpses, minions — unlike every other bang command). `turn.corpse_add`
+  now feeds a running `Campaign.corpses` pool every turn, consumed by `!arise`. Verified
+  live end-to-end with a real Gemini turn: evolved the test character into Contract Gate
+  Summoner (reusing this session's Class Evolution feature), ran `!summon` (MP 25→10, a
+  "Planar Gate" dossier rendered with the new minion), confirmed `!minions` lists the
+  roster, then took a real turn and confirmed MP drained 10→8 from the familiar's 2 MP/turn
+  upkeep. Did not verify the `!arise`/`!raise_skeleton` paths live (would need a Dark
+  Monarch/Necromancer test character and, for skeletons, Bone Dust in inventory) — the
+  logic is symmetric to `!summon`'s already-verified path and code-reviewed, but a future
+  session should spot-check those two specifically before assuming they're bug-free in
+  practice. `npm run typecheck` and `npm run build` both clean. Next up per §6: the
+  remainder of Tier 3 item #14 (faction rivalry/standing derivation, §5.4/§5.11).
