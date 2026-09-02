@@ -51,7 +51,7 @@ export const TURN_SCHEMA = {
     time: {
       type: 'OBJECT',
       properties: {
-        d: { type: 'INTEGER' },
+        d: { type: 'INTEGER', minimum: 1, maximum: 100000 },
         h: { type: 'STRING' },
       },
       required: ['d', 'h'],
@@ -64,17 +64,17 @@ export const TURN_SCHEMA = {
       description:
         'Tactical Mode: must match the given Combat Result exactly. Narrative Mode: your own bounded amount (no Combat Result given).',
       properties: {
-        hp: { type: 'INTEGER' },
-        mp: { type: 'INTEGER' },
-        st: { type: 'INTEGER' },
-        c: { type: 'INTEGER' },
+        hp: { type: 'INTEGER', minimum: -500, maximum: 500 },
+        mp: { type: 'INTEGER', minimum: -500, maximum: 500 },
+        st: { type: 'INTEGER', minimum: -500, maximum: 500 },
+        c: { type: 'INTEGER', minimum: -5000000, maximum: 5000000 },
       },
     },
     inv_add: {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { id: { type: 'STRING' }, qty: { type: 'INTEGER' } },
+        properties: { id: { type: 'STRING' }, qty: { type: 'INTEGER', minimum: 1, maximum: 999 } },
         required: ['id', 'qty'],
       },
     },
@@ -82,7 +82,7 @@ export const TURN_SCHEMA = {
       type: 'ARRAY',
       items: {
         type: 'OBJECT',
-        properties: { id: { type: 'STRING' }, qty: { type: 'INTEGER' } },
+        properties: { id: { type: 'STRING' }, qty: { type: 'INTEGER', minimum: 1, maximum: 999 } },
         required: ['id', 'qty'],
       },
     },
@@ -98,7 +98,7 @@ export const TURN_SCHEMA = {
       properties: {
         attr: { type: 'STRING', enum: ['STR', 'INT', 'AGI'] },
         pool: { type: 'STRING', enum: ['hp', 'mp', 'st'] },
-        amount: { type: 'INTEGER' },
+        amount: { type: 'INTEGER', minimum: 0, maximum: 50 },
       },
     },
     act: {
@@ -125,8 +125,8 @@ export const TURN_SCHEMA = {
         type: 'OBJECT',
         properties: {
           npc_id: { type: 'STRING' },
-          aff_delta: { type: 'INTEGER' },
-          trust_delta: { type: 'INTEGER' },
+          aff_delta: { type: 'INTEGER', minimum: -20, maximum: 20 },
+          trust_delta: { type: 'INTEGER', minimum: -20, maximum: 20 },
           deed: { type: 'STRING' },
           mem_summary: { type: 'STRING' },
         },

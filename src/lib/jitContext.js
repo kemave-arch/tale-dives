@@ -1,10 +1,11 @@
 import { describeKnownLocation } from './locations.js'
+import { describePresentNpc, presentNpcs } from './npcs.js'
 
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
 export function buildContextSlice(state) {
-  const { player, combatMode, proseDepth, narrationStyle, locations } = state
+  const { player, combatMode, proseDepth, narrationStyle, locations, npcs } = state
 
   const lines = [
     '[ACTIVE CONTEXT SLICE]',
@@ -15,6 +16,11 @@ export function buildContextSlice(state) {
   // §3.1 — only re-told once a Codex entry exists; first visit to a place omits it.
   const known = locations?.[player.locId]
   if (known) lines.push(describeKnownLocation(known))
+
+  // §5.5 Proximity Slicing — an NPC not currently here costs 0 context tokens.
+  for (const npc of presentNpcs(npcs, player.locId)) {
+    lines.push(describePresentNpc(npc))
+  }
 
   lines.push(
     `Combat Resolution Mode: ${combatMode}`,

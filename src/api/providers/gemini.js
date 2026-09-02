@@ -13,6 +13,35 @@ function sanitize(raw) {
     .trim()
 }
 
+// Stage 3 (Fallback Reader) helper — §3.3: "extracts pure prose between quotes
+// and renders it directly," not the raw JSON blob. Walks the "nar" field's
+// string content by hand (rather than a single regex) so a response cut off
+// mid-string by MAX_TOKENS still yields whatever prose made it out.
+function extractNarrative(raw) {
+  const match = raw.match(/"nar"\s*:\s*"/)
+  if (!match) return null
+
+  const ESCAPES = { n: '\n', t: '\t', r: '\r', '"': '"', '\\': '\\', '/': '/' }
+  let result = ''
+  for (let i = match.index + match[0].length; i < raw.length; i++) {
+    const ch = raw[i]
+    if (ch === '"') break // unescaped closing quote — end of the field
+    if (ch === '\\') {
+      const next = raw[i + 1]
+      if (next === 'u') {
+        result += String.fromCharCode(parseInt(raw.slice(i + 2, i + 6), 16))
+        i += 5
+      } else {
+        result += ESCAPES[next] ?? next
+        i += 1
+      }
+      continue
+    }
+    result += ch
+  }
+  return result || null
+}
+
 async function requestOnce({ apiKey, model, temperature, maxOutputTokens, history }) {
   // Key goes in a header, not the URL — keeps it out of browser history and network logs.
   const url = `${BASE_URL}/${encodeURIComponent(model)}:generateContent`
@@ -61,8 +90,9 @@ export async function runTurn({ apiKey, model, temperature, maxOutputTokens, his
         // Stage 2 (Schema Parser)
         return { ok: true, turn: JSON.parse(cleaned), finishReason, raw: text }
       } catch {
-        // Stage 3 (Fallback Reader): surface raw prose rather than losing the turn.
-        return { ok: false, fallbackText: cleaned || text, finishReason, raw: text }
+        // Stage 3 (Fallback Reader): surface the narrative prose rather than losing
+        // the turn — extracted "nar" text if possible, only the raw blob as a last resort.
+        return { ok: false, fallbackText: extractNarrative(text) ?? cleaned ?? text, finishReason, raw: text }
       }
     } catch (err) {
       lastError = err

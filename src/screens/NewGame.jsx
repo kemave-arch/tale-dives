@@ -40,11 +40,11 @@ export default function NewGame({ onBegin, onBack }) {
         </label>
 
         <label className="text-sm font-display">
-          Opening scene <span className="opacity-50">(optional)</span>
+          Tale Dive Brief <span className="opacity-50">(optional)</span>
           <textarea
             value={opening}
             onChange={(e) => setOpening(e.target.value)}
-            placeholder="Where and how does Turn 1 begin?"
+            placeholder="Describe the exact scene, location, and characters present where Turn 1 should open."
             rows={3}
             className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-card px-3 py-2 font-narrative text-sm"
           />
