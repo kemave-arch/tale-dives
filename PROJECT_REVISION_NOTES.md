@@ -217,13 +217,43 @@ assumption.
 
 5. **#15 Inspired Mode** (blueprint §Phase A.2) — adapting a real novel/series via
    title/author grounding (Gemini search-grounding tool + structured JSON output in the
-   same call — noted in the blueprint as needing its own verification since that's an
-   unusual combination). **UI stub only**: `WorldSetup.tsx` renders it as a disabled
-   "Coming soon" tab; `WorldData.mode` is hardcoded to `'original'` on every submit
-   regardless of which tab is active. An in-code comment at `WorldSetup.tsx:13-17`
-   already flags this as the reason it's stubbed. This is likely the highest-risk item on
-   the list technically (untested Gemini API capability combination) — budget time to
-   spike/verify the grounding+schema combination in isolation before wiring UI.
+   same call). **UI stub only**: `WorldSetup.tsx` renders it as a disabled "Coming soon"
+   tab; `WorldData.mode` is hardcoded to `'original'` on every submit regardless of which
+   tab is active. An in-code comment at `WorldSetup.tsx:13-17` already flags this as the
+   reason it's stubbed.
+
+   **Spiked this session (2026-09-03), deferred with evidence, not just risk-flagged.**
+   Ran three raw test calls directly against this campaign's configured API key/model
+   (`gemini-3.1-flash-lite`) from the browser console, bypassing the app:
+   1. Plain `generateContent`, no tools, no schema → **200 OK**.
+   2. `generateContent` with `tools: [{ google_search: {} }]` (grounding), no schema →
+      **429 RESOURCE_EXHAUSTED**.
+   3. Same grounding tool *plus* `responseSchema`/`responseMimeType: application/json` →
+      **429 RESOURCE_EXHAUSTED**, same message.
+
+   Every grounding-tool request failed on quota while plain generation succeeded
+   immediately after — Google Search grounding has its own, separately-metered quota on
+   this API key's current plan (consistent with Gemini API free-tier behavior — grounded
+   search typically needs a billing-enabled project for any real quota), independent of
+   and much stricter than the regular generation quota this app already uses fine. This
+   means **the core technical question — does Gemini actually accept `tools` +
+   `responseSchema` together in one call — could not be answered**: the request never
+   got far enough to be validated against that specific rule; it was quota-rejected
+   before or regardless of that check. A 400 `INVALID_ARGUMENT` would have settled the
+   question either way; a 429 settles nothing.
+
+   **This is not a "try again later" transient limit** — it reproduced identically on
+   three separate calls a few seconds apart, while plain generation worked between two of
+   them, so it isn't a general per-minute cap on the key. Resuming this spike needs
+   either the account's grounding quota to reset (may be daily, may need dashboard
+   inspection at the `ai.dev/rate-limit` link the error itself points to) or billing
+   enabled on the Google Cloud project backing this key. **Do not re-attempt this spike
+   more than once or twice per session** — it's an API-quota question, not a code
+   question, and hammering it doesn't get a different answer faster.
+   If/when the spike succeeds: implement per the blueprint (§Phase A.2's grounded call,
+   feeding into Class Grounding per §Phase B.2a's cross-reference — see Class Evolution's
+   scope note in §3 above, which is *also* blocked on this same missing Class Grounding
+   system), then wire `WorldSetup.tsx`'s Inspired Mode tab to it.
 
 6. ~~**#16 Multi-provider support + on-device folder saves**~~ — **done, both halves**,
    commit `9a2fed0`. See §3 above for scope notes (Gemini is still the only real provider;
@@ -265,13 +295,17 @@ Per the standing instruction this session was given:
 5. ~~#14 Faction rivalry + Territory Standing~~ — **done**, commit `52591e0`.
 6. ~~#16 Multi-provider + on-device saves~~ — **done, both halves**, commit `9a2fed0`.
    **Every Tier 3 list item except #15 (Inspired Mode) is now complete.**
-7. #15 (Inspired Mode) is the last Tier 3 item, and the highest-risk one technically — it
-   needs a live Gemini search-grounding + structured-JSON-output combination this session
-   never got to spike/verify. If picking this up: budget time for an isolated
-   spike/verification of that exact API combination *before* wiring any UI, per the
-   original scope note (still below in §4's corresponding entry, if not yet resolved
-   above). If the spike doesn't pan out cleanly, it's reasonable to document the blocker
-   here and move on to the verify-and-fix pass instead of stalling on it.
+7. #15 (Inspired Mode) is the last Tier 3 item — **spiked and deferred this session, not
+   just risk-flagged.** The grounding+schema combination could not be tested: Google
+   Search grounding is quota-blocked on this session's API key (429 on every
+   grounding-tool call, while plain generation succeeds fine — see §4's #15 entry above
+   for the full evidence). Before picking this up again: check whether the grounding
+   quota has reset (the error links to `ai.dev/rate-limit`) or whether billing is now
+   enabled on the backing project, run the same 3-call spike described in §4 (plain call,
+   grounding-only call, grounding+schema call), and only build UI once call #3 returns
+   something other than 429 — a 400 means the combination genuinely isn't supported and
+   needs a different approach (e.g. two sequential calls instead of one); a 200 means it's
+   clear to build.
 8. Do the full verify-and-fix pass across existing functions/components — see §5 above for
    one concrete lead already surfaced (a possible ST clamping gap).
 9. Do the final beautification pass last.
@@ -415,3 +449,19 @@ Per the standing instruction this session was given:
   `npm run typecheck` and `npm run build` both clean. Next up per §6: Tier 3 item #15
   (Inspired Mode), the last remaining item, or the verify-and-fix pass if a time-boxed
   spike on #15's grounding+schema combination doesn't pan out quickly.
+- **2026-09-03** — Spiked Tier 3 item #15 (Inspired Mode) per the plan above, no code
+  changed. Three raw test calls against this session's live API key (bypassing the app,
+  run directly from the browser console): plain `generateContent` succeeded (200); adding
+  `tools: [{ google_search: {} }]` failed (429 RESOURCE_EXHAUSTED); adding
+  `responseSchema` on top of that also failed the same way. Google Search grounding is
+  quota-blocked on this key independent of the regular generation quota (which is fine),
+  and reproduced identically across calls seconds apart with a successful plain call in
+  between — not a transient per-minute cap. **This means the core question — can Gemini
+  accept `tools` + `responseSchema` in one call — is still unanswered**, since the
+  request never reached that validation; a genuine 400 would have settled it either way.
+  Deferring #15 with this evidence recorded (§4 above has the full detail and the
+  re-spike procedure) rather than building UI/schema code around an unverified API
+  capability, consistent with this session's standard for every other scope cut. **Every
+  other Tier 3 list item is now done.** Pivoting to the explicitly-requested
+  verify-and-fix pass next, since it needs no further Gemini API calls (mostly code
+  review + local-state UI exercises) and the grounding-quota block doesn't affect it.
