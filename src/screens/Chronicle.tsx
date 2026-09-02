@@ -74,7 +74,7 @@ export default function Chronicle({ player, combat, log, busy, error, onSend, on
         </button>
       </header>
 
-      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-parchment px-4 py-4 space-y-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto bg-parchment parchment-texture px-4 py-4 space-y-4">
         {log.length === 0 && (
           <p className="font-narrative italic text-sm opacity-60">
             The tale hasn't begun. Type an action below to dive in.

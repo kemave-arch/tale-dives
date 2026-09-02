@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
 import Title from './screens/Title.tsx'
 import Settings, { type SettingsSavePayload } from './screens/Settings.tsx'
 import MainMenu from './screens/MainMenu.tsx'
@@ -470,12 +471,12 @@ export default function App() {
 
   // ---- Screens ----
 
-  if (screen === 'title') {
-    return <Title onEnter={() => setScreen('mainmenu')} onSettings={() => openSettings('title')} />
-  }
+  let content: ReactNode
 
-  if (screen === 'settings') {
-    return (
+  if (screen === 'title') {
+    content = <Title onEnter={() => setScreen('mainmenu')} onSettings={() => openSettings('title')} />
+  } else if (screen === 'settings') {
+    content = (
       <Settings
         apiSettings={apiSettings}
         uiPrefs={uiPrefs}
@@ -520,10 +521,8 @@ export default function App() {
         }}
       />
     )
-  }
-
-  if (screen === 'mainmenu') {
-    return (
+  } else if (screen === 'mainmenu') {
+    content = (
       <MainMenu
         worlds={worlds}
         protagonists={protagonists}
@@ -592,10 +591,8 @@ export default function App() {
         onOpenSettings={() => openSettings('mainmenu')}
       />
     )
-  }
-
-  if (screen === 'worldsetup') {
-    return (
+  } else if (screen === 'worldsetup') {
+    content = (
       <WorldSetup
         worldTemplates={Object.values(worlds)}
         initial={worldSetupInitial}
@@ -611,10 +608,8 @@ export default function App() {
         }}
       />
     )
-  }
-
-  if (screen === 'newgame') {
-    return (
+  } else if (screen === 'newgame') {
+    content = (
       <NewGame
         protagonistTemplates={Object.values(protagonists)}
         initial={newGameInitial}
@@ -630,10 +625,8 @@ export default function App() {
         }}
       />
     )
-  }
-
-  if (screen === 'codex' && game) {
-    return (
+  } else if (screen === 'codex' && game) {
+    content = (
       <Codex
         world={game.world}
         log={game.log}
@@ -648,10 +641,8 @@ export default function App() {
         onBack={() => setScreen('chronicle')}
       />
     )
-  }
-
-  if (screen === 'chronicle' && game) {
-    return (
+  } else if (screen === 'chronicle' && game) {
+    content = (
       <Chronicle
         player={game.player}
         combat={game.combat}
@@ -664,7 +655,22 @@ export default function App() {
         onOpenCodex={() => setScreen('codex')}
       />
     )
+  } else {
+    content = <Title onEnter={() => setScreen('mainmenu')} onSettings={() => openSettings('title')} />
   }
 
-  return <Title onEnter={() => setScreen('mainmenu')} onSettings={() => openSettings('title')} />
+  // §6.0 Motion System — cross-fade + slight vertical slide between screens.
+  return (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={screen}
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -12 }}
+        transition={{ duration: 0.2 }}
+      >
+        {content}
+      </motion.div>
+    </AnimatePresence>
+  )
 }

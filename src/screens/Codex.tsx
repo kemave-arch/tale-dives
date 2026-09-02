@@ -54,7 +54,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
   return (
     <div>
       <p className="text-[11px] font-display text-ink-muted uppercase tracking-wide">{label}</p>
-      <p className="font-narrative text-sm">{value}</p>
+      <div className="font-narrative text-sm">{value}</div>
     </div>
   )
 }
