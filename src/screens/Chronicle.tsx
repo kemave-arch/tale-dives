@@ -11,6 +11,7 @@ import { slugify } from '../lib/slug.ts'
 import { BANG_COMMANDS } from '../lib/bangCommands.ts'
 import type {
   BestiaryEntry, CombatState, FactionEntry, GameTime, KeywordLink, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry,
+  SlashCommand,
 } from '../types.ts'
 
 interface ChronicleProps {
@@ -27,8 +28,10 @@ interface ChronicleProps {
   lore: Record<string, LoreEntry>
   quests: Record<string, QuestEntry>
   bestiary: Record<string, BestiaryEntry>
-  onSend: (action: string) => void
+  onSend: (action: string, forcePause?: boolean) => void
   onBangCommand: (raw: string) => void
+  slashCommands: SlashCommand[]
+  onOpenSlashManager: () => void
   onOpenSettings: () => void
   onOpenMenu: () => void
   onOpenCodex: () => void
@@ -293,6 +296,8 @@ export default function Chronicle({
   bestiary,
   onSend,
   onBangCommand,
+  slashCommands,
+  onOpenSlashManager,
   onOpenSettings,
   onOpenMenu,
   onOpenCodex,
@@ -301,6 +306,8 @@ export default function Chronicle({
   const [input, setInput] = useState('')
   const [bangHighlight, setBangHighlight] = useState(0)
   const [bangDismissed, setBangDismissed] = useState(false)
+  const [slashHighlight, setSlashHighlight] = useState(0)
+  const [slashDismissed, setSlashDismissed] = useState(false)
   const [popup, setPopup] = useState<PopupTarget | null>(null)
   const [visibleCount, setVisibleCount] = useState(WINDOW_SIZE)
   const [currentBlock, setCurrentBlock] = useState<number | null>(null)
@@ -406,6 +413,12 @@ export default function Chronicle({
     // they bypass the busy-gated turn pipeline and never touch onSend.
     if (text.startsWith('!')) {
       onBangCommand(text)
+    } else if (text.startsWith('/')) {
+      // A completed slash command sends its saved prompt instead of the raw
+      // "/name" text; anything that doesn't match a known command just goes
+      // through as normal typed prose — "/" isn't a reserved character here.
+      const cmd = slashCommands.find((c) => c.name === text.slice(1).trim().toLowerCase())
+      onSend(cmd ? cmd.prompt : text, cmd?.pauseRoleplay)
     } else {
       onSend(text)
     }
@@ -413,12 +426,19 @@ export default function Chronicle({
   }
 
   // §6.6 Command Palette — suggestions only while the player is still typing
-  // the command word itself ("!" or "!np"); once a space appears they've
-  // moved on to a target, so the dropdown gets out of the way.
+  // the command word itself ("!"/"/" or "!np"/"/me"); once a space appears
+  // they've moved on to a target (bang) or finished (slash never takes one),
+  // so the dropdown gets out of the way.
   const bangWordMatch = /^!(\w*)$/.exec(input)
   const bangSuggestions =
     !bangDismissed && bangWordMatch
       ? BANG_COMMANDS.filter((c) => c.name.startsWith(bangWordMatch[1].toLowerCase()))
+      : []
+
+  const slashWordMatch = /^\/(\w*)$/.exec(input)
+  const slashSuggestions =
+    !slashDismissed && slashWordMatch
+      ? slashCommands.filter((c) => c.name.startsWith(slashWordMatch[1].toLowerCase()))
       : []
 
   function selectBangSuggestion(name: string) {
@@ -426,6 +446,15 @@ export default function Chronicle({
     setBangHighlight(0)
     setBangDismissed(false)
     textareaRef.current?.focus()
+  }
+
+  // Slash commands never take a free-form target, so selecting one sends
+  // immediately — matching the blueprint's "shorthand for typed prose" intent.
+  function selectSlashSuggestion(cmd: SlashCommand) {
+    onSend(cmd.prompt, cmd.pauseRoleplay)
+    setInput('')
+    setSlashHighlight(0)
+    setSlashDismissed(false)
   }
 
   function loadEarlierTurns() {
@@ -677,6 +706,33 @@ export default function Chronicle({
               ))}
             </div>
           )}
+          {slashSuggestions.length > 0 && (
+            <div className="absolute left-3 right-3 bottom-full mb-1.5 rounded-xl border border-[#e8ca8a]/25 bg-[#141622]/60 backdrop-blur-sm shadow-2xl overflow-hidden">
+              {slashSuggestions.map((cmd, i) => (
+                <button
+                  key={cmd.id}
+                  onClick={() => selectSlashSuggestion(cmd)}
+                  onMouseEnter={() => setSlashHighlight(i)}
+                  className={`w-full text-left px-3 py-2 flex items-center justify-between gap-3 transition-colors ${
+                    i === slashHighlight ? 'bg-[#e8ca8a]/15' : ''
+                  }`}
+                >
+                  <span className="font-mono text-xs font-semibold text-[#e8ca8a] shrink-0">/{cmd.name}</span>
+                  <span className="text-[11px] text-white/50 truncate">{cmd.prompt}</span>
+                </button>
+              ))}
+              {slashCommands.length === 0 && (
+                <p className="px-3 py-2 text-[11px] text-white/40 italic">No slash commands yet — tap /  below to create one.</p>
+              )}
+            </div>
+          )}
+          <button
+            onClick={onOpenSlashManager}
+            aria-label="Slash commands"
+            className="shrink-0 w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a]/70 hover:bg-white/10 hover:text-[#e8ca8a] font-mono text-sm font-bold"
+          >
+            /
+          </button>
           <textarea
             ref={textareaRef}
             rows={1}
@@ -685,6 +741,8 @@ export default function Chronicle({
               setInput(e.target.value)
               setBangHighlight(0)
               setBangDismissed(false)
+              setSlashHighlight(0)
+              setSlashDismissed(false)
             }}
             onKeyDown={(e) => {
               if (bangSuggestions.length > 0) {
@@ -706,6 +764,28 @@ export default function Chronicle({
                 if (e.key === 'Escape') {
                   e.preventDefault()
                   setBangDismissed(true)
+                  return
+                }
+              }
+              if (slashSuggestions.length > 0) {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setSlashHighlight((h) => (h + 1) % slashSuggestions.length)
+                  return
+                }
+                if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setSlashHighlight((h) => (h - 1 + slashSuggestions.length) % slashSuggestions.length)
+                  return
+                }
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  selectSlashSuggestion(slashSuggestions[slashHighlight])
+                  return
+                }
+                if (e.key === 'Escape') {
+                  e.preventDefault()
+                  setSlashDismissed(true)
                   return
                 }
               }

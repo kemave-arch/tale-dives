@@ -7,6 +7,7 @@ import WorldSetup from './screens/WorldSetup.tsx'
 import NewGame from './screens/NewGame.tsx'
 import Chronicle from './screens/Chronicle.tsx'
 import Codex, { type CategoryId } from './screens/Codex.tsx'
+import SlashCommandManager from './screens/SlashCommandManager.tsx'
 import { getClassById } from './data/classes.ts'
 import { startingAttributes, derivedPools } from './lib/derivedStats.ts'
 import { buildContextSlice } from './lib/jitContext.ts'
@@ -27,7 +28,7 @@ import { downloadJSON, readJSONFile } from './lib/backup.ts'
 import * as store from './lib/store.ts'
 import type {
   BestiaryEntry, Campaign, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
-  ProtagonistData, QuestEntry, TurnState, WorldData,
+  ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
 } from './types.ts'
 
 const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
@@ -64,6 +65,7 @@ export default function App() {
   const [protagonists, setProtagonists] = useState<Dict<ProtagonistData>>(store.loadProtagonists)
   const [campaigns, setCampaigns] = useState<Dict<Campaign>>(store.loadCampaigns)
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(store.loadActiveCampaignId)
+  const [globalSlashCommands, setGlobalSlashCommands] = useState<Dict<SlashCommand>>(store.loadGlobalSlashCommands)
 
   const [game, setGame] = useState<Campaign | null>(() => {
     const id = store.loadActiveCampaignId()
@@ -78,6 +80,7 @@ export default function App() {
   const [newGameMode, setNewGameMode] = useState<CreationMode>('tale')
   const [newGameInitial, setNewGameInitial] = useState<ProtagonistData | null>(null)
   const [codexTarget, setCodexTarget] = useState<{ category: CategoryId; id: string } | null>(null)
+  const [slashManagerOpen, setSlashManagerOpen] = useState(false)
 
   const [history, setHistory] = useState<HistoryTurn[]>([]) // Gemini `contents` sliding window (§3.1)
   const [busy, setBusy] = useState(false)
@@ -90,6 +93,7 @@ export default function App() {
   useEffect(() => { store.saveProtagonists(protagonists) }, [protagonists])
   useEffect(() => { store.saveCampaigns(campaigns) }, [campaigns])
   useEffect(() => { if (activeCampaignId) store.saveActiveCampaignId(activeCampaignId) }, [activeCampaignId])
+  useEffect(() => { store.saveGlobalSlashCommands(globalSlashCommands) }, [globalSlashCommands])
 
   useEffect(() => {
     document.documentElement.setAttribute('data-skin', uiPrefs.skin)
@@ -204,10 +208,10 @@ export default function App() {
     // Pass campaign + a fresh history directly — setGame/setHistory above
     // haven't flushed into this closure yet, so sendAction needs both handed
     // to it explicitly rather than reading stale `game`/`history` state.
-    sendAction(firstAction, campaign, [])
+    sendAction(firstAction, false, campaign, [])
   }
 
-  async function sendAction(actionText: string, overrideGame?: Campaign, overrideHistory?: HistoryTurn[]) {
+  async function sendAction(actionText: string, forcePauseState?: boolean, overrideGame?: Campaign, overrideHistory?: HistoryTurn[]) {
     const current = overrideGame ?? game
     if (!current) return
     if (!apiSettings.apiKey) {
@@ -350,6 +354,10 @@ export default function App() {
       }
 
       if (playerDefeated) nextCombat = { active: false }
+
+      // §6.6 Slash Command pause override — an explicit player-invoked OOC
+      // beat, so it wins over whatever turn state got computed above.
+      if (forcePauseState) turnState = 'PAUSE'
 
       // §5.1a Milestone Leveling — +1 per completed quest this turn, +1 at
       // every Chapter Milestone boundary (§8 item 5's Secret-quest question
@@ -527,6 +535,51 @@ export default function App() {
     setGame((g) => g && { ...g, lastPlayed: Date.now(), log: [...g.log, { nar: '', bang }] })
     if (result?.recallText) {
       setPendingRecall((prev) => (prev ? `${prev}\n\n${result.recallText}` : result.recallText))
+    }
+  }
+
+  // §6.6 Slash Commands — moving a command between "this Tale" and "Global"
+  // means deleting it from whichever dict it used to live in before writing
+  // it to the new one, so `previousGlobal` (from the manager's edit state)
+  // is required for a move and simply absent for a fresh create.
+  function upsertSlashCommand(cmd: SlashCommand, global: boolean, previousGlobal?: boolean) {
+    if (previousGlobal !== undefined && previousGlobal !== global) {
+      if (previousGlobal) {
+        setGlobalSlashCommands((g) => {
+          const next = { ...g }
+          delete next[cmd.id]
+          return next
+        })
+      } else {
+        setGame((g) => {
+          if (!g) return g
+          const next = { ...(g.slashCommands ?? {}) }
+          delete next[cmd.id]
+          return { ...g, slashCommands: next }
+        })
+      }
+    }
+    if (global) {
+      setGlobalSlashCommands((g) => ({ ...g, [cmd.id]: cmd }))
+    } else {
+      setGame((g) => g && { ...g, slashCommands: { ...(g.slashCommands ?? {}), [cmd.id]: cmd } })
+    }
+  }
+
+  function deleteSlashCommand(id: string, global: boolean) {
+    if (global) {
+      setGlobalSlashCommands((g) => {
+        const next = { ...g }
+        delete next[id]
+        return next
+      })
+    } else {
+      setGame((g) => {
+        if (!g) return g
+        const next = { ...(g.slashCommands ?? {}) }
+        delete next[id]
+        return { ...g, slashCommands: next }
+      })
     }
   }
 
@@ -749,6 +802,8 @@ export default function App() {
         bestiary={game.bestiary}
         onSend={sendAction}
         onBangCommand={handleBangCommand}
+        slashCommands={[...Object.values(game.slashCommands ?? {}), ...Object.values(globalSlashCommands)]}
+        onOpenSlashManager={() => setSlashManagerOpen(true)}
         onOpenSettings={() => openSettings('chronicle')}
         onOpenMenu={() => setScreen('mainmenu')}
         onOpenCodex={() => {
@@ -767,16 +822,28 @@ export default function App() {
 
   // §6.0 Motion System — cross-fade + slight vertical slide between screens.
   return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={screen}
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -12 }}
-        transition={{ duration: 0.2 }}
-      >
-        {content}
-      </motion.div>
-    </AnimatePresence>
+    <>
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={screen}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -12 }}
+          transition={{ duration: 0.2 }}
+        >
+          {content}
+        </motion.div>
+      </AnimatePresence>
+
+      {slashManagerOpen && game && (
+        <SlashCommandManager
+          campaignCommands={game.slashCommands ?? {}}
+          globalCommands={globalSlashCommands}
+          onSave={upsertSlashCommand}
+          onDelete={deleteSlashCommand}
+          onClose={() => setSlashManagerOpen(false)}
+        />
+      )}
+    </>
   )
 }

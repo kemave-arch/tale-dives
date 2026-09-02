@@ -1,4 +1,4 @@
-import type { ApiSettings, Campaign, Dict, ProtagonistData, UiPrefs, WorldData } from '../types.ts'
+import type { ApiSettings, Campaign, Dict, ProtagonistData, SlashCommand, UiPrefs, WorldData } from '../types.ts'
 
 // Centralized localStorage persistence. Splits the old single-save shape
 // into Tales (campaigns), Worlds, and Protagonists libraries (Blueprint
@@ -10,6 +10,7 @@ const KEYS = {
   protagonists: 'td_protagonists',
   campaigns: 'td_campaigns',
   activeCampaign: 'td_active_campaign',
+  globalSlashCommands: 'td_global_slash_commands', // §6.6 — shared across every Tale, vs. a campaign's own slashCommands
   legacyGame: 'td_game_state', // pre-library single-save format
 }
 
@@ -75,6 +76,9 @@ export const saveCampaigns = (c: Dict<Campaign>): void => save(KEYS.campaigns, c
 
 export const loadActiveCampaignId = (): string | null => load(KEYS.activeCampaign, null)
 export const saveActiveCampaignId = (id: string): void => save(KEYS.activeCampaign, id)
+
+export const loadGlobalSlashCommands = (): Dict<SlashCommand> => load(KEYS.globalSlashCommands, {})
+export const saveGlobalSlashCommands = (c: Dict<SlashCommand>): void => save(KEYS.globalSlashCommands, c)
 
 export function newId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.round(Math.random() * 1e6)}`

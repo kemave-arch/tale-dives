@@ -165,6 +165,18 @@ export interface LogEntry {
   bang?: BangCommandEntry // §6.6 — a rendered bang-command result, not real narration
 }
 
+// §6.6 Slash Commands — an in-fiction shortcut: selecting one sends `prompt`
+// through the normal turn pipeline exactly like typed prose (costs tokens,
+// gets narrated). `pauseRoleplay` forces that one turn's state to PAUSE
+// client-side regardless of what the model returns, for OOC-flavored prompts
+// (rules questions, meta requests) that shouldn't read as in-scene action.
+export interface SlashCommand {
+  id: string
+  name: string // invoked as /name
+  prompt: string
+  pauseRoleplay: boolean
+}
+
 // A Tale — the full persisted campaign shape (§6.4B Tales library).
 export interface Campaign {
   id: string
@@ -186,6 +198,7 @@ export interface Campaign {
   combat: CombatState
   flags: string[] // §5.6 World Impact Ledger
   inventory: Dict<number> // item id -> quantity (§5.9)
+  slashCommands?: Dict<SlashCommand> // §6.6 — this Tale's own commands, not marked global in the manager
   log: LogEntry[]
   lastPlayed: number
   turnCount: number // real narrated turns only — decoupled from log.length, which also holds synthetic chapter-recap entries
