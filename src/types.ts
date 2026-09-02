@@ -168,6 +168,8 @@ export interface Campaign {
   quests: Dict<QuestEntry>
   bestiary: Dict<BestiaryEntry>
   combat: CombatState
+  flags: string[] // §5.6 World Impact Ledger
+  inventory: Dict<number> // item id -> quantity (§5.9)
   log: LogEntry[]
   lastPlayed: number
   turnCount: number // real narrated turns only — decoupled from log.length, which also holds synthetic chapter-recap entries

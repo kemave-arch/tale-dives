@@ -14,6 +14,7 @@ import { ensureLocation } from './lib/locations.ts'
 import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
 import { applyQuestUpdate } from './lib/quests.ts'
+import { applyInventoryChanges } from './lib/inventory.ts'
 import { computePlayerAttack, isDisengaging, describeCombatResult, ensureAdversary } from './lib/combat.ts'
 import { applyLevelUps, isChapterBoundary, CHAPTER_TURN_INTERVAL } from './lib/leveling.ts'
 import { parseKeywordLinks } from './lib/keywordLinks.ts'
@@ -155,6 +156,8 @@ export default function App() {
       quests: {}, // §5.14 — populated by {{Term|quest}} keyword links (quest_update integration is still pending)
       bestiary: {}, // §5.13/§5.14 — populated by {{Term|beast}} keyword links, full stat blocks once combat begins
       combat: { active: false }, // §2 Phase D.2/§5.13 — ephemeral, reset each encounter
+      flags: [], // §5.6 World Impact Ledger
+      inventory: {}, // §5.9
       log: [],
       lastPlayed: Date.now(),
       turnCount: 0,
@@ -274,6 +277,8 @@ export default function App() {
       const { dict: nextLocations } = ensureLocation(linked.locations, turn.loc_id, turn.loc_disp)
       const nextNpcs = applyNpcUpdates(linked.npcs, turn.npc_mem_up, turn.loc_id)
       const nextQuests = applyQuestUpdate(linked.quests, turn.quest_update)
+      const nextFlags = turn.flag_add?.length ? Array.from(new Set([...current.flags, ...turn.flag_add])) : current.flags
+      const nextInventory = applyInventoryChanges(current.inventory, turn.inv_add, turn.inv_rem)
 
       // §3.2 Turn State Consistency — forced to COMBAT whenever a Tactical
       // result was precomputed; otherwise Gemini's own call, same as always.
@@ -338,6 +343,8 @@ export default function App() {
         quests: nextQuests,
         bestiary: nextBestiary,
         combat: nextCombat,
+        flags: nextFlags,
+        inventory: nextInventory,
         lastPlayed: Date.now(),
         turnCount: turnNumber,
         log: [
@@ -635,6 +642,8 @@ export default function App() {
         lore={game.lore}
         quests={game.quests}
         bestiary={game.bestiary}
+        flags={game.flags}
+        inventory={game.inventory}
         onBack={() => setScreen('chronicle')}
       />
     )

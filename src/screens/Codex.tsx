@@ -1,11 +1,11 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowLeft, ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull,
+  ArrowLeft, ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
 } from 'lucide-react'
 import type { BestiaryEntry, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, QuestEntry, WorldData } from '../types.ts'
 
-type CategoryId = 'realm' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary'
+type CategoryId = 'realm' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'inventory'
 
 interface CodexProps {
   world: WorldData
@@ -16,6 +16,8 @@ interface CodexProps {
   lore: Record<string, LoreEntry>
   quests: Record<string, QuestEntry>
   bestiary: Record<string, BestiaryEntry>
+  flags: string[]
+  inventory: Record<string, number>
   onBack: () => void
 }
 
@@ -60,7 +62,7 @@ function DetailField({ label, value }: { label: string; value: React.ReactNode }
 // Blueprint §6.4D — Category List -> Entry Grid -> Entry Detail. Discovery
 // masking (§5.12) isn't implemented — nothing here is actually hidden yet,
 // since the grounding/seeding system it depends on doesn't exist.
-export default function Codex({ world, log, npcs, factions, locations, lore, quests, bestiary, onBack }: CodexProps) {
+export default function Codex({ world, log, npcs, factions, locations, lore, quests, bestiary, flags, inventory, onBack }: CodexProps) {
   const [category, setCategory] = useState<CategoryId | null>(null)
   const [entryId, setEntryId] = useState<string | null>(null)
 
@@ -75,6 +77,7 @@ export default function Codex({ world, log, npcs, factions, locations, lore, que
     { id: 'lore', label: 'Lore & Myths', icon: ScrollText, count: Object.keys(lore).length },
     { id: 'quests', label: 'Quests & Objectives', icon: Target, count: Object.keys(quests).length },
     { id: 'bestiary', label: 'Bestiary', icon: Skull, count: Object.keys(bestiary).length },
+    { id: 'inventory', label: 'Relics & Vault', icon: Backpack, count: Object.keys(inventory).length },
   ]
 
   function back() {
@@ -127,6 +130,20 @@ export default function Codex({ world, log, npcs, factions, locations, lore, que
           {world.conflict && <DetailField label="Core Regional Conflict" value={world.conflict} />}
           {world.background && <DetailField label="World Background" value={world.background} />}
           <DetailField label="Narration Style" value={<span className="text-xs opacity-80">{world.narrationStyle}</span>} />
+          {flags.length > 0 && (
+            <DetailField
+              label="World Flags"
+              value={
+                <div className="flex flex-wrap gap-1.5 mt-1">
+                  {flags.map((f) => (
+                    <span key={f} className="text-[11px] font-mono px-2 py-0.5 rounded-full bg-gold-accent/15 text-gold-primary">
+                      {f}
+                    </span>
+                  ))}
+                </div>
+              }
+            />
+          )}
         </div>
       )}
 
@@ -247,6 +264,19 @@ export default function Codex({ world, log, npcs, factions, locations, lore, que
           <DetailField label="Threat Tier" value={bestiary[entryId].threatTier} />
           {bestiary[entryId].hpMax !== undefined && <DetailField label="HP" value={String(bestiary[entryId].hpMax)} />}
           {bestiary[entryId].dmgBase !== undefined && <DetailField label="Base Damage" value={String(bestiary[entryId].dmgBase)} />}
+        </div>
+      )}
+
+      {/* Relics & Vault — id + qty is the whole record, grid IS the detail */}
+      {category === 'inventory' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {Object.entries(inventory).map(([id, qty]) => (
+            <div key={id} className="glass-panel rounded-2xl p-4 flex items-center justify-between">
+              <h3 className="font-display font-bold text-sm text-gold-primary">{id.replace(/_/g, ' ')}</h3>
+              <span className="font-mono text-xs opacity-70">×{qty}</span>
+            </div>
+          ))}
+          {Object.keys(inventory).length === 0 && <p className="font-narrative italic text-sm opacity-60">Nothing carried yet.</p>}
         </div>
       )}
     </div>
