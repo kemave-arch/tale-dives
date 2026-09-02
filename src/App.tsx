@@ -669,11 +669,13 @@ export default function App() {
   } else if (screen === 'chronicle' && game) {
     content = (
       <Chronicle
+        title={game.title}
         player={game.player}
         combat={game.combat}
         log={game.log}
         busy={busy}
         error={error}
+        chromeOpacity={uiPrefs.chromeOpacity}
         npcs={game.npcs}
         locations={game.locations}
         factions={game.factions}

@@ -43,7 +43,7 @@
   --td-rose-bg: #fce7ea;
   --td-skill: #31456e;
   --td-skill-bg: #e8eefb;
-  --td-parchment: #f0e7d3;
+  --td-parchment: #f8f1de;
   --td-parchment-header: #e0d3ba;
   --td-glow: 0 8px 28px rgba(120, 90, 20, 0.12);
 }
@@ -93,6 +93,51 @@ body {
 .parchment-texture {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
   background-repeat: repeat;
+}
+
+/* §3.2 obsidian glass chrome — a runtime-set --turn-accent (fixed gold) tints
+   only the border/ring, never the fill. Flat obsidian background, no color-wash
+   gradient — matches the reference app's clean idle/focus card look. */
+.turn-glow {
+  --turn-accent: var(--td-gold-accent);
+  --chrome-alpha-idle: 0.4;
+  --chrome-alpha-focus: 0.6;
+  background: rgba(26, 31, 46, var(--chrome-alpha-idle));
+  border-color: color-mix(in srgb, var(--turn-accent) 30%, transparent);
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.5);
+  transition: background 0.25s ease-out, box-shadow 0.2s ease-out, border-color 0.2s ease-out;
+}
+.turn-glow:focus,
+.turn-glow:hover,
+.turn-glow:focus-within {
+  outline: none;
+  background: rgba(26, 31, 46, var(--chrome-alpha-focus));
+  border-color: var(--turn-accent);
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--turn-accent) 45%, transparent),
+    0 12px 28px -8px rgba(0, 0, 0, 0.7);
+}
+.turn-glow-btn {
+  box-shadow: 0 4px 12px -3px rgba(0, 0, 0, 0.5);
+}
+.turn-glow-btn:disabled {
+  box-shadow: none;
+}
+
+/* §9.2 block navigator — idle: nearly invisible; hover/focus: solid, no glow
+   blur, borderless. Fading back to idle waits a beat (transition-delay) so it
+   doesn't snap transparent the instant the pointer lifts off; going solid is
+   instant (delay reset to 0 on the active selectors). */
+.turn-nav {
+  --turn-accent: var(--td-gold-accent);
+  background: rgba(20, 22, 34, 0.12);
+  transition: background 0.25s ease-out 0.6s, box-shadow 0.25s ease-out 0.6s;
+}
+.turn-nav:hover,
+.turn-nav:focus-within {
+  background: rgba(20, 22, 34, 0.88);
+  transition-delay: 0s;
+  box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6);
 }
 
 /* Themed scrollbars instead of the browser default. */

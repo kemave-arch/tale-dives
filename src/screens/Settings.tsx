@@ -3,6 +3,17 @@ import { Cpu, SlidersHorizontal, Database, Info, X, Save, Download, Upload, Rota
 import { PROSE_DEPTHS } from '../api/turnContract.ts'
 import type { ApiSettings, Campaign, CombatMode, Skin, UiPrefs } from '../types.ts'
 
+const GEMINI_MODELS = [
+  { id: 'gemini-3.8-flash', label: 'Gemini 3.8 Flash' },
+  { id: 'gemini-3.7-flash', label: 'Gemini 3.7 Flash' },
+  { id: 'gemini-3.6-flash', label: 'Gemini 3.6 Flash' },
+  { id: 'gemini-3.5-flash', label: 'Gemini 3.5 Flash' },
+  { id: 'gemini-3.5-flash-lite', label: 'Gemini 3.5 Flash Lite' },
+  { id: 'gemini-3.1-pro-preview', label: 'Gemini 3.1 Pro Preview' },
+  { id: 'gemini-3.1-flash-lite', label: 'Gemini 3.1 Flash Lite' },
+  { id: 'gemini-3-flash-preview', label: 'Gemini 3 Flash Preview' },
+] as const
+
 const TABS = [
   { id: 'model', label: 'AI Model', icon: Cpu },
   { id: 'gameplay', label: 'Gameplay', icon: SlidersHorizontal },
@@ -47,6 +58,7 @@ export default function Settings({
   const [apiKey, setApiKey] = useState(apiSettings.apiKey)
   const [temperature, setTemperature] = useState(apiSettings.temperature)
   const [skin, setSkin] = useState<Skin>(uiPrefs.skin)
+  const [chromeOpacity, setChromeOpacity] = useState(uiPrefs.chromeOpacity)
   const [proseDepthKey, setProseDepthKey] = useState<keyof typeof PROSE_DEPTHS>(
     (game?.proseDepth?.label as keyof typeof PROSE_DEPTHS) ?? 'BALANCED',
   )
@@ -56,7 +68,7 @@ export default function Settings({
   function save() {
     onSave({
       apiSettings: { provider: 'gemini', model, apiKey, temperature },
-      uiPrefs: { skin },
+      uiPrefs: { skin, chromeOpacity },
       proseDepthKey,
       combatMode,
     })
@@ -92,12 +104,20 @@ export default function Settings({
             <div>
               <label className="text-sm font-display">
                 Model ID
-                <input
+                <select
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
-                  placeholder="e.g. gemini-2.5-flash"
                   className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
-                />
+                >
+                  {!GEMINI_MODELS.some((m) => m.id === model) && model && (
+                    <option value={model}>{model} (custom)</option>
+                  )}
+                  {GEMINI_MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
             <div>
@@ -188,6 +208,24 @@ export default function Settings({
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <p className="text-sm font-display mb-1">
+                Chronicle HUD Opacity <span className="opacity-50 font-mono text-xs">{Math.round(chromeOpacity * 100)}%</span>
+              </p>
+              <input
+                type="range"
+                min="0.1"
+                max="0.9"
+                step="0.05"
+                value={chromeOpacity}
+                onChange={(e) => setChromeOpacity(Number(e.target.value))}
+                className="w-full accent-gold-action"
+              />
+              <p className="text-[11px] opacity-50 mt-1">
+                How solid the header, HUD, and input bar glass look over the ambient background. Lower is more see-through.
+              </p>
             </div>
           </div>
         )}

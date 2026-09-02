@@ -187,6 +187,7 @@ export interface ApiSettings {
 
 export interface UiPrefs {
   skin: Skin
+  chromeOpacity: number // §3.2 — 0.1-0.9, how opaque the Chronicle header/HUD/input glass is
 }
 
 // §7.3 JSON Schema — the shape of a single turn response from the model.

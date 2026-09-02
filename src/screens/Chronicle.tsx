@@ -12,11 +12,13 @@ import type {
 } from '../types.ts'
 
 interface ChronicleProps {
+  title: string
   player: Player
   combat?: CombatState
   log: LogEntry[]
   busy: boolean
   error: string | null
+  chromeOpacity: number
   npcs: Record<string, NpcEntry>
   locations: Record<string, LocationEntry>
   factions: Record<string, FactionEntry>
@@ -37,11 +39,16 @@ function PoolBar({ label, value, max, colorVar }: { label: string; value: number
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0
   return (
     <div className="flex items-center gap-1.5 flex-1 min-w-0">
-      <span className="w-5 shrink-0 font-mono text-[10px] opacity-70">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-gold-accent/15 overflow-hidden min-w-[24px]">
+      <span className="w-5 shrink-0 font-mono text-[10px] font-semibold" style={{ color: colorVar }}>
+        {label}
+      </span>
+      {/* §mobile — numbers only, no bar; the bar returns at sm: and up. */}
+      <div className="hidden sm:block flex-1 h-1.5 rounded-full bg-white/15 overflow-hidden min-w-[24px]">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: colorVar }} />
       </div>
-      <span className="shrink-0 font-mono text-[10px] opacity-70">{value}/{max}</span>
+      <span className="shrink-0 font-mono text-[10px] font-semibold" style={{ color: colorVar }}>
+        {value}/{max}
+      </span>
     </div>
   )
 }
@@ -54,11 +61,81 @@ function CurrencyBadge({ copper }: { copper: number }) {
     (s > 0 || (p === 0 && g === 0)) && `${s}S`,
     (c > 0 || (p === 0 && g === 0 && s === 0)) && `${c}C`,
   ].filter(Boolean)
-  return <span className="font-mono text-[10px] text-gold-primary shrink-0">{parts.join(' ')}</span>
+  return <span className="font-mono text-[10px] text-[#e8ca8a] shrink-0">{parts.join(' ')}</span>
 }
 
 function formatTimestamp(time: GameTime, locDisp: string): string {
   return `D-${String(time.d).padStart(2, '0')} ${time.h} | ${locDisp.toUpperCase()}`
+}
+
+// Ambient drifting motes behind the glass header/input bars — pure decoration
+// (aria-hidden, pointer-events-none), skipped entirely under reduced-motion.
+// `accent` tracks the current turn state's color (§3.2) via a ref so the
+// mote color drifts live without restarting the particle system.
+function AmbientBackground({ accent }: { accent: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const accentRef = useRef(accent)
+  useEffect(() => {
+    accentRef.current = accent
+  }, [accent])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    let width = (canvas.width = window.innerWidth)
+    let height = (canvas.height = window.innerHeight)
+
+    const particles = Array.from({ length: 44 }, () => ({
+      x: Math.random() * width,
+      y: Math.random() * height,
+      size: Math.random() * 1.8 + 0.8,
+      speedX: (Math.random() - 0.5) * 0.12,
+      speedY: (Math.random() - 0.5) * 0.12,
+      opacity: Math.random() * 0.45 + 0.15,
+    }))
+
+    let animationId: number
+    function animate() {
+      const accent = accentRef.current
+      ctx!.clearRect(0, 0, width, height)
+      ctx!.fillStyle = accent
+      for (const p of particles) {
+        p.x += p.speedX
+        p.y += p.speedY
+        if (p.x < 0) p.x = width
+        if (p.x > width) p.x = 0
+        if (p.y < 0) p.y = height
+        if (p.y > height) p.y = 0
+        ctx!.globalAlpha = p.opacity
+        ctx!.beginPath()
+        ctx!.arc(p.x, p.y, p.size, 0, Math.PI * 2)
+        ctx!.shadowBlur = 8
+        ctx!.shadowColor = accent
+        ctx!.fill()
+      }
+      animationId = requestAnimationFrame(animate)
+    }
+
+    function handleResize() {
+      width = canvas!.width = window.innerWidth
+      height = canvas!.height = window.innerHeight
+    }
+
+    window.addEventListener('resize', handleResize)
+    animationId = requestAnimationFrame(animate)
+
+    return () => {
+      window.removeEventListener('resize', handleResize)
+      cancelAnimationFrame(animationId)
+    }
+  }, [])
+
+  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" aria-hidden="true" />
 }
 
 interface PopupTarget {
@@ -129,11 +206,13 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
 // Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
 // yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
 export default function Chronicle({
+  title,
   player,
   combat,
   log,
   busy,
   error,
+  chromeOpacity,
   npcs,
   locations,
   factions,
@@ -152,11 +231,16 @@ export default function Chronicle({
   const [currentBlock, setCurrentBlock] = useState<number | null>(null)
   const [bottomHeight, setBottomHeight] = useState(0)
   const [headerHeight, setHeaderHeight] = useState(0)
+  const [statsCollapsed, setStatsCollapsed] = useState(false)
+  const [navDragPos, setNavDragPos] = useState<{ y: number } | null>(null)
+  const [navDragging, setNavDragging] = useState(false)
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const navRef = useRef<HTMLDivElement>(null)
+  const navDragOffset = useRef<{ dx: number; dy: number } | null>(null)
   const blockRefs = useRef(new Map<number, HTMLDivElement>())
   const pendingScrollTo = useRef<number | null>(null)
 
@@ -164,11 +248,26 @@ export default function Chronicle({
   const visibleLog = log.slice(windowStart)
   const hasEarlierTurns = windowStart > 0
 
+  // §6.0 — the chrome (header/frame/input/motes) uses a fixed gold accent; it
+  // no longer retints per turn state. Per-entry turn-state badges in the log
+  // (TurnBlock, below) are unrelated and keep their own per-entry coloring.
+  const stateAccent = '#e8ca8a'
+
+  // §Settings "Chronicle HUD Transparency" — chromeOpacity (0.1-0.9) scales how
+  // solid the header/HUD/input glass reads. Flat obsidian, no color-wash gradient
+  // — the gold accent lives only in the border/ring, matching the reference app.
+  const chromeAlpha = chromeOpacity
+  const inputIdleAlpha = +(chromeOpacity * 0.8).toFixed(2)
+  const inputFocusAlpha = +Math.min(chromeOpacity + 0.25, 0.95).toFixed(2)
+
   // Non-chapter-summary entries only — those are what the navigator steps between.
   const narratedIndices = log.reduce<number[]>((acc, e, i) => {
     if (!e.chapterSummary) acc.push(i)
     return acc
   }, [])
+  const navPosition = narratedIndices.length
+    ? narratedIndices.indexOf(currentBlock ?? narratedIndices[narratedIndices.length - 1]) + 1
+    : 0
 
   useEffect(() => {
     if (currentBlock === null) {
@@ -267,6 +366,40 @@ export default function Chronicle({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }
 
+  // §9.2 Navigator drag — Y-axis only, grabbing the pill's own padding (not a
+  // button); clamped strictly to the visible strip between the floating header
+  // and footer, not the full (now header/footer-covered) parchment card.
+  function onNavPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (e.target !== e.currentTarget) return
+    const el = navRef.current
+    if (!el) return
+    const elRect = el.getBoundingClientRect()
+    navDragOffset.current = { dx: e.clientX - elRect.left, dy: e.clientY - elRect.top }
+    el.setPointerCapture(e.pointerId)
+    setNavDragging(true)
+  }
+
+  function onNavPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    const offset = navDragOffset.current
+    const el = navRef.current
+    if (!offset || !el) return
+    // Live rects, not the headerHeight/bottomHeight state — those store the
+    // ResizeObserver content-box height (excludes padding/border), which
+    // undershoots the header/footer's actual visual (border-box) extent.
+    const headerBottom = headerRef.current?.getBoundingClientRect().bottom ?? 0
+    const footerTop = bottomRef.current?.getBoundingClientRect().top ?? window.innerHeight
+    const minY = headerBottom + 6
+    const maxY = footerTop - 6 - el.offsetHeight
+    const y = Math.max(minY, Math.min(e.clientY - offset.dy, Math.max(minY, maxY)))
+    setNavDragPos({ y })
+  }
+
+  function onNavPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    navDragOffset.current = null
+    setNavDragging(false)
+    navRef.current?.releasePointerCapture(e.pointerId)
+  }
+
   // §6.4C Codex Popup Card — tapping a {{Term|category}} keyword link opens
   // this instead of a full-screen navigation. A miss (the model tagged
   // something not yet auto-registered, or a category with no entry) just
@@ -290,29 +423,38 @@ export default function Chronicle({
     | undefined)
 
   return (
-    <div className="min-h-screen bg-canvas text-ink relative">
+    <div className="min-h-screen text-ink relative" style={{ background: '#0b0d13' }}>
+      <AmbientBackground accent={stateAccent} />
+
+      {/* Full-bleed dark obsidian header — flat, no color-wash gradient; the
+          gold accent lives only in the border. Transparent enough for the
+          ambient motes to show through. */}
       <header
         ref={headerRef}
-        className="fixed top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3 bg-parchment-header border-b border-gold-accent/30"
+        className="fixed top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3 border-b shadow-2xl transition-[background,border-color] duration-700 ease-out"
+        style={{
+          background: `rgba(11,13,20,${chromeAlpha})`,
+          borderColor: `${stateAccent}45`,
+        }}
       >
-        <button onClick={onOpenMenu} aria-label="Menu" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
+        <button onClick={onOpenMenu} aria-label="Menu" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
           <Menu size={18} />
         </button>
-        <div className="font-mono text-xs text-center flex-1">
-          Day {player.time.d} • {player.time.h} — {player.locDisp}
+        <div className="font-display text-sm font-semibold tracking-wide text-center flex-1 truncate px-2 text-[#e8ca8a]">
+          {title}
         </div>
-        <button onClick={onOpenCodex} aria-label="Codex" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
+        <button onClick={onOpenCodex} aria-label="Codex" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
           <Library size={18} />
         </button>
-        <button onClick={onOpenSettings} aria-label="Settings" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-gold-primary">
+        <button onClick={onOpenSettings} aria-label="Settings" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
           <SettingsIcon size={18} />
         </button>
       </header>
 
       <div
         ref={scrollRef}
-        className="fixed inset-x-0 overflow-y-auto bg-parchment parchment-texture pl-4 pr-6 py-4 space-y-4"
-        style={{ top: headerHeight, bottom: bottomHeight }}
+        className="fixed overflow-y-auto bg-parchment parchment-texture rounded-xl pl-4 pr-6 space-y-4"
+        style={{ top: 6, bottom: 6, left: 6, right: 6, paddingTop: headerHeight + 16, paddingBottom: bottomHeight + 16 }}
       >
         {log.length === 0 && (
           <p className="font-narrative italic text-sm opacity-60">
@@ -334,39 +476,89 @@ export default function Chronicle({
         {error && <p className="font-mono text-xs text-rose">{error}</p>}
       </div>
 
-      {/* §9.2 Block Navigator — compact floating action bar, bottom-right corner of the parchment. */}
+      {/* §9.2 Block Navigator — idle: nearly invisible; hover/focus: lights up
+          solid, matching the reference's idle-transparent/active-solid chrome. */}
       {log.length > 0 && (
         <div
-          className="fixed right-1 z-10 flex flex-col items-center gap-0 rounded-lg bg-surface-raised/10 backdrop-blur-[2px] px-0.5 py-1"
-          style={{ bottom: bottomHeight + 8 }}
+          ref={navRef}
+          onPointerDown={onNavPointerDown}
+          onPointerMove={onNavPointerMove}
+          onPointerUp={onNavPointerUp}
+          onPointerCancel={onNavPointerUp}
+          className="turn-nav group fixed z-10 flex flex-col items-center gap-0.5 rounded-xl backdrop-blur-sm px-1 py-1.5 cursor-grab active:cursor-grabbing touch-none"
+          style={{
+            right: 10,
+            ...(navDragPos ? { top: navDragPos.y } : { bottom: bottomHeight + 10 }),
+            ['--turn-accent' as string]: stateAccent,
+            ...(navDragging ? { background: 'rgba(20,22,34,0.88)' } : {}),
+          }}
         >
-          <button onClick={goPrevious} aria-label="Previous turn" className="w-5 h-5 rounded-full inline-flex items-center justify-center text-gold-primary/60 hover:bg-gold-accent/20 hover:text-gold-primary">
-            <ChevronUp size={12} />
+          <button
+            onClick={goPrevious}
+            aria-label="Previous turn"
+            className="w-6 h-6 rounded-full inline-flex items-center justify-center text-white/40 hover:!text-[#e8ca8a] group-hover:text-white/70 hover:bg-white/10 transition-colors"
+          >
+            <ChevronUp size={13} />
           </button>
-          <button onClick={goNext} aria-label="Next turn" className="w-5 h-5 rounded-full inline-flex items-center justify-center text-gold-primary/60 hover:bg-gold-accent/20 hover:text-gold-primary">
-            <ChevronDown size={12} />
+          <span className="font-mono text-[10px] tabular-nums text-white/40 group-hover:text-white/80 transition-colors">
+            {navPosition || ''}
+          </span>
+          <button
+            onClick={goNext}
+            aria-label="Next turn"
+            className="w-6 h-6 rounded-full inline-flex items-center justify-center text-white/40 hover:!text-[#e8ca8a] group-hover:text-white/70 hover:bg-white/10 transition-colors"
+          >
+            <ChevronDown size={13} />
           </button>
-          <button onClick={jumpToLatest} aria-label="Jump to latest" className="w-5 h-5 rounded-full inline-flex items-center justify-center text-gold-primary/60 hover:bg-gold-accent/20 hover:text-gold-primary">
-            <ChevronsDown size={12} />
+          <div className="w-3 h-px my-0.5 bg-white/10 group-hover:bg-white/20 transition-colors" />
+          <button
+            onClick={jumpToLatest}
+            aria-label="Jump to latest"
+            className="w-6 h-6 rounded-full inline-flex items-center justify-center text-white/40 hover:!text-[#e8ca8a] group-hover:text-white/70 hover:bg-white/10 transition-colors"
+          >
+            <ChevronsDown size={13} />
           </button>
         </div>
       )}
 
-      <div ref={bottomRef} className="fixed bottom-0 inset-x-0 z-10 flex flex-col">
+      <div
+        ref={bottomRef}
+        className="fixed bottom-0 inset-x-0 z-10 flex flex-col border-t shadow-2xl transition-[background,border-color] duration-700 ease-out"
+        style={{
+          background: `rgba(11,13,20,${chromeAlpha})`,
+          borderColor: `${stateAccent}45`,
+        }}
+      >
         {combat?.active && (
-          <div className="bg-surface-raised border-t border-rose/30 px-4 py-1.5">
+          <div className="border-b border-rose/30 px-4 py-1 text-white/80">
             <PoolBar label={combat.enemyName?.slice(0, 3).toUpperCase() ?? 'ENM'} value={combat.enemyHp ?? 0} max={combat.enemyHpMax ?? 1} colorVar="#e11d48" />
           </div>
         )}
 
-        <div className="bg-surface-raised border-t border-gold-accent/30 px-4 py-2 flex items-center gap-3">
-          <PoolBar label="HP" value={player.hp} max={player.hpMax} colorVar="#e11d48" />
-          <PoolBar label="MP" value={player.mp} max={player.mpMax} colorVar="#0891b2" />
-          <PoolBar label="ST" value={player.st} max={player.stMax} colorVar="#059669" />
-          <CurrencyBadge copper={player.copper} />
+        <div className="px-3 pt-1.5">
+          <button
+            onClick={() => setStatsCollapsed((v) => !v)}
+            aria-label={statsCollapsed ? 'Expand stats' : 'Collapse stats'}
+            className="w-full flex items-center justify-center py-px text-white/40 hover:text-[#e8ca8a]"
+          >
+            {statsCollapsed ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+          </button>
+          <div
+            className="grid transition-[grid-template-rows] duration-200 ease-out"
+            style={{ gridTemplateRows: statsCollapsed ? '0fr' : '1fr' }}
+          >
+            <div className="overflow-hidden">
+              <div className="px-1 pb-1.5 flex items-center gap-3 text-white/80">
+                <PoolBar label="HP" value={player.hp} max={player.hpMax} colorVar="#fb3552" />
+                <PoolBar label="MP" value={player.mp} max={player.mpMax} colorVar="#22d3ee" />
+                <PoolBar label="ST" value={player.st} max={player.stMax} colorVar="#34d399" />
+                <CurrencyBadge copper={player.copper} />
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-surface-raised border-t border-gold-accent/50 px-3 py-2 flex gap-2 items-end">
+        <div className="px-3 pt-2 pb-2.5 flex gap-2 items-end">
           <textarea
             ref={textareaRef}
             rows={1}
@@ -380,16 +572,21 @@ export default function Chronicle({
             }}
             placeholder="What do you do?"
             disabled={busy}
-            className="flex-1 resize-none rounded-xl border border-gold-accent/40 bg-canvas px-3 py-1.5 font-narrative text-sm leading-snug"
-            style={{ maxHeight: INPUT_MAX_HEIGHT }}
+            className="turn-glow flex-1 resize-none rounded-xl border backdrop-blur-sm px-3 py-1 font-narrative text-sm leading-snug text-white/90 placeholder:text-white/35"
+            style={{
+              maxHeight: INPUT_MAX_HEIGHT,
+              ['--turn-accent' as string]: stateAccent,
+              ['--chrome-alpha-idle' as string]: inputIdleAlpha,
+              ['--chrome-alpha-focus' as string]: inputFocusAlpha,
+            }}
           />
           <button
             onClick={send}
             disabled={busy || !input.trim()}
             aria-label="Send"
-            className="w-9 h-9 shrink-0 rounded-full bg-gold-action inline-flex items-center justify-center text-ink disabled:opacity-40"
+            className="turn-glow-btn w-8 h-8 shrink-0 rounded-full inline-flex items-center justify-center transition-colors bg-[#e8ca8a] text-[#0e1017] disabled:bg-white/10 disabled:text-white/25"
           >
-            <Send size={15} />
+            <Send size={14} />
           </button>
         </div>
       </div>
