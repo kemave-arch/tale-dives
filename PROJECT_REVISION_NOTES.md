@@ -1,6 +1,10 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-03, by a Claude Code session working autonomously overnight.
+**Last updated:** 2026-09-03, by a Claude Code session on the office machine, following
+directly on the overnight session below. Added: GitHub Pages deployment, a Settings
+terminology/UI polish pass (icon-only tabs, slider controls, icon-only Cancel/Save), and a
+Fourth Wing/Violet Sorrengail starter World+Protagonist template with a mobile-first
+redesign of WorldSetup/NewGame. See the top of the Revision log for the full detail.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
@@ -50,6 +54,26 @@ concluding something is actually broken: re-screenshot after a short `wait`, or 
 A hard `preview_stop`/`preview_start` cycle plus a forced navigate also clears any stale
 Vite HMR state if you're unsure the dev server is serving current source.
 
+**A second, worse variant hit the following session** (2026-09-03, office machine): every
+top-level screen transition (even a trivial Title→Settings click) appeared completely
+frozen — `document.body.innerText` never changed no matter how long you waited, with zero
+console errors. Direct React-fiber inspection proved the app's own state (`screen`) updated
+correctly on the very first click; only the painted DOM stayed stuck. This reproduced
+identically across a fresh browser tab AND a fully restarted dev server process, ruling out
+HMR/module-state corruption. It was specific to how the click was delivered: JS-dispatched
+clicks (`element.click()`, `dispatchEvent(new MouseEvent(...))`, even calling the button's
+React `onClick` prop directly) never got the DOM to catch up, while the `computer` tool's
+real CDP-level input (mouse-driven `left_click`) did — but often needed the *second* click
+at the same coordinates to actually land, with the first one seemingly swallowed after a
+navigation. **If a screen transition looks completely inert (not just stale-by-one-frame):
+switch to real coordinate-based `computer` clicks instead of JS-dispatched ones, and expect
+to click important buttons twice right after a navigation** before trusting a "nothing
+happened" reading. This was never root-caused beyond that — it reads like an artifact of
+this specific automation environment's input/event pipeline, not an app bug (state
+management itself was proven correct throughout), but it cost significant time before the
+workaround was found, so it's worth trying immediately rather than re-diagnosing from
+scratch.
+
 ## 1. What Tale Dives is
 
 A single-player, browser-only (no backend) AI-narrated text RPG. Vite + React 19 +
@@ -85,8 +109,15 @@ client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `c
 session), `providers/gemini.ts` (the only real provider implementation — exports both the
 raw `runTurn`/`runSummary` functions and the `GEMINI_PROVIDER` descriptor).
 
-**Data** (`src/data/`): `classes.ts` (Preset Class Dictionary), `recipes.ts` (§5.8 Recipe
-Dictionary).
+**Data** (`src/data/`): `classes.ts` (Preset Class Dictionary, now including
+`apprentice_scribe`), `recipes.ts` (§5.8 Recipe Dictionary), `starterTemplates.ts` (new —
+the Fourth Wing World + Violet Sorrengail Protagonist starter template, Appendix A's worked
+example, seeded once into the Library on a genuinely first-ever load).
+
+**Deployment**: `.github/workflows/deploy.yml` — builds and deploys to GitHub Pages via
+Actions on every push to `master` (repo's Pages source is set to "GitHub Actions"). `vite.config.ts` uses `base: './'` (relative) so the build works from the project's Pages
+subpath without hardcoding the repo name — safe since there's no URL-based router, only
+in-app `screen` state.
 
 **Ambient types** (`src/types/`): `fileSystemAccess.d.ts` — minimal File System Access API
 types not yet in TS's bundled DOM lib, new this session.
@@ -381,6 +412,25 @@ Per the standing instruction this session was given:
    JS-exec tool) before concluding the underlying handler is broken. This cost real
    verification time on the Class Evolution manual-trigger flow this session.
 
+**Current priority list (2026-09-03, office session)**, folding in what's actually left
+after the additions below — items 7/8/9 above are unchanged and still the long pole:
+
+1. **Finish the verify-and-fix pass (§5/§6 item 8 above)** — still the most concrete,
+   lowest-risk unresolved work: live click-through of Quests/Bestiary Codex CRUD (shares
+   the already-proven generic CRUD path), the defeat/recovery flow (`resolveDefeat`), and
+   chapter recap beyond the one instance already observed. None of this needs new features,
+   just verification.
+2. **Manually verify on-device folder saves** (§3's Multi-provider entry) — the one gap
+   that genuinely needs a human: click Settings → Backup → Choose Folder for real, since a
+   native OS picker dialog can't be driven by browser automation.
+3. **Continue the beautification pass (item 9 above)** — Title and Main Menu still haven't
+   had a dedicated look (WorldSetup/NewGame got one this session; Chronicle/Codex/Settings
+   already had theirs in earlier sessions).
+4. **Scope the radial quick-action menu (blueprint §6.5)** — referenced by Crafting's UI
+   hook but never built; low urgency until it's actually blocking something.
+5. **Inspired Mode (item 7 above)** — stays parked until the Google Search grounding quota
+   resets or billing is enabled; don't re-spike more than once or twice a session.
+
 ---
 
 ## Revision log
@@ -584,3 +634,87 @@ Per the standing instruction this session was given:
   This is exactly the kind of thing the "not yet covered" list in §5 exists to be
   replaced by — a live user report, verified end-to-end, not a guess. `npm run
   typecheck` and `npm run build` both clean.
+
+---
+
+**The entries above are the overnight session's. Everything below is a separate session on
+the office machine, picking up directly afterward — same repo, same `master` branch.**
+
+- **2026-09-03** — GitHub Pages deployment set up (commit `7d9c22f`). `vite.config.ts` got
+  `base: './'` (relative, so it works from the Pages project subpath without hardcoding the
+  repo name — safe since there's no URL router) and `.github/workflows/deploy.yml` builds +
+  deploys via GitHub Actions on every push to `master`. Confirmed no secrets are committed
+  anywhere before making the repo's Pages source public (the API key is entered per-user
+  into Settings and lives only in that browser's `localStorage`, never in the bundle).
+  Verified: the actual production build (not just Vite dev mode) boots clean via `vite
+  preview`, and the first live deploy completed successfully — the app is live at
+  `https://kemave-arch.github.io/tale-dives/`. Also renamed the AI Model tab's
+  "Temperature" field to "Narrative Variance" then, per follow-up feedback, to "Creativity
+  Randomness" and converted it from a number input to a slider (matching the existing HUD
+  Opacity slider pattern) — the underlying `apiSettings.temperature` field name is
+  unchanged, this was UI-label-only.
+- **2026-09-03** — Settings layout polish per live user feedback (commit `8581af3`, bundled
+  with the Fourth Wing work below): renamed the modal from "Chronicle & Narrator Settings"
+  to "App Settings"; converted the tab bar from icon+text to icon-only buttons (saves real
+  width on mobile) with the active tab's label moved to a section header below the tab row
+  instead of being lost; fixed a stray "Chronicle HUD Opacity" label down to "HUD Opacity".
+  Separately, per an app-wide "prefer icon buttons over text unless the function is
+  complex" request: converted Settings' footer Cancel/Save and SlashCommandManager's
+  edit-form Cancel/Save from text buttons to icon-only circular buttons, matching the style
+  Codex's CRUD toolbar and MainMenu's card actions already used. Deliberately left
+  everything else as-is after actually checking it: Codex/MainMenu were already icon-only;
+  WorldSetup's Continue/NewGame's Begin, and the "Add NPC"/"New Command" style buttons,
+  were judged to fall under the stated "complex function" exception (a primary multi-field
+  form submit, or a button whose text is the only thing disambiguating which category it
+  adds to) and left as icon+text on purpose, not overlooked.
+- **2026-09-03** — Added a Fourth Wing (Rebecca Yarros) World + Violet Sorrengail
+  Protagonist starter template (commit `8581af3`), taken directly from the blueprint's own
+  Appendix A worked example rather than invented fresh. New file `src/data/
+  starterTemplates.ts` holds both constants; `src/lib/store.ts`'s `loadWorlds`/
+  `loadProtagonists` seed them once, gated on the raw `localStorage` key being genuinely
+  absent (not just an empty `{}`), so deleting the template afterward is respected exactly
+  like any other Library entry rather than being silently re-seeded. Added a new
+  `apprentice_scribe` preset class (`src/data/classes.ts`, weights STR 0.1/INT 0.65/AGI
+  0.25 — a genuinely non-combat, INT-heavy starter) to back Violet's class, matching
+  Appendix A.2's description of her as scholarly and frail, not combat-ready.
+
+  **New fields, since the existing types couldn't represent Appendix A's own example
+  faithfully**: `WorldData.sourceTitle`/`sourceAuthor` (attribution metadata only —
+  deliberately never sent to the model, to avoid nudging generation toward reproducing
+  copyrighted specifics; the actual grounding-equivalent signal is entirely carried by the
+  existing Genre/Conflict/Background/Narration Style fields, hand-authored here to match
+  Appendix A.1's own values) and `ProtagonistData.background` (origin/family history — the
+  app previously conflated this with `opening`'s Turn-1 scene brief into one field, but
+  Appendix A.2 "Background" and A.3 "Tale Dive Brief" are explicitly two different things).
+  `background` now also feeds a new `Protagonist Background:` line into Turn 1's context in
+  `App.tsx`'s `beginCampaign`, alongside the existing World Background/Genre/Conflict lines.
+
+  **WorldSetup and NewGame redesigned mobile-first** in the same commit (these two hadn't
+  had a dedicated pass yet — see the beautification-pass note earlier in this log): both
+  moved from a plain top-to-bottom page to a pinned header + scrollable middle + pinned
+  full-width primary-action footer (matching the pattern already established in
+  Chronicle/Settings), template chips got larger touch targets, and the new fields were
+  worked into the existing field order rather than bolted on at the end. WorldSetup's
+  Original/Inspired mode toggle now always shows Original as visually active regardless of
+  a loaded template's `mode` value, since Inspired Mode has no clickable alternative yet —
+  showing neither box as "selected" when a template carried `mode: 'inspired'` read as a
+  rendering bug even though it wasn't one.
+
+  **Verified live, end to end**: cleared `td_worlds`/`td_protagonists` to simulate a
+  genuinely fresh install, confirmed both templates seed with the exact expected content,
+  then walked Main Menu → New Story → World Setup (applied the Fourth Wing chip, confirmed
+  every field including the new Title/Author inputs populated correctly) → New Game
+  (applied the Violet Sorrengail chip, confirmed Name/Class/Background/Tale Dive Brief all
+  populated with Appendix A's exact text) in both desktop and mobile viewports. `npm run
+  typecheck` and `npm run build` both clean. Hit the click-delivery tooling issue described
+  in §0 above while doing this verification — see that entry for the workaround (real
+  `computer`-tool clicks, expect to click twice after a navigation) before assuming a
+  future session's screen-transition testing is hitting a real regression.
+
+  **Not done, and deliberately so**: did not hand-seed the Codex (NPCs/Locations/Factions/
+  Lore) with Appendix A.4's example entries (Lilith Sorrengail, The Parapet, etc.) — that
+  table is what a *live* Inspired Mode grounding call would produce, and hand-writing it as
+  static seed data would have meant partially reimplementing Inspired Mode by hand outside
+  the deliberate deferral in §4/§7 above. The existing `{{Term|category}}` auto-registration
+  path already picks these up naturally the first time a real turn's narration references
+  them, at zero extra scope.
