@@ -153,12 +153,15 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
       <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
         <button
           onClick={onEnter}
-          className="relative w-full rounded-full border-2 border-[#e8ca8a] bg-black/20 backdrop-blur-sm py-3.5 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0] flex items-center justify-center gap-2.5 shadow-[0_8px_20px_-10px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:border-[#f5dfa0] hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] active:scale-[0.98] active:border-[#fbe7ac] active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
+          className="group relative inline-flex rounded-full p-[1.5px] shadow-[0_8px_20px_-10px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125"
+          style={{ background: 'linear-gradient(135deg, rgba(245,223,160,0.55), rgba(240,202,101,0.95), rgba(168,127,44,0.5))' }}
         >
-          <span className="text-[#f0ca65]">◆</span>
-          <BookOpen size={15} />
-          Dive In
-          <span className="text-[#f0ca65]">◆</span>
+          <span className="flex items-center justify-center gap-2 rounded-full bg-black/25 backdrop-blur-sm px-5 py-2 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0] transition-shadow duration-150 group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]">
+            <span className="text-[#f0ca65]">◆</span>
+            <BookOpen size={14} />
+            Dive In
+            <span className="text-[#f0ca65]">◆</span>
+          </span>
         </button>
       </div>
     </div>
