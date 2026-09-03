@@ -1,21 +1,19 @@
 # Tale Dives — Project Revision Notes
 
 **Last updated:** 2026-09-03, by a Claude Code session on the home machine. Same-day
-follow-up to the entry below: Main Menu was rebuilt around the same cycling background and
-border-only glassmorphism chrome as Title (shared into `src/lib/cyclingBackground.tsx` /
-`src/lib/glassChrome.tsx`), several Dive-In-button bugs got fixed (see the Revision log),
-and — the one that actually mattered for anyone visiting the live site — background images
-were 404ing on GitHub Pages because they used a hardcoded leading-slash path instead of
-Vite's `BASE_URL`; fixed and confirmed in the built bundle. Added: a
-4-screen new-story creation flow (Story Mode → World Setup → Protagonist Setup → Tale Dive
-Brief), gender/age fields for Player/NPCs, a default-Narrative combat mode, an in-app
-`useConfirm()` modal replacing every `window.confirm()` call site (which was silently
-no-oping — see its Revision log entry), Main Menu Worlds/Protagonists edit buttons, and a
-full art-driven Title/Main-Menu redesign with a responsive `m_`/`pc_` background-image
-pairing system and a live 2-slot crossfade cycler. See the bottom of the Revision log for
-full detail; this pass also left real unfinished work (campaign seeding, a prologue beat,
-and streaming turn rendering — see the new §4 item below) that a future session should pick
-up next.
+follow-up to the entry below: shipped a small punch list the user gave from the blueprint
+gap-scan (see §4's new item list) — a Title screen "Continue" shortcut, a save
+schema-version field, and the big one, a real **Equipment system** (§5.9 Item Type
+Taxonomy, equip slots, stat_bonus on equip/unequip via new `!equip`/`!unequip` bang
+commands) replacing what had been bare id+qty inventory with no name, type, or
+description at all. Also rebuilt Main Menu around the same cycling background and
+border-only glassmorphism chrome as Title, and fixed a GitHub Pages 404 on the background
+images (hardcoded leading-slash path instead of Vite's `BASE_URL`). See the bottom of the
+Revision log for full detail. Remaining items from that same punch list — Skills +
+Quick-Slot Tray, an API Failure Diagnostics Panel, Action Suggestion Pills (the `act`
+schema field already exists and is populated but is completely unread anywhere — a
+near-free win once picked up), and a Codex filters pass — are queued next; see §4's new
+list for the full detail and priority order the user gave.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It is kept in sync with the actual code on `master`,
@@ -142,7 +140,9 @@ actually calls `beginCampaign`), `Chronicle` (main gameplay), `Codex`
 **Lib** (`src/lib/*.ts`): `store.ts` (persistence), `jitContext.ts` (per-turn context
 slicing), `shadowReferee.ts` (client-side validation of model-proposed deltas), `codex.ts`
 + `keywordLinks.ts` (`{{Term|category}}` auto-registration), `locations.ts`, `npcs.ts`,
-`quests.ts`, `inventory.ts` (per-domain state appliers), `combat.ts` (Tactical combat
+`quests.ts`, `inventory.ts` (per-domain state appliers — now also §5.9 Equipment:
+`applyInventoryChanges` upserts the item Codex alongside the qty ledger, `equipItem`/
+`unequipSlot` apply/reverse a `statBonus`), `combat.ts` (Tactical combat
 math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts` (`!`
 client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `crafting.ts`
 + `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic), `summoning.ts`
@@ -368,6 +368,35 @@ the literal commit sequence; the summary here groups by feature, not commit.
   had pushed a blueprint-doc-only commit independently) — reconciled with a plain `git
   merge origin/master` (no conflicts, doc-only content) before the final push; `master` and
   `origin/master` are in sync as of `ce63a71`.
+- **Equipment system (§5.9 Item Type Taxonomy)** (commit `817c90d`) — closes the gap an
+  earlier session's own notes had flagged ("the Equipment source has no equip system to
+  hang off yet"). Items previously had no name, type, or description anywhere — the Codex
+  Items tab showed a slugified id (`iron_dagger` → "iron dagger") as the whole record. Now
+  `Campaign.items` (a proper item Codex, separate from `inventory`'s qty ledger) holds
+  name/type/description?/statBonus? per item id, populated atomically by an enriched
+  `inv_add` schema field (id/name/type/qty required, description/stat_bonus optional) so
+  there's no separate registration step for an item to fall out of sync with. Weapon/
+  Armor/Accessory can carry a `statBonus` and occupy `Player.equipped[slot]`; a new
+  `!equip`/`!unequip` bang command (deterministic, player-initiated, same architectural
+  family as `!arise`/`!summon` — not a schema field, since there's no narrative ambiguity
+  for the model to arbitrate) applies/reverses it, also reachable via Equip/Unequip
+  buttons in the rebuilt Codex Items detail view. Equipped gear is now in the always-on
+  per-turn JIT context line, not just behind `!items`, so the narrator stays aware of it
+  turn to turn. See §3 above's Lib entry for the exact functions. Verified live end-to-end
+  (screen-transition clicks are still affected by the tooling stall documented in §0's
+  fourth variant, so this was checked via direct DOM/localStorage inspection rather than
+  screenshots): created a weapon with a +3 STR bonus via Codex CRUD, equipped it (STR
+  3.2→6.2, HP max recomputed 28→36), unequipped it (reverted cleanly), then repeated the
+  same round-trip via `!equip`/`!unequip`/`!items` typed directly in Chronicle. Found and
+  fixed one real bug during this: `!equip`/`!unequip` were falling through to Chronicle's
+  generic "Unclear Reference" dossier label (`BANG_DISPLAY` had no entry for them).
+- **Title screen "Continue" shortcut + save schema-version field** (commit `23eafda`) — a
+  small ghost link under Dive In jumps straight into the most recently played Tale via a
+  new shared `resumeCampaign()` (also now backing Main Menu's own Resume), omitted
+  entirely when no Tale exists yet. Separately, `CURRENT_SCHEMA_VERSION` (`types.ts`) is
+  now stamped on every new campaign and export and backfilled onto older campaigns on
+  load — pure defensive plumbing, nothing branches on it yet since nothing has needed a
+  migration yet.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -477,6 +506,33 @@ assumption.
    summary is exhaustive — it's a compression of a longer plan, kept here specifically so
    the intent isn't lost, not a replacement for thinking through the integration points
    fresh.
+
+8. **A 6-item punch list the user gave from a blueprint gap-scan** (home-machine session,
+   2026-09-03) — sequenced explicitly by the user as "cheap wins first," then by their own
+   stated priority. **3 of 6 done**:
+   - ~~Title screen "Continue" shortcut~~ — **done**, see §3 above.
+   - ~~Save schema-version field~~ — **done**, see §3 above.
+   - ~~Equipment system (Item Type Taxonomy, stat_bonus on equip)~~ — **done**, see §3
+     above. The user's own framing going in: "probably the highest-value gap... loot
+     currently can't actually make your character stronger."
+   - **Skills & the Quick-Slot Tray** — not started. Originally scoped from the blueprint
+     as "Skills & Ley-Arts"; the user explicitly cut Ley-Arts — **just Skills.** No
+     skill/spell roster system exists at all right now, only inline `[Skill]` text
+     formatting in narration with nothing persistent or castable with one tap. The user's
+     own framing: "the biggest missing mechanic for combat feel."
+   - **API Failure Diagnostics Panel** — not started. A failed call currently just shows a
+     plain error banner; the ask is a proper panel (masked API key, one-click "Copy
+     Diagnostic Report," Retry/Open Settings/Dismiss-into-PAUSE actions).
+   - **Action Suggestion Pills** — not started, but note the schema-side work is already
+     done and just unused: `turn.act` (`turnContract.ts`'s `TURN_SCHEMA`) is a required
+     field, "2-4 short suggested next actions," and the model populates it every turn —
+     confirmed via `grep` that nothing in `src/` reads `turn.act` or renders it anywhere.
+     This item is therefore mostly `App.tsx` (store it on the `LogEntry`) + `Chronicle.tsx`
+     (render clickable pills that fill the input), not new schema/prompt work.
+   - **Codex overhaul — filters** — added mid-session, not originally on the list. The
+     user's own framing: "some items have drilldowns, but what we're missing are filters."
+     Explicitly flagged to check against the blueprint before building, not yet scoped in
+     detail.
 
 ### Also noted in the blueprint but not on the numbered list above
 
@@ -1212,3 +1268,36 @@ office session above — same repo, same `master` branch.**
   for any future asset referenced the same way; always build such paths off
   `import.meta.env.BASE_URL`, never a bare leading slash.** `npm run build` clean; the
   user confirmed the live site renders correctly after the next Pages Actions deploy.
+- **2026-09-03** — User handed over a 6-item punch list from a blueprint gap-scan and
+  chose "cheap wins first." Shipped the Title "Continue" shortcut and the save
+  schema-version field in one pass (commit `23eafda`) — see §3/§4 above for the detail.
+  Verified live via direct React-fiber state inspection rather than screenshots, since
+  the browser tool's screen-transition paint stall (§0's fourth variant) was still active
+  this session: confirmed `!continue`'s click correctly drove `screen` to `'chronicle'`
+  and `resumeCampaign`'s side effects ran, and confirmed both existing campaigns in
+  `localStorage` picked up `schemaVersion: 1` via the new `loadCampaigns` backfill.
+- **2026-09-03** — Equipment system (§5.9, commit `817c90d`) — the third item on the same
+  punch list, and per the user's own note the highest-value one. Full detail in §3/§4
+  above; the short version: items get real name/type/description now instead of a raw
+  slug, Weapon/Armor/Accessory can carry a `statBonus` and be equipped via a new
+  `!equip`/`!unequip` bang command, and the Codex Items tab was rebuilt from a bare
+  inline qty-editor into the same grid-to-detail pattern every other category uses. Two
+  design decisions worth flagging for whoever touches this next: (1) equip/unequip is
+  deliberately a bang command, not a schema field — it's a deterministic, player-
+  initiated action with no narrative ambiguity, so spending a turn on it would be pure
+  waste, same reasoning as Summoning; (2) the item Codex (`Campaign.items`) is explicitly
+  scoped to the player's own inventory, not a general "every item that exists in the
+  world" registry — an NPC's or a shop's items have no representation here at all.
+  Verified live end-to-end via direct DOM/localStorage inspection (the same tooling
+  caveat as the entry above applies): created a weapon with a stat bonus via Codex CRUD,
+  round-tripped Equip/Unequip through both the Codex buttons and the `!equip`/`!unequip`/
+  `!items` bang commands typed directly in Chronicle, confirmed derived HP/MP/ST
+  recompute correctly on both directions, and found+fixed a real bug along the way
+  (`!equip`/`!unequip` had no entry in Chronicle's `BANG_DISPLAY` map, so they rendered
+  under the generic "Unclear Reference" label instead of "Equipped"/"Unequipped"). Test
+  data (the sample weapon and its bang-command log entries) was cleaned out of the user's
+  real `localStorage` save afterward rather than left behind. `npm run typecheck`/
+  `npm run build` clean throughout. Next up per the punch list: Skills & the Quick-Slot
+  Tray (Ley-Arts explicitly cut — just Skills), then the API Failure Diagnostics Panel,
+  Action Suggestion Pills (the `act` schema field already exists and is populated but is
+  read nowhere in `src/` — confirmed via grep), and a Codex filters pass.
