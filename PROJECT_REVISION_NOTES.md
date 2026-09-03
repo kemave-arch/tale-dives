@@ -415,17 +415,19 @@ Per the standing instruction this session was given:
 **Current priority list (2026-09-03, office session)**, folding in what's actually left
 after the additions below — items 7/8/9 above are unchanged and still the long pole:
 
-1. **Finish the verify-and-fix pass (§5/§6 item 8 above)** — still the most concrete,
-   lowest-risk unresolved work: live click-through of Quests/Bestiary Codex CRUD (shares
-   the already-proven generic CRUD path), the defeat/recovery flow (`resolveDefeat`), and
-   chapter recap beyond the one instance already observed. None of this needs new features,
-   just verification.
+1. **Finish the verify-and-fix pass (§5/§6 item 8 above)** — Quests/Bestiary Codex CRUD is
+   now **done** (see the revision log entry just above this list). What's left needs a real
+   Gemini API call to exercise and was deliberately not spent without checking with the
+   user first: the defeat/recovery flow (`resolveDefeat`) and chapter recap
+   (`recapChapter`) beyond the one instance already observed. Both are single, cheap calls
+   — worth doing together in one short session once there's a green light to spend the
+   quota (a real key is already in this browser's Settings).
 2. **Manually verify on-device folder saves** (§3's Multi-provider entry) — the one gap
    that genuinely needs a human: click Settings → Backup → Choose Folder for real, since a
    native OS picker dialog can't be driven by browser automation.
-3. **Continue the beautification pass (item 9 above)** — Title and Main Menu still haven't
-   had a dedicated look (WorldSetup/NewGame got one this session; Chronicle/Codex/Settings
-   already had theirs in earlier sessions).
+3. ~~Continue the beautification pass to Title/Main Menu~~ — **checked, already clean**,
+   see the revision log entry just above this list. Every screen has now had a dedicated
+   look at least once.
 4. **Scope the radial quick-action menu (blueprint §6.5)** — referenced by Crafting's UI
    hook but never built; low urgency until it's actually blocking something.
 5. **Inspired Mode (item 7 above)** — stays parked until the Google Search grounding quota
@@ -718,3 +720,28 @@ the office machine, picking up directly afterward — same repo, same `master` b
   the deliberate deferral in §4/§7 above. The existing `{{Term|category}}` auto-registration
   path already picks these up naturally the first time a real turn's narration references
   them, at zero extra scope.
+- **2026-09-03** — Continued the verify-and-fix pass (§5/§6 item 1 in this session's
+  priority list): live click-through of Quests and Bestiary Codex CRUD, the two categories
+  the overnight session had flagged as sharing the generic CRUD path but never directly
+  exercised. Using the fresh Violet Sorrengail campaign from the entry above (API key
+  temporarily cleared first, so this ran with zero API cost): created a Quest ("Survive the
+  Parapet", status `advanced`), edited its status to `completed`, then deleted it —
+  confirmed the list correctly returns to the empty state each step. Did the same for
+  Bestiary (created "Rift Stalker", edited HP/Base Damage to 85/12, deleted it). Both
+  categories work exactly like the already-verified ones; no bugs found. Zero console
+  errors throughout. This closes the "Not yet covered" Codex CRUD gap from §5 above —
+  defeat/recovery (`resolveDefeat`) and chapter recap (`recapChapter`) remain the only
+  unverified items from that list, since both require a real Gemini API call
+  (`getProvider(...).runTurn`/`runSummary`) to exercise — deliberately not spent without
+  checking with the user first (see the priority list above, item 1).
+
+  Also spent a few minutes on this session's priority item 3 (continuing the
+  beautification pass to Title/Main Menu, since WorldSetup/NewGame got theirs in the entry
+  above but Title/MainMenu hadn't had a dedicated look yet). Walked both live, desktop and
+  mobile viewports, all three MainMenu tabs (Tales — including the icon action row on a
+  populated card; Worlds; Protagonists) and the seeded Fourth Wing/Violet entries rendering
+  correctly. **Found nothing to fix** — both screens already read as clean, consistent with
+  the icon-only/glass-panel conventions established elsewhere, matching the overnight
+  session's own assessment that these were "already read as clean and intentional." No
+  code changes made here; recording the check itself so a future session doesn't re-walk
+  the same ground without cause.
