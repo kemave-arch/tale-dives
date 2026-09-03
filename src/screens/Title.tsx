@@ -132,7 +132,7 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
 export default function Title({ onEnter, onSettings }: TitleProps) {
   return (
     <div
-      className="min-h-dvh relative flex flex-col justify-end items-center text-center px-6 overflow-hidden bg-[#050308]"
+      className="h-dvh relative flex flex-col justify-end items-center text-center px-6 overflow-hidden bg-[#050308]"
       style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
     >
       <CyclingBackground stems={BACKGROUND_SLOTS} />
