@@ -20,6 +20,71 @@ import type { KeywordLink } from '../types.ts'
 const OUTER_RE = /\[([^\]]+)\]|>([^<]+)<|(?<!\w)'(.+?)'(?!\w)/g
 const TAG_RE = /\{\{([^{}|]+)\|(\w+)\}\}/g
 
+// §7.2 rule 1b tells the model to break `nar` into paragraphs, and it
+// usually does — but not always: on some turns it returns one dense,
+// unbroken block despite the instruction. Rather than keep re-wording a
+// prompt the model doesn't reliably follow, this is a client-side
+// guarantee: only fires when a turn has *zero* line breaks at all (a
+// turn that made any attempt, even a bad one, is left exactly as
+// written — this never overrides genuine model formatting).
+const MIN_LENGTH_FOR_FALLBACK = 400
+const SENTENCE_BOUNDARY_RE = /(?<=[.!?])\s+(?=[A-Z'"])/g
+// Same span a 'thought/dialogue' match covers (OUTER_RE's third
+// alternative) — treated as an atomic, unsplittable unit here so a
+// paragraph break is never inserted *inside* one (which would break its
+// rendering as a single <em> block) and its attribution tag ("... she
+// murmurs.") always stays in the same paragraph as the line it belongs to.
+const QUOTE_SPAN_RE = /(?<!\w)'.+?'(?!\w)/g
+
+export function ensureParagraphBreaks(text: string): string {
+  if (!text || text.length < MIN_LENGTH_FOR_FALLBACK || text.includes('\n')) return text
+
+  const segments: { text: string; quoted: boolean }[] = []
+  let lastIndex = 0
+  QUOTE_SPAN_RE.lastIndex = 0
+  let m: RegExpExecArray | null
+  while ((m = QUOTE_SPAN_RE.exec(text))) {
+    if (m.index > lastIndex) segments.push({ text: text.slice(lastIndex, m.index), quoted: false })
+    segments.push({ text: m[0], quoted: true })
+    lastIndex = m.index + m[0].length
+  }
+  if (lastIndex < text.length) segments.push({ text: text.slice(lastIndex), quoted: false })
+
+  const paragraphs: string[] = []
+  let current = ''
+  let sentenceCount = 0
+  let hasQuote = false
+
+  const flush = () => {
+    if (current.trim()) paragraphs.push(current.trim())
+    current = ''
+    sentenceCount = 0
+    hasQuote = false
+  }
+
+  for (const seg of segments) {
+    if (seg.quoted) {
+      // A paragraph already carrying one dialogue/thought line always
+      // starts a fresh one for the next — keeps distinct beats apart
+      // without ever splitting a single quote's own span.
+      if (hasQuote || sentenceCount >= 2) flush()
+      current += (current ? ' ' : '') + seg.text
+      hasQuote = true
+      continue
+    }
+    for (const sentence of seg.text.split(SENTENCE_BOUNDARY_RE)) {
+      const trimmed = sentence.trim()
+      if (!trimmed) continue
+      current += (current ? ' ' : '') + trimmed
+      sentenceCount++
+      if (sentenceCount >= 3) flush()
+    }
+  }
+  flush()
+
+  return paragraphs.join('\n\n')
+}
+
 export type TapTermHandler = (term: string, category: KeywordLink['category']) => void
 
 function renderTags(text: string, keyPrefix: string, onTapTerm?: TapTermHandler): ReactNode[] {
@@ -48,8 +113,9 @@ function renderTags(text: string, keyPrefix: string, onTapTerm?: TapTermHandler)
   return nodes
 }
 
-export function renderNarrative(text: string | undefined, onTapTerm?: TapTermHandler): ReactNode[] | null {
-  if (!text) return null
+export function renderNarrative(rawText: string | undefined, onTapTerm?: TapTermHandler): ReactNode[] | null {
+  if (!rawText) return null
+  const text = ensureParagraphBreaks(rawText)
   const nodes: ReactNode[] = []
   let lastIndex = 0
   let key = 0
