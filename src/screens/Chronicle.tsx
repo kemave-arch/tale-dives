@@ -690,7 +690,7 @@ export default function Chronicle({
     | undefined)
 
   return (
-    <div className="min-h-screen text-ink relative" style={{ background: '#0b0d13' }}>
+    <div className="min-h-screen text-ink relative bg-canvas">
       <AmbientBackground accent={stateAccent} />
 
       {/* Full-bleed dark obsidian header — flat, no color-wash gradient; the
@@ -722,7 +722,12 @@ export default function Chronicle({
 
       <div
         ref={scrollRef}
-        className="fixed overflow-y-auto bg-parchment parchment-texture rounded-xl pl-4 pr-6 space-y-4"
+        // `parchment-surface` (index.css) re-declares the ink/gold/semantic
+        // tokens for this subtree only. Without it every text-ink descendant
+        // here would use the dark-chrome palette — warm near-white on cream
+        // paper, i.e. invisible. This is the one place in the app that
+        // deliberately inverts to a light ground.
+        className="parchment-surface fixed overflow-y-auto bg-parchment parchment-texture rounded-xl pl-4 pr-6 space-y-4"
         style={{ top: 6, bottom: 6, left: 6, right: 6, paddingTop: headerHeight + 16, paddingBottom: bottomHeight + 16 }}
       >
         {log.length === 0 && (
