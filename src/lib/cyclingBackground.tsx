@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 // fallback if a slot's m_ file doesn't exist yet). Shared by Title and
 // MainMenu so both cycle through the same backdrop. Add a stem here once its
 // pair does.
-export const BACKGROUND_SLOTS = ['title-bg1', 'title-bg2']
+export const BACKGROUND_SLOTS = ['title-bg1', 'title-bg2', 'title-bg3']
 const MOBILE_QUERY = '(max-width: 767px)'
 const BG_FADE_MS = 7000
 const BG_HOLD_MS = 6000
