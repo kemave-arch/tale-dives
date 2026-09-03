@@ -80,11 +80,18 @@ export function CyclingBackground({ stems, fixed = false }: { stems: string[]; f
     return () => clearInterval(id)
   }, [stems.length])
 
-  return (
-    <div className={fixed ? 'fixed inset-0 z-0' : 'contents'}>
-      {stems.map((stem, i) => (
-        <BackgroundLayer key={stem} stem={stem} active={i === active} />
-      ))}
-    </div>
-  )
+  const layers = stems.map((stem, i) => <BackgroundLayer key={stem} stem={stem} active={i === active} />)
+
+  // `display: contents` (used for the non-fixed case, so Title's own
+  // `position: relative` root stays the containing block for these
+  // `absolute` layers) has a real, confirmed side effect here: it appears
+  // to interfere with framer-motion's AnimatePresence exit-tracking on the
+  // ancestor motion.div — every screen transition away from Title silently
+  // stopped completing (React state updated, DOM never followed) the moment
+  // this wrapper existed at all, even wrapping a Fragment's worth of
+  // children made no difference until it was a real Fragment. A plain
+  // Fragment carries no DOM node and sidesteps the problem entirely.
+  if (!fixed) return <>{layers}</>
+
+  return <div className="fixed inset-0 z-0">{layers}</div>
 }
