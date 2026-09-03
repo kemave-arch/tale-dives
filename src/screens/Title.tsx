@@ -14,6 +14,11 @@ const MOBILE_QUERY = '(max-width: 767px)'
 const BG_FADE_MS = 7000
 const BG_HOLD_MS = 6000
 
+// A tapered-corner (chamfered) rectangle instead of a rounded pill — applied
+// identically to the button, its gradient-ring layer, and its blur layer so
+// all three trim to the same silhouette.
+const TAPER_CLIP = 'polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px)'
+
 // pc_ is the guaranteed default — a slot's m_ file is optional and can lag
 // behind. On a phone-width viewport, try the m_ variant first and silently
 // fall back to pc_ if it 404s; on anything wider, always use pc_ directly.
@@ -153,7 +158,8 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
       <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
         <button
           onClick={onEnter}
-          className="group relative inline-flex rounded-full shadow-[0_8px_20px_-10px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125"
+          className="group relative inline-flex drop-shadow-[0_8px_14px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125"
+          style={{ clipPath: TAPER_CLIP }}
         >
           {/* Gradient ring only — mask-composite:exclude punches out everything
               but the border itself, so the gradient can never bleed into the
@@ -162,8 +168,9 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
               through). */}
           <span
             aria-hidden="true"
-            className="absolute inset-0 rounded-full pointer-events-none"
+            className="absolute inset-0 pointer-events-none"
             style={{
+              clipPath: TAPER_CLIP,
               border: '1.5px solid transparent',
               background: 'linear-gradient(135deg, rgba(245,223,160,0.75), rgba(240,202,101,0.95), rgba(168,127,44,0.65)) border-box',
               WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0) border-box',
@@ -172,8 +179,11 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
             }}
           />
           {/* Glass interior — blur with zero fill color of its own. */}
-          <span className="absolute inset-0 rounded-full backdrop-blur-sm transition-shadow duration-150 group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]" />
-          <span className="relative z-10 flex items-center justify-center gap-2 px-5 py-2 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
+          <span
+            className="absolute inset-0 backdrop-blur-sm transition-shadow duration-150 group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
+            style={{ clipPath: TAPER_CLIP }}
+          />
+          <span className="relative z-10 flex items-center justify-center gap-2 px-6 py-2.5 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
             <span className="text-[#f0ca65]">◆</span>
             <BookOpen size={14} />
             Dive In
