@@ -36,7 +36,7 @@ export const saveApiSettings = (s: ApiSettings): void => save(KEYS.apiSettings, 
 export function loadUiPrefs(): UiPrefs {
   // Merge over defaults, not replace — an older save predating `chromeOpacity`
   // would otherwise come back with that field missing entirely.
-  return { skin: 'parchment', chromeOpacity: 0.5, ...load<Partial<UiPrefs>>(KEYS.uiPrefs, {}) }
+  return { skin: 'parchment', chromeOpacity: 0.8, ...load<Partial<UiPrefs>>(KEYS.uiPrefs, {}) }
 }
 export const saveUiPrefs = (p: UiPrefs): void => save(KEYS.uiPrefs, p)
 

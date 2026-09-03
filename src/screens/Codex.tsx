@@ -377,8 +377,11 @@ export default function Codex({
 
   function saveNpc() {
     const id = entryId === NEW_ID ? genId(draft.name, npcs) : entryId!
+    const age = typeof draft.age === 'string' ? draft.age.trim() : draft.age
     onUpdateNpc(id, {
       name: draft.name,
+      gender: draft.gender?.trim() || undefined,
+      age: age !== undefined && age !== '' ? Number(age) : undefined,
       stage: draft.stage,
       trust: draft.trust,
       affection: draft.affection,
@@ -713,6 +716,8 @@ export default function Codex({
           {editing ? (
             <DetailPanel>
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
+              <TextField label="Gender" value={draft.gender ?? ''} onChange={(v) => setDraft((d) => ({ ...d, gender: v }))} placeholder="she/her (optional)" />
+              <TextField label="Age" value={draft.age !== undefined ? String(draft.age) : ''} onChange={(v) => setDraft((d) => ({ ...d, age: v }))} placeholder="Optional" />
               <TextField label="Stage" value={draft.stage ?? ''} onChange={(v) => setDraft((d) => ({ ...d, stage: v }))} placeholder="Stranger, Acquaintance, Friend…" />
               <NumberField label="Trust" value={draft.trust ?? 0} onChange={(v) => setDraft((d) => ({ ...d, trust: v }))} />
               <NumberField label="Affection" value={draft.affection ?? 0} onChange={(v) => setDraft((d) => ({ ...d, affection: v }))} />
@@ -728,6 +733,12 @@ export default function Codex({
             <MaskedDetail teaser={npcs[entryId].discovery?.teaser} />
           ) : (
             <DetailPanel>
+              {(npcs[entryId].gender || npcs[entryId].age !== undefined) && (
+                <DetailField
+                  label="Identity"
+                  value={[npcs[entryId].gender, npcs[entryId].age !== undefined && `Age ${npcs[entryId].age}`].filter(Boolean).join(' · ')}
+                />
+              )}
               <DetailField label="Stage" value={npcs[entryId].stage} />
               <StatBar label="Trust" value={npcs[entryId].trust} />
               <StatBar label="Affection" value={npcs[entryId].affection} />

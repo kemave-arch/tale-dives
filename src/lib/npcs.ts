@@ -70,9 +70,15 @@ export function applyNpcUpdates(
 }
 
 // §3.1 "Present NPCs" line — only for NPCs last seen at the active location,
-// so an absent NPC costs 0 context tokens (§5.5 Proximity Slicing).
+// so an absent NPC costs 0 context tokens (§5.5 Proximity Slicing). Gender/age
+// only append when the player has set them via Codex CRUD — otherwise 0 cost,
+// and correct pronoun/age-appropriate behavior is left to the model's own
+// judgment exactly as it was before these fields existed.
 export function describePresentNpc(entry: NpcEntry): string {
-  return `NPC: ${entry.name} | Stage: ${entry.stage} | Trust: ${entry.trust} | Mem: "${entry.memSummary}"`
+  const identity = [entry.gender && `Gender: ${entry.gender}`, entry.age !== undefined && `Age: ${entry.age}`]
+    .filter(Boolean)
+    .join(' | ')
+  return `NPC: ${entry.name}${identity ? ` | ${identity}` : ''} | Stage: ${entry.stage} | Trust: ${entry.trust} | Mem: "${entry.memSummary}"`
 }
 
 export function presentNpcs(npcs: Dict<NpcEntry> | undefined, locId: string): NpcEntry[] {

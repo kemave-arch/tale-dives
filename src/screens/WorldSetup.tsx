@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Globe } from 'lucide-react'
+import { ArrowRight, Globe, Save, Plus } from 'lucide-react'
 import { DEFAULT_NARRATION_STYLE } from '../api/turnContract.ts'
 import type { WorldData } from '../types.ts'
 
@@ -8,6 +8,8 @@ interface WorldSetupProps {
   initial?: WorldData | null
   onBack: () => void
   onContinue: (world: WorldData) => void
+  onSavePreset?: (world: WorldData) => void
+  onSaveAsNewPreset?: (world: WorldData) => void
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -29,7 +31,14 @@ const inputClass = 'w-full rounded-lg border border-gold-accent/40 bg-surface-ra
 // A pre-authored Inspired-mode template (Appendix A's Fourth Wing example)
 // can still be picked here and edited by hand — sourceTitle/sourceAuthor are
 // attribution metadata only, never sent to the model.
-export default function WorldSetup({ worldTemplates = [], initial, onBack, onContinue }: WorldSetupProps) {
+export default function WorldSetup({
+  worldTemplates = [],
+  initial,
+  onBack,
+  onContinue,
+  onSavePreset,
+  onSaveAsNewPreset,
+}: WorldSetupProps) {
   const [templateId, setTemplateId] = useState<string | null | undefined>(initial?.id ?? null)
   const [mode, setMode] = useState(initial?.mode ?? 'original')
   const [name, setName] = useState(initial?.name ?? '')
@@ -50,6 +59,20 @@ export default function WorldSetup({ worldTemplates = [], initial, onBack, onCon
     setConflict(t.conflict ?? '')
     setBackground(t.background ?? '')
     setNarrationStyle(t.narrationStyle ?? DEFAULT_NARRATION_STYLE)
+  }
+
+  function currentData(): WorldData {
+    return {
+      id: templateId,
+      name: name.trim() || 'Untitled World',
+      mode,
+      sourceTitle: sourceTitle.trim() || undefined,
+      sourceAuthor: sourceAuthor.trim() || undefined,
+      genreTone,
+      conflict,
+      background,
+      narrationStyle,
+    }
   }
 
   return (
@@ -84,19 +107,6 @@ export default function WorldSetup({ worldTemplates = [], initial, onBack, onCon
               </div>
             </div>
           )}
-
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMode('original')}
-              className="flex-1 rounded-xl border-2 border-gold-accent bg-surface-raised px-3 py-2 text-center font-display text-sm"
-            >
-              Original Mode
-            </button>
-            <div className="flex-1 rounded-xl border border-gold-accent/20 bg-surface-raised/50 px-3 py-2 text-center font-display text-sm opacity-40">
-              Inspired Mode
-              <div className="text-[10px] font-narrative italic">Coming soon</div>
-            </div>
-          </div>
 
           <Field label="World Name">
             <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Navarre" className={inputClass} />
@@ -158,6 +168,27 @@ export default function WorldSetup({ worldTemplates = [], initial, onBack, onCon
               className={`${inputClass} text-xs`}
             />
           </Field>
+
+          {(onSavePreset || onSaveAsNewPreset) && (
+            <div className="flex gap-2">
+              {templateId && onSavePreset && (
+                <button
+                  onClick={() => onSavePreset(currentData())}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-gold-accent/40 py-2 font-display text-xs text-gold-primary"
+                >
+                  <Save size={13} /> Save Preset
+                </button>
+              )}
+              {onSaveAsNewPreset && (
+                <button
+                  onClick={() => onSaveAsNewPreset({ ...currentData(), id: null })}
+                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-gold-accent/40 py-2 font-display text-xs text-gold-primary"
+                >
+                  <Plus size={13} /> Save as New Preset
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -169,19 +200,7 @@ export default function WorldSetup({ worldTemplates = [], initial, onBack, onCon
           Back
         </button>
         <button
-          onClick={() =>
-            onContinue({
-              id: templateId,
-              name: name.trim() || 'Untitled World',
-              mode,
-              sourceTitle: sourceTitle.trim() || undefined,
-              sourceAuthor: sourceAuthor.trim() || undefined,
-              genreTone,
-              conflict,
-              background,
-              narrationStyle,
-            })
-          }
+          onClick={() => onContinue(currentData())}
           className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-gold-action px-6 py-2.5 font-display text-sm font-semibold text-ink"
         >
           Continue <ArrowRight size={15} />

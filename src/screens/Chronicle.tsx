@@ -514,11 +514,19 @@ export default function Chronicle({
   // in some environments — it silently no-ops instead of moving. Computing
   // the target's offset and driving the container's own scrollTo() directly
   // sidesteps that entirely and works everywhere.
-  const scrollBlockIntoView = useCallback((el: HTMLDivElement) => {
-    const container = scrollRef.current
-    if (!container) return
-    container.scrollTo({ top: Math.max(0, el.offsetTop - 8), behavior: 'smooth' })
-  }, [])
+  const scrollBlockIntoView = useCallback(
+    (el: HTMLDivElement) => {
+      const container = scrollRef.current
+      if (!container) return
+      // The fixed header floats on top of the scroll container rather than
+      // pushing it down, so landing a block's own header right at scrollTop=0
+      // tucks it directly behind the header bar — offset by the header's
+      // actual height (plus a little breathing room) so the navigator always
+      // reveals the block's timestamp/header line, not just its body text.
+      container.scrollTo({ top: Math.max(0, el.offsetTop - headerHeight - 16), behavior: 'smooth' })
+    },
+    [headerHeight],
+  )
 
   useEffect(() => {
     if (pendingScrollTo.current !== null) {
@@ -688,24 +696,25 @@ export default function Chronicle({
           ambient motes to show through. */}
       <header
         ref={headerRef}
-        className="fixed top-0 inset-x-0 z-10 flex items-center justify-between px-4 py-3 border-b shadow-2xl transition-[background,border-color] duration-700 ease-out"
+        className="fixed top-0 inset-x-0 z-10 flex items-center justify-between px-3 py-1.5 border-b shadow-2xl transition-[background,border-color] duration-700 ease-out"
         style={{
+          paddingTop: 'max(0.375rem, env(safe-area-inset-top))',
           background: `rgba(11,13,20,${chromeAlpha})`,
           borderColor: `${stateAccent}45`,
         }}
       >
         <ChromeMotes count={4} />
-        <button onClick={onOpenMenu} aria-label="Menu" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
-          <Menu size={18} />
+        <button onClick={onOpenMenu} aria-label="Menu" className="w-7 h-7 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
+          <Menu size={16} />
         </button>
-        <div className="font-display text-sm font-semibold tracking-wide text-center flex-1 truncate px-2 text-[#e8ca8a]">
+        <div className="font-display text-xs font-semibold tracking-wide text-center flex-1 truncate px-2 text-[#e8ca8a]">
           {title}
         </div>
-        <button onClick={onOpenCodex} aria-label="Codex" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
-          <Library size={18} />
+        <button onClick={onOpenCodex} aria-label="Codex" className="w-7 h-7 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
+          <Library size={16} />
         </button>
-        <button onClick={onOpenSettings} aria-label="Settings" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
-          <SettingsIcon size={18} />
+        <button onClick={onOpenSettings} aria-label="Settings" className="w-7 h-7 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
+          <SettingsIcon size={16} />
         </button>
       </header>
 

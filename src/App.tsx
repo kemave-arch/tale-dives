@@ -3,8 +3,10 @@ import { AnimatePresence, motion } from 'framer-motion'
 import Title from './screens/Title.tsx'
 import Settings, { type SettingsSavePayload } from './screens/Settings.tsx'
 import MainMenu from './screens/MainMenu.tsx'
+import StoryMode from './screens/StoryMode.tsx'
 import WorldSetup from './screens/WorldSetup.tsx'
 import NewGame from './screens/NewGame.tsx'
+import TaleBrief from './screens/TaleBrief.tsx'
 import Chronicle from './screens/Chronicle.tsx'
 import Codex, { type CategoryId } from './screens/Codex.tsx'
 import SlashCommandManager from './screens/SlashCommandManager.tsx'
@@ -31,8 +33,8 @@ import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { readJSONFile, saveJSON } from './lib/backup.ts'
 import * as store from './lib/store.ts'
 import type {
-  BestiaryEntry, Campaign, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry, Player,
-  ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
+  BestiaryEntry, Campaign, CombatMode, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
+  Player, ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
 } from './types.ts'
 
 const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
@@ -44,7 +46,7 @@ const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
   beast: 'bestiary',
 }
 
-type Screen = 'title' | 'settings' | 'mainmenu' | 'worldsetup' | 'newgame' | 'chronicle' | 'codex'
+type Screen = 'title' | 'settings' | 'mainmenu' | 'storymode' | 'worldsetup' | 'newgame' | 'talebrief' | 'chronicle' | 'codex'
 type CreationMode = 'tale' | 'library'
 
 // §5.7 Player Defeat State — soft-fail recovery, client-owned.
@@ -77,8 +79,10 @@ export default function App() {
     return id && all[id] ? all[id] : null
   })
 
-  // §Phase A/B — held between the World Setup and New Game steps.
+  // §Phase A/B — held between the World Setup, Protagonist Setup, and Tale
+  // Dive Brief steps.
   const [pendingWorld, setPendingWorld] = useState<WorldData | null>(null)
+  const [pendingProtagonist, setPendingProtagonist] = useState<ProtagonistData | null>(null)
   const [worldSetupMode, setWorldSetupMode] = useState<CreationMode>('tale')
   const [worldSetupInitial, setWorldSetupInitial] = useState<WorldData | null>(null)
   const [newGameMode, setNewGameMode] = useState<CreationMode>('tale')
@@ -124,13 +128,15 @@ export default function App() {
     return entry
   }
 
-  function beginCampaign(protagonistData: ProtagonistData) {
+  function beginCampaign(protagonistData: ProtagonistData, combatMode: CombatMode = 'NARRATIVE', worldOverride?: Partial<WorldData>) {
     const cls = getClassById(protagonistData.classId)
     const attrs = startingAttributes(cls.weights)
     const { hpMax, mpMax, stMax } = derivedPools(attrs)
 
     const player = {
       name: protagonistData.name,
+      gender: protagonistData.gender,
+      age: protagonistData.age,
       classId: cls.id,
       className: cls.name,
       level: 1,
@@ -147,13 +153,16 @@ export default function App() {
       time: { d: 1, h: '08:00 AM' },
     }
 
-    const world: WorldData = pendingWorld ?? {
-      name: 'Untitled World',
-      mode: 'original',
-      background: '',
-      genreTone: '',
-      conflict: '',
-      narrationStyle: DEFAULT_NARRATION_STYLE,
+    const world: WorldData = {
+      ...(pendingWorld ?? {
+        name: 'Untitled World',
+        mode: 'original',
+        background: '',
+        genreTone: '',
+        conflict: '',
+        narrationStyle: DEFAULT_NARRATION_STYLE,
+      }),
+      ...worldOverride,
     }
 
     // Both land in their libraries the moment a Tale begins (§6.4B) —
@@ -170,7 +179,7 @@ export default function App() {
       protagonistId: protagonistEntry.id!,
       world, // §Phase A — kept for reference until the Codex Realm Overview exists
       player,
-      combatMode: 'TACTICAL', // Blueprint §5.1d default
+      combatMode, // §5.1d — defaults to NARRATIVE (see the Tale Dive Brief screen's toggle)
       proseDepth: PROSE_DEPTHS.BALANCED,
       narrationStyle: world.narrationStyle || DEFAULT_NARRATION_STYLE,
       locations: {}, // §5.10 Locations Codex — populated by auto-registration
@@ -780,7 +789,8 @@ export default function App() {
     setNewGameMode('tale')
     setNewGameInitial(protagonist ?? null)
     setPendingWorld(null)
-    setScreen('worldsetup')
+    setPendingProtagonist(null)
+    setScreen('storymode')
   }
 
   // ---- Screens ----
@@ -915,12 +925,16 @@ export default function App() {
         onOpenSettings={() => openSettings('mainmenu')}
       />
     )
+  } else if (screen === 'storymode') {
+    content = (
+      <StoryMode onBack={() => setScreen('mainmenu')} onSelectOriginal={() => setScreen('worldsetup')} />
+    )
   } else if (screen === 'worldsetup') {
     content = (
       <WorldSetup
         worldTemplates={Object.values(worlds)}
         initial={worldSetupInitial}
-        onBack={() => setScreen('mainmenu')}
+        onBack={() => setScreen(worldSetupMode === 'library' ? 'mainmenu' : 'storymode')}
         onContinue={(worldData) => {
           if (worldSetupMode === 'library') {
             upsertWorld(worldData, worldData.id)
@@ -930,6 +944,8 @@ export default function App() {
             setScreen('newgame')
           }
         }}
+        onSavePreset={(worldData) => upsertWorld(worldData, worldData.id)}
+        onSaveAsNewPreset={(worldData) => upsertWorld(worldData, null)}
       />
     )
   } else if (screen === 'newgame') {
@@ -937,6 +953,7 @@ export default function App() {
       <NewGame
         protagonistTemplates={Object.values(protagonists)}
         initial={newGameInitial}
+        showBriefField={newGameMode === 'library'}
         onBack={() => setScreen(newGameMode === 'tale' ? 'worldsetup' : 'mainmenu')}
         onBegin={(protagonistData) => {
           if (newGameMode === 'library') {
@@ -944,8 +961,24 @@ export default function App() {
             upsertProtagonist(protagonistData, protagonistData.id, cls.name)
             setScreen('mainmenu')
           } else {
-            beginCampaign(protagonistData)
+            setPendingProtagonist(protagonistData)
+            setScreen('talebrief')
           }
+        }}
+        onSavePreset={(protagonistData) => upsertProtagonist(protagonistData, protagonistData.id, getClassById(protagonistData.classId).name)}
+        onSaveAsNewPreset={(protagonistData) => upsertProtagonist(protagonistData, null, getClassById(protagonistData.classId).name)}
+      />
+    )
+  } else if (screen === 'talebrief' && pendingWorld && pendingProtagonist) {
+    content = (
+      <TaleBrief
+        initialOpening={pendingProtagonist.opening}
+        initialNarrationStyle={pendingWorld.narrationStyle}
+        initialTemperature={apiSettings.temperature}
+        onBack={() => setScreen('newgame')}
+        onBegin={({ opening, narrationStyle, temperature, combatMode }) => {
+          setApiSettings((a) => ({ ...a, temperature }))
+          beginCampaign({ ...pendingProtagonist, opening }, combatMode, { narrationStyle })
         }}
       />
     )

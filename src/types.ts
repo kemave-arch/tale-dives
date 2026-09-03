@@ -70,6 +70,8 @@ export interface Minion {
 
 export interface Player {
   name: string
+  gender?: string // free-short-text (e.g. "she/her", "male"), 0 context cost when unset
+  age?: number
   classId: string
   className: string
   level: number
@@ -116,6 +118,8 @@ export interface LocationEntry {
 // §5.5/§5.14 NPC Codex entry.
 export interface NpcEntry {
   name: string
+  gender?: string // player-set via Codex CRUD only — never asked of the model (§3.6, no new schema field)
+  age?: number
   affection: number
   trust: number
   stage: string
@@ -199,6 +203,8 @@ export interface WorldData {
 export interface ProtagonistData {
   id?: string | null
   name: string
+  gender?: string
+  age?: number
   classId: string
   className?: string
   background?: string // Appendix A.2 "Background" — origin/family history, distinct from `opening`'s Turn-1 scene brief

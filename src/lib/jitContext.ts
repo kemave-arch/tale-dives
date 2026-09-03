@@ -12,9 +12,13 @@ const MAX_KNOWN_NAMES = 25 // per category — hard cap so this line's token cos
 export function buildContextSlice(state: Campaign, combatResultLine?: string | null, craftReadyLine?: string | null): string {
   const { player, combatMode, proseDepth, narrationStyle, locations, npcs, factions, lore, world, flags, quests, log } = state
 
+  const playerIdentity = [player.gender && `Gender: ${player.gender}`, player.age !== undefined && `Age: ${player.age}`]
+    .filter(Boolean)
+    .join(' | ')
+
   const lines = [
     '[ACTIVE CONTEXT SLICE]',
-    `Player: ${player.name} (${player.className}) | Level: ${player.level} | HP: ${player.hp}/${player.hpMax} | MP: ${player.mp}/${player.mpMax} | ST: ${player.st}/${player.stMax}`,
+    `Player: ${player.name} (${player.className})${playerIdentity ? ` | ${playerIdentity}` : ''} | Level: ${player.level} | HP: ${player.hp}/${player.hpMax} | MP: ${player.mp}/${player.mpMax} | ST: ${player.st}/${player.stMax}`,
     `Location Node: ${player.locId} | Time: Day ${player.time.d} ${player.time.h}`,
   ]
 
