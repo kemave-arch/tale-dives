@@ -1,100 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { BookOpen, Settings as SettingsIcon } from 'lucide-react'
+import { BACKGROUND_SLOTS, CyclingBackground } from '../lib/cyclingBackground.tsx'
+import { GlassCTAButton } from '../lib/glassChrome.tsx'
 
 interface TitleProps {
   onEnter: () => void
   onSettings: () => void
-}
-
-// Each slot below ships as a pair: public/img/m_<stem>.webp (phone-composed)
-// and public/img/pc_<stem>.webp (tablet/desktop-composed) — see the note on
-// public/img/ in PROJECT_REVISION_NOTES.md. Add a stem here once its pair does.
-const BACKGROUND_SLOTS = ['title-bg1', 'title-bg2']
-const MOBILE_QUERY = '(max-width: 767px)'
-const BG_FADE_MS = 7000
-const BG_HOLD_MS = 6000
-
-// A tapered-corner (chamfered) rectangle instead of a rounded pill — applied
-// identically to the button, its gradient-ring layer, and its blur layer so
-// all three trim to the same silhouette.
-const TAPER_CLIP = 'polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px)'
-
-// pc_ is the guaranteed default — a slot's m_ file is optional and can lag
-// behind. On a phone-width viewport, try the m_ variant first and silently
-// fall back to pc_ if it 404s; on anything wider, always use pc_ directly.
-function useResponsiveBg(stem: string): string {
-  const pcSrc = `/img/pc_${stem}.webp`
-  const mobileSrc = `/img/m_${stem}.webp`
-  const [src, setSrc] = useState(pcSrc)
-
-  useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY)
-    let cancelled = false
-
-    function resolve() {
-      if (!mq.matches) {
-        setSrc(pcSrc)
-        return
-      }
-      const probe = new Image()
-      probe.onload = () => {
-        if (!cancelled) setSrc(mobileSrc)
-      }
-      probe.onerror = () => {
-        if (!cancelled) setSrc(pcSrc)
-      }
-      probe.src = mobileSrc
-    }
-
-    resolve()
-    mq.addEventListener('change', resolve)
-    return () => {
-      cancelled = true
-      mq.removeEventListener('change', resolve)
-    }
-  }, [pcSrc, mobileSrc])
-
-  return src
-}
-
-// Decorative (aria-hidden) rather than described per-slot — with more than
-// one slot cycling through, a single alt text would go stale the moment a
-// second image takes over; the screen's own heading/tagline art already
-// carries the real content.
-function BackgroundLayer({ stem, active }: { stem: string; active: boolean }) {
-  const src = useResponsiveBg(stem)
-  return (
-    <div
-      className="absolute inset-0 bg-center bg-cover bg-no-repeat"
-      style={{ backgroundImage: `url(${src})`, opacity: active ? 1 : 0, transition: `opacity ${BG_FADE_MS}ms ease-in-out` }}
-      aria-hidden="true"
-    />
-  )
-}
-
-// Crossfades through BACKGROUND_SLOTS: every layer sits stacked (inset-0),
-// only the active one is opacity-100, and both the outgoing and incoming
-// layers animate on the same `transition`, which is what makes it read as
-// one dissolve rather than a fade-to-black-then-in. A no-op with a single
-// slot (today's default) — the interval never starts, so there's just one
-// static, correctly-picked background.
-function CyclingBackground({ stems }: { stems: string[] }) {
-  const [active, setActive] = useState(0)
-
-  useEffect(() => {
-    if (stems.length < 2) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const id = setInterval(() => setActive((i) => (i + 1) % stems.length), BG_HOLD_MS + BG_FADE_MS)
-    return () => clearInterval(id)
-  }, [stems.length])
-
-  return (
-    <>
-      {stems.map((stem, i) => (
-        <BackgroundLayer key={stem} stem={stem} active={i === active} />
-      ))}
-    </>
-  )
 }
 
 // Rising gold embers over the artwork, echoing its own painted light-streaks.
@@ -127,13 +38,13 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
   )
 }
 
-// Blueprint §6.4A — Title/entry screen. The artwork (see BACKGROUND_SLOTS
-// above) already carries the wordmark, tagline and dedication, so this
-// screen adds nothing on top of it but a slow crossfade between images (once
-// more than one slot exists), ambient sparks, a bottom scrim, and the
-// buttons that lead somewhere real. No Worlds/Journal/Profile/Inventory/
-// Achievements row — those aren't separate screens yet, so a button for them
-// would just be decoration.
+// Blueprint §6.4A — Title/entry screen. The artwork (see BACKGROUND_SLOTS in
+// lib/cyclingBackground.tsx) already carries the wordmark, tagline and
+// dedication, so this screen adds nothing on top of it but a slow crossfade
+// between images (once more than one slot exists), ambient sparks, a bottom
+// scrim, and the buttons that lead somewhere real. No Worlds/Journal/
+// Profile/Inventory/Achievements row — those aren't separate screens yet, so
+// a button for them would just be decoration.
 export default function Title({ onEnter, onSettings }: TitleProps) {
   return (
     <div
@@ -156,46 +67,9 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
       </button>
 
       <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
-        <button
-          onClick={onEnter}
-          className="group relative inline-flex drop-shadow-[0_8px_14px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125"
-          style={{ clipPath: TAPER_CLIP }}
-        >
-          {/* Gradient ring only — mask-composite:exclude punches out everything
-              but the border itself, so the gradient can never bleed into the
-              interior (a plain padding-box fill, tried first, did exactly
-              that: the "transparent" layer on top let it show straight
-              through). */}
-          <span
-            aria-hidden="true"
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              clipPath: TAPER_CLIP,
-              border: '1.5px solid transparent',
-              background: 'linear-gradient(135deg, rgba(245,223,160,0.75), rgba(240,202,101,0.95), rgba(168,127,44,0.65)) border-box',
-              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0) border-box',
-              WebkitMaskComposite: 'xor',
-              maskComposite: 'exclude',
-            }}
-          />
-          {/* Glass interior — no blur at rest; blur (and the glow) only kick
-              in on hover/press, so the resting button stays fully invisible
-              except for its border. Transition is scoped to box-shadow only
-              — Tailwind's backdrop-blur-none compiles to an *empty* custom
-              property rather than an explicit blur(0), which a transition
-              covering backdrop-filter can get stuck interpolating towards
-              and never actually reach; snapping it instead sidesteps that. */}
-          <span
-            className="absolute inset-0 backdrop-blur-none transition-[box-shadow] duration-150 group-hover:backdrop-blur-sm group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:backdrop-blur-sm group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
-            style={{ clipPath: TAPER_CLIP }}
-          />
-          <span className="relative z-10 flex items-center justify-center gap-2 px-6 py-2.5 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
-            <span className="text-[#f0ca65]">◆</span>
-            <BookOpen size={14} />
-            Dive In
-            <span className="text-[#f0ca65]">◆</span>
-          </span>
-        </button>
+        <GlassCTAButton onClick={onEnter} icon={BookOpen}>
+          Dive In
+        </GlassCTAButton>
       </div>
     </div>
   )
