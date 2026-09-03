@@ -13,9 +13,14 @@ const BG_HOLD_MS = 6000
 // pc_ is the guaranteed default — a slot's m_ file is optional and can lag
 // behind. On a phone-width viewport, try the m_ variant first and silently
 // fall back to pc_ if it 404s; on anything wider, always use pc_ directly.
+// Paths are built off Vite's own BASE_URL rather than a hardcoded leading
+// slash — GitHub Pages serves this app from /tale-dives/, not the domain
+// root, so a literal `/img/...` request 404s there even though it works
+// fine against the dev server's root-mounted localhost:5173.
 function useResponsiveBg(stem: string): string {
-  const pcSrc = `/img/pc_${stem}.webp`
-  const mobileSrc = `/img/m_${stem}.webp`
+  const base = import.meta.env.BASE_URL
+  const pcSrc = `${base}img/pc_${stem}.webp`
+  const mobileSrc = `${base}img/m_${stem}.webp`
   const [src, setSrc] = useState(pcSrc)
 
   useEffect(() => {
