@@ -82,17 +82,19 @@ export default function Title({ onEnter, onSettings, onContinue, musicMuted, onT
         </button>
       </div>
 
-      <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
-        <GlassCTAButton onClick={onEnter} icon={BookOpen} className="w-full">
+      {/* `w-fit` sizes this column to its WIDEST child, and the flex default
+          `items-stretch` then pulls the narrower button out to match it. That
+          keeps Dive In and Continue the same width (they read as one pair of
+          equal-weight choices, not a button and a footnote) WITHOUT stretching
+          either to the full container — which is what a fixed `max-w-xs` +
+          `w-full` did, leaving a lone Dive In as a 320px slab across the
+          artwork. `max-w-full` is the guard for a narrow phone. */}
+      <div className="relative z-10 w-fit max-w-full flex flex-col gap-3 mb-14">
+        <GlassCTAButton onClick={onEnter} icon={BookOpen}>
           Dive In
         </GlassCTAButton>
-        {/* Same GlassCTAButton chrome as Dive In so the two read as one pair
-            of equal-weight choices, rather than a button and a footnote.
-            `w-full` on both keeps their widths matched despite the different
-            label lengths — GlassCTAButton is inline-flex, so it would
-            otherwise shrink to fit its own text. */}
         {onContinue && (
-          <GlassCTAButton onClick={onContinue} icon={Play} className="w-full">
+          <GlassCTAButton onClick={onContinue} icon={Play}>
             Continue
           </GlassCTAButton>
         )}
