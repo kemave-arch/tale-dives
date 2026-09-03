@@ -215,7 +215,6 @@ export interface ProseDepthConfig {
 }
 
 export type CombatMode = 'TACTICAL' | 'NARRATIVE'
-export type Skin = 'parchment' | 'obsidian'
 
 // §Phase A World Setup — also the World Library's stored shape (§6.4B).
 export interface WorldData {
@@ -333,8 +332,10 @@ export interface ApiSettings {
   temperature: number
 }
 
+// The parchment/obsidian skin toggle was retired when the app collapsed to a
+// single dark-glass theme (see index.css) — a stale `skin` key may still sit in
+// older saved prefs, and is simply ignored on load.
 export interface UiPrefs {
-  skin: Skin
   chromeOpacity: number // §3.2 — 0.1-0.9, how opaque the Chronicle header/HUD/input glass is
 }
 

@@ -3,7 +3,10 @@ import { Cpu, SlidersHorizontal, Database, Info, X, Save, Download, Upload, Rota
 import { PROSE_DEPTHS } from '../api/turnContract.ts'
 import { allProviders, getProvider } from '../api/providers/index.ts'
 import { forgetSaveFolder, loadSaveFolder, pickSaveFolder, supportsFileSystemAccess } from '../lib/fsAccess.ts'
-import type { ApiSettings, Campaign, CombatMode, Skin, UiPrefs } from '../types.ts'
+import {
+  FIELD_CLASS, GlassButton, GlassField, GlassIconButton, GlassScreen, GlassSegmented, GlassTabs, LABEL_CLASS, SELECT_CLASS,
+} from '../lib/glassChrome.tsx'
+import type { ApiSettings, Campaign, CombatMode, UiPrefs } from '../types.ts'
 
 const TABS = [
   { id: 'model', label: 'AI Model', icon: Cpu },
@@ -49,7 +52,6 @@ export default function Settings({
   const [model, setModel] = useState(apiSettings.model)
   const [apiKey, setApiKey] = useState(apiSettings.apiKey)
   const [temperature, setTemperature] = useState(apiSettings.temperature)
-  const [skin, setSkin] = useState<Skin>(uiPrefs.skin)
   const [chromeOpacity, setChromeOpacity] = useState(uiPrefs.chromeOpacity)
   const [proseDepthKey, setProseDepthKey] = useState<keyof typeof PROSE_DEPTHS>(
     (game?.proseDepth?.label as keyof typeof PROSE_DEPTHS) ?? 'BALANCED',
@@ -83,99 +85,71 @@ export default function Settings({
   function save() {
     onSave({
       apiSettings: { provider, model, apiKey, temperature },
-      uiPrefs: { skin, chromeOpacity },
+      uiPrefs: { chromeOpacity },
       proseDepthKey,
       combatMode,
     })
   }
 
   return (
-    <div className="min-h-screen bg-canvas text-ink flex items-start justify-center px-4 py-8">
-      <div className="glass-panel glow-ring rounded-3xl w-full max-w-md p-5">
+    <GlassScreen ground="dark" className="flex items-start justify-center px-4 py-8">
+      <div className="glass-panel rounded-3xl w-full max-w-md p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display font-bold text-lg text-gold-primary">App Settings</h2>
-          <button onClick={onBack} aria-label="Close" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-ink-muted hover:text-ink">
-            <X size={18} />
-          </button>
+          <GlassIconButton icon={X} label="Close" compact onClick={onBack} />
         </div>
 
-        <nav className="flex gap-1 mb-3">
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              aria-label={label}
-              title={label}
-              className={`flex-1 flex items-center justify-center rounded-xl py-2.5 transition-colors ${
-                tab === id ? 'bg-gold-accent/20 border border-gold-accent/50 text-gold-primary' : 'text-ink-muted'
-              }`}
-            >
-              <Icon size={18} />
-            </button>
-          ))}
-        </nav>
-
-        <p className="font-display font-bold text-sm text-gold-primary mb-4">
-          {TABS.find((t) => t.id === tab)?.label}
-        </p>
+        {/* Labelled tabs (they used to be icon-only with the active label
+            repeated underneath) — same strip as MainMenu/Codex now. */}
+        <GlassTabs tabs={TABS} value={tab} onChange={setTab} className="mb-4" />
 
         {tab === 'model' && (
           <div className="flex flex-col gap-4">
+            <GlassField label="Provider">
+              <select
+                value={provider}
+                onChange={(e) => {
+                  const nextProvider = e.target.value
+                  setProvider(nextProvider)
+                  const models = getProvider(nextProvider).models
+                  if (!models.some((m) => m.id === model)) setModel(models[0]?.id ?? '')
+                }}
+                className={SELECT_CLASS}
+              >
+                {allProviders().map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </GlassField>
+
+            <GlassField label="Model ID">
+              <select value={model} onChange={(e) => setModel(e.target.value)} className={SELECT_CLASS}>
+                {!getProvider(provider).models.some((m) => m.id === model) && model && (
+                  <option value={model}>{model} (custom)</option>
+                )}
+                {getProvider(provider).models.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </GlassField>
+
+            <GlassField label="API Key">
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder={`Paste your ${getProvider(provider).label} API key`}
+                className={`${FIELD_CLASS} font-mono`}
+              />
+            </GlassField>
+
             <div>
-              <label className="text-sm font-display">
-                Provider
-                <select
-                  value={provider}
-                  onChange={(e) => {
-                    const nextProvider = e.target.value
-                    setProvider(nextProvider)
-                    const models = getProvider(nextProvider).models
-                    if (!models.some((m) => m.id === model)) setModel(models[0]?.id ?? '')
-                  }}
-                  className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
-                >
-                  {allProviders().map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div>
-              <label className="text-sm font-display">
-                Model ID
-                <select
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
-                >
-                  {!getProvider(provider).models.some((m) => m.id === model) && model && (
-                    <option value={model}>{model} (custom)</option>
-                  )}
-                  {getProvider(provider).models.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div>
-              <label className="text-sm font-display">
-                API Key
-                <input
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  placeholder={`Paste your ${getProvider(provider).label} API key`}
-                  className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
-                />
-              </label>
-            </div>
-            <div>
-              <p className="text-sm font-display mb-1">
-                Creativity Randomness <span className="opacity-50 font-mono text-xs">{temperature.toFixed(1)}</span>
+              <p className={LABEL_CLASS}>
+                Creativity Randomness <span className="opacity-60 font-mono normal-case tracking-normal">{temperature.toFixed(1)}</span>
               </p>
               <input
                 type="range"
@@ -184,9 +158,9 @@ export default function Settings({
                 step="0.1"
                 value={temperature}
                 onChange={(e) => setTemperature(Number(e.target.value))}
-                className="w-full accent-gold-action"
+                className="w-full mt-2 accent-gold-action"
               />
-              <p className="text-[11px] opacity-50 mt-1">
+              <p className="font-narrative text-[11px] text-ink-muted mt-1">
                 How unpredictable the prose gets. Low (0–0.5) keeps the Narrator steady and consistent; high (1.5–2)
                 adds more surprise and flourish but risks losing coherence.
               </p>
@@ -196,68 +170,39 @@ export default function Settings({
 
         {tab === 'gameplay' && (
           <div className="flex flex-col gap-5">
+            {/* The Skin picker (Parchment/Obsidian) used to sit here. It was
+                retired with the move to a single dark-glass theme — the light
+                Parchment skin was the default, and was why this screen and the
+                Codex read as a different app from Title/MainMenu. The reading
+                surface in Chronicle is still warm paper; that's now a scoped
+                override in index.css rather than a whole-app skin. */}
             <div>
-              <p className="text-sm font-display mb-1">Prose Depth</p>
-              <div className="flex gap-2">
-                {(Object.keys(PROSE_DEPTHS) as (keyof typeof PROSE_DEPTHS)[]).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setProseDepthKey(key)}
-                    className={`flex-1 rounded-lg border px-2 py-2 font-display text-xs ${
-                      proseDepthKey === key
-                        ? 'border-gold-accent bg-gold-accent/15 text-gold-primary'
-                        : 'border-gold-accent/30 text-ink-muted'
-                    }`}
-                  >
-                    {key}
-                  </button>
-                ))}
-              </div>
+              <p className={LABEL_CLASS}>Prose Depth</p>
+              <GlassSegmented
+                className="mt-2"
+                options={(Object.keys(PROSE_DEPTHS) as (keyof typeof PROSE_DEPTHS)[]).map((key) => ({ id: key, label: key }))}
+                value={proseDepthKey}
+                onChange={setProseDepthKey}
+              />
             </div>
 
             <div>
-              <p className="text-sm font-display mb-1">Combat Resolution Mode</p>
-              <div className="flex gap-2">
-                {(['TACTICAL', 'NARRATIVE'] as const).map((m) => (
-                  <button
-                    key={m}
-                    onClick={() => setCombatMode(m)}
-                    className={`flex-1 rounded-lg border px-2 py-2 font-display text-xs ${
-                      combatMode === m ? 'border-gold-accent bg-gold-accent/15 text-gold-primary' : 'border-gold-accent/30 text-ink-muted'
-                    }`}
-                  >
-                    {m === 'TACTICAL' ? 'Tactical' : 'Narrative'}
-                  </button>
-                ))}
-              </div>
-              {!game && <p className="text-[11px] opacity-50 mt-1">Applies once a Tale is active.</p>}
+              <p className={LABEL_CLASS}>Combat Resolution Mode</p>
+              <GlassSegmented
+                className="mt-2"
+                options={[
+                  { id: 'TACTICAL', label: 'Tactical' },
+                  { id: 'NARRATIVE', label: 'Narrative' },
+                ] as const}
+                value={combatMode}
+                onChange={setCombatMode}
+              />
+              {!game && <p className="font-narrative text-[11px] text-ink-muted mt-1.5">Applies once a Tale is active.</p>}
             </div>
 
             <div>
-              <p className="text-sm font-display mb-1">Skin</p>
-              <div className="flex gap-2">
-                {(
-                  [
-                    { id: 'parchment', label: 'Parchment' },
-                    { id: 'obsidian', label: 'Obsidian' },
-                  ] as const
-                ).map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setSkin(s.id)}
-                    className={`flex-1 rounded-lg border px-2 py-2 font-display text-xs ${
-                      skin === s.id ? 'border-gold-accent bg-gold-accent/15 text-gold-primary' : 'border-gold-accent/30 text-ink-muted'
-                    }`}
-                  >
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-sm font-display mb-1">
-                HUD Opacity <span className="opacity-50 font-mono text-xs">{Math.round(chromeOpacity * 100)}%</span>
+              <p className={LABEL_CLASS}>
+                HUD Opacity <span className="opacity-60 font-mono normal-case tracking-normal">{Math.round(chromeOpacity * 100)}%</span>
               </p>
               <input
                 type="range"
@@ -266,9 +211,9 @@ export default function Settings({
                 step="0.05"
                 value={chromeOpacity}
                 onChange={(e) => setChromeOpacity(Number(e.target.value))}
-                className="w-full accent-gold-action"
+                className="w-full mt-2 accent-gold-action"
               />
-              <p className="text-[11px] opacity-50 mt-1">
+              <p className="font-narrative text-[11px] text-ink-muted mt-1">
                 How solid the header, HUD, and input bar glass look over the ambient background. Lower is more see-through; 100% is fully solid.
               </p>
             </div>
@@ -282,7 +227,7 @@ export default function Settings({
                 directly to a chosen folder; Browser Only (the fallback
                 everywhere without File System Access API support) keeps
                 using the plain download flow below. */}
-            <div className="rounded-lg border border-gold-accent/30 px-3 py-2.5 flex items-center gap-2.5">
+            <div className="rounded-xl border border-gold-accent/25 bg-gold-accent/[0.04] backdrop-blur-sm px-3 py-2.5 flex items-center gap-2.5">
               {folderLinked ? <FolderOpen size={16} className="text-gold-primary shrink-0" /> : <FolderX size={16} className="text-ink-muted shrink-0" />}
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-display">
@@ -292,7 +237,7 @@ export default function Settings({
                       ? 'On-Device Folder'
                       : 'Browser Only'}
                 </p>
-                <p className="text-[11px] opacity-50">
+                <p className="font-narrative text-[11px] text-ink-muted">
                   {!supportsFileSystemAccess()
                     ? 'This browser has no folder-save support — Export writes a normal download.'
                     : folderLinked
@@ -301,41 +246,25 @@ export default function Settings({
                 </p>
               </div>
               {supportsFileSystemAccess() && (
-                <button
-                  onClick={folderLinked ? unlinkFolder : linkFolder}
-                  className="shrink-0 rounded-full border border-gold-accent/40 px-3 py-1.5 font-display text-[11px]"
-                >
+                <GlassButton onClick={folderLinked ? unlinkFolder : linkFolder} className="shrink-0 !py-1.5 !text-[11px]">
                   {folderLinked ? 'Unlink' : 'Choose Folder'}
-                </button>
+                </GlassButton>
               )}
             </div>
 
             <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={onExportActive}
-                disabled={!game}
-                className="flex items-center gap-1.5 justify-center rounded-lg border border-gold-accent/40 py-2.5 font-display text-xs disabled:opacity-40"
-              >
-                <Download size={14} /> Export Active
-              </button>
-              <button
-                onClick={onBackupAll}
-                className="flex items-center gap-1.5 justify-center rounded-lg border border-gold-accent/40 py-2.5 font-display text-xs"
-              >
-                <Database size={14} /> Backup All
-              </button>
-              <button
-                onClick={() => importRef.current?.click()}
-                className="flex items-center gap-1.5 justify-center rounded-lg border border-emerald/40 text-emerald py-2.5 font-display text-xs"
-              >
-                <Upload size={14} /> Import JSON
-              </button>
-              <button
-                onClick={onResetDefaults}
-                className="flex items-center gap-1.5 justify-center rounded-lg border border-rose/40 text-rose py-2.5 font-display text-xs"
-              >
-                <RotateCcw size={14} /> Reset Defaults
-              </button>
+              <GlassButton onClick={onExportActive} disabled={!game} icon={Download}>
+                Export Active
+              </GlassButton>
+              <GlassButton onClick={onBackupAll} icon={Database}>
+                Backup All
+              </GlassButton>
+              <GlassButton onClick={() => importRef.current?.click()} tone="positive" icon={Upload}>
+                Import JSON
+              </GlassButton>
+              <GlassButton onClick={onResetDefaults} tone="danger" icon={RotateCcw}>
+                Reset Defaults
+              </GlassButton>
               <input
                 ref={importRef}
                 type="file"
@@ -353,35 +282,20 @@ export default function Settings({
 
         {tab === 'about' && (
           <div className="text-center py-2">
-            <p className="font-display font-bold text-gold-primary">TALE DIVES</p>
+            <p className="font-display font-bold text-gold-primary tracking-[0.2em]">TALE DIVES</p>
             <p className="font-narrative text-sm mt-2">App Developer: Kemuel Avenido</p>
             <p className="font-narrative text-sm italic">Dedicated to: Elisah Mirelle R. King (My Avid Bookworm)</p>
-            <p className="font-narrative text-xs opacity-60 mt-3">
+            <p className="font-narrative text-xs text-ink-muted mt-3">
               An AI text-based fantasy RPG diving engine — local-first, provider-agnostic.
             </p>
           </div>
         )}
 
         <div className="flex justify-end gap-2 mt-6">
-          <button
-            onClick={onBack}
-            aria-label="Cancel"
-            title="Cancel"
-            className="w-10 h-10 rounded-full border border-gold-accent/50 inline-flex items-center justify-center text-ink-muted hover:text-ink"
-          >
-            <X size={16} />
-          </button>
-          <button
-            onClick={save}
-            disabled={!model || !apiKey}
-            aria-label="Save Settings"
-            title="Save Settings"
-            className="w-10 h-10 rounded-full inline-flex items-center justify-center bg-gold-action text-ink disabled:opacity-40"
-          >
-            <Save size={16} />
-          </button>
+          <GlassIconButton icon={X} label="Cancel" onClick={onBack} />
+          <GlassIconButton icon={Save} label="Save Settings" tone="action" onClick={save} disabled={!model || !apiKey} />
         </div>
       </div>
-    </div>
+    </GlassScreen>
   )
 }

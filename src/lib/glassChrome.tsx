@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import { CyclingBackground } from './cyclingBackground.tsx'
 
 // Shared "border-only glassmorphism" chrome for screens that sit directly on
 // top of the cycling background art (Title, MainMenu) — transparent fill at
@@ -102,19 +104,53 @@ interface GlassIconButtonProps {
   onClick: () => void
   tone?: IconTone
   compact?: boolean
+  disabled?: boolean
 }
 
 // Small circular border-only glass button — the cycling-background
 // equivalent of MainMenu's old skin-token IconButton.
-export function GlassIconButton({ icon: Icon, label, onClick, tone = 'default', compact = false }: GlassIconButtonProps) {
+export function GlassIconButton({ icon: Icon, label, onClick, tone = 'default', compact = false, disabled = false }: GlassIconButtonProps) {
   return (
     <button
       onClick={onClick}
+      disabled={disabled}
       title={label}
       aria-label={label}
-      className={`inline-flex items-center justify-center shrink-0 rounded-full border bg-transparent backdrop-blur-sm transition-colors duration-150 ${compact ? 'w-8 h-8' : 'w-10 h-10'} ${ICON_TONE_CLASS[tone]}`}
+      className={`inline-flex items-center justify-center shrink-0 rounded-full border bg-transparent backdrop-blur-sm transition-colors duration-150 disabled:opacity-35 disabled:pointer-events-none ${compact ? 'w-8 h-8' : 'w-10 h-10'} ${ICON_TONE_CLASS[tone]}`}
     >
       <Icon size={compact ? 15 : 18} />
+    </button>
+  )
+}
+
+const BUTTON_TONE_CLASS: Record<IconTone | 'positive', string> = {
+  default: 'border-[#e8ca8a]/35 text-[#e8ca8a]/90 hover:border-[#e8ca8a] hover:text-[#f5dfa0] hover:bg-[#e8ca8a]/10',
+  action: 'border-[#f0ca65]/70 text-[#f5dfa0] bg-[#e8ca8a]/10 hover:bg-[#e8ca8a]/20 hover:shadow-[0_0_14px_1px_rgba(240,202,101,0.35)]',
+  danger: 'border-rose/40 text-rose hover:border-rose hover:bg-rose/10',
+  positive: 'border-emerald/40 text-emerald hover:border-emerald hover:bg-emerald/10',
+}
+
+interface GlassButtonProps {
+  onClick: () => void
+  children: ReactNode
+  icon?: LucideIcon
+  tone?: IconTone | 'positive'
+  disabled?: boolean
+  className?: string
+}
+
+// Ordinary labelled button — the workhorse for rows of actions (Settings'
+// backup grid, Codex's editor controls). GlassCTAButton stays reserved for a
+// screen's single primary action; using it everywhere flattens the hierarchy.
+export function GlassButton({ onClick, children, icon: Icon, tone = 'default', disabled = false, className = '' }: GlassButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border bg-transparent backdrop-blur-sm px-3 py-2.5 font-display text-xs transition-colors duration-150 disabled:opacity-35 disabled:pointer-events-none ${BUTTON_TONE_CLASS[tone]} ${className}`}
+    >
+      {Icon && <Icon size={14} className="shrink-0" />}
+      {children}
     </button>
   )
 }
@@ -124,3 +160,176 @@ export function GlassIconButton({ icon: Icon, label, onClick, tone = 'default', 
 // (not a component) so it composes freely with layout classes per call site.
 export const GLASS_SURFACE = 'border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm'
 export const GLASS_SURFACE_HOVER = 'transition-colors duration-150 hover:border-[#e8ca8a]/60'
+
+// ---------------------------------------------------------------------------
+// Screen-level shell
+// ---------------------------------------------------------------------------
+
+// Two grounds, deliberately. Screens on the way INTO a tale — Title, Main Menu
+// and the four creation steps — sit on the cycling artwork, so building a story
+// reads as continuous with the front door. Screens you use INSIDE one —
+// Chronicle, Codex, Settings — sit on a flat dark ground, where dense forms and
+// long scrollable lists need to stay legible and the artwork would just be
+// noise competing with the text.
+export type Ground = 'art' | 'dark'
+
+// Uniform (not bottom-only like Title's) so a long scrolling page stays
+// readable over its whole length, not just the last screenful.
+const ART_SCRIM = 'linear-gradient(180deg, rgba(4,3,7,0.62), rgba(4,3,7,0.72) 30%, rgba(4,3,7,0.8))'
+
+interface GlassScreenProps {
+  ground: Ground
+  children: ReactNode
+  // Pin the root to viewport height as a flex column, for screens built as
+  // fixed header + scrolling middle + fixed footer. Left off, the page
+  // scrolls as one document (MainMenu, Codex).
+  fill?: boolean
+  className?: string
+}
+
+export function GlassScreen({ ground, children, fill = false, className = '' }: GlassScreenProps) {
+  return (
+    <div className={`relative text-ink ${fill ? 'h-dvh flex flex-col overflow-hidden' : 'min-h-dvh'} ${ground === 'dark' ? 'bg-canvas' : ''} ${className}`}>
+      {ground === 'art' && (
+        <>
+          <CyclingBackground fixed />
+          <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: ART_SCRIM }} />
+        </>
+      )}
+      <div className={`relative z-10 ${fill ? 'flex-1 min-h-0 flex flex-col' : ''}`}>{children}</div>
+    </div>
+  )
+}
+
+interface GlassHeaderProps {
+  title?: string
+  subtitle?: string
+  onBack?: () => void
+  right?: ReactNode
+  className?: string
+}
+
+// One header for every screen: optional back arrow, a title/subtitle block
+// that truncates rather than wraps (so the row stays one line on a phone),
+// and a right-hand slot for per-screen controls.
+export function GlassHeader({ title, subtitle, onBack, right, className = '' }: GlassHeaderProps) {
+  return (
+    <header
+      className={`shrink-0 flex items-center gap-3 px-4 pb-3 ${className}`}
+      style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
+    >
+      {onBack && <GlassIconButton icon={ArrowLeft} label="Back" onClick={onBack} />}
+      <div className="flex-1 min-w-0">
+        {title && <h2 className="font-display font-bold text-lg text-[#f0ca65] truncate">{title}</h2>}
+        {subtitle && <p className="font-narrative italic text-xs text-[#e8ca8a]/75 truncate">{subtitle}</p>}
+      </div>
+      {right && <div className="flex items-center gap-1 shrink-0">{right}</div>}
+    </header>
+  )
+}
+
+interface GlassTabsProps<T extends string> {
+  tabs: readonly { id: T; label: string; icon?: LucideIcon }[]
+  value: T
+  onChange: (id: T) => void
+  className?: string
+}
+
+// The tab strip MainMenu introduced, extracted so Codex and Settings stop
+// each shipping their own slightly-different version.
+export function GlassTabs<T extends string>({ tabs, value, onChange, className = '' }: GlassTabsProps<T>) {
+  return (
+    <nav className={`${GLASS_SURFACE} rounded-2xl p-1 flex gap-1 ${className}`}>
+      {tabs.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 px-1 border font-display text-xs transition-colors duration-150 ${
+            value === id ? 'border-[#f0ca65]/70 text-[#f5dfa0]' : 'border-transparent text-[#e8ca8a]/60 hover:text-[#e8ca8a]'
+          }`}
+        >
+          {Icon && <Icon size={15} className="shrink-0" />}
+          <span className="truncate">{label}</span>
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Form primitives
+// ---------------------------------------------------------------------------
+
+// Shared by input/textarea. Transparent at rest, warming slightly on focus —
+// same "invisible until you touch it" logic as GlassCTAButton's interior.
+export const FIELD_CLASS =
+  'w-full rounded-xl border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-narrative text-sm text-ink placeholder:text-[#e8ca8a]/35 outline-none transition-colors duration-150 focus:border-[#f0ca65]/70 focus:bg-[#e8ca8a]/[0.08]'
+
+// A <select>'s dropdown list is painted by the OS, and it inherits the
+// element's own background — a near-transparent select gets an unreadable
+// near-white popup on Windows/Chrome. The option overrides are not optional.
+export const SELECT_CLASS = `${FIELD_CLASS} [&>option]:bg-[#14101c] [&>option]:text-[#ecdcb8]`
+
+export const LABEL_CLASS = 'font-display text-[11px] uppercase tracking-[0.14em] text-[#e8ca8a]/70'
+
+export function GlassField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className={LABEL_CLASS}>{label}</span>
+      {children}
+      {hint && <span className="font-narrative text-[11px] text-[#e8ca8a]/50">{hint}</span>}
+    </label>
+  )
+}
+
+interface GlassSegmentedProps<T extends string> {
+  options: readonly { id: T; label: string }[]
+  value: T
+  onChange: (id: T) => void
+  className?: string
+}
+
+// The "pick one of two or three" row used all over Settings and Tale Brief,
+// which had been hand-rolled with slightly different borders each time.
+export function GlassSegmented<T extends string>({ options, value, onChange, className = '' }: GlassSegmentedProps<T>) {
+  return (
+    <div className={`flex gap-2 ${className}`}>
+      {options.map(({ id, label }) => (
+        <button
+          key={id}
+          onClick={() => onChange(id)}
+          className={`flex-1 rounded-xl border px-2 py-2 font-display text-xs transition-colors duration-150 ${
+            value === id
+              ? 'border-[#f0ca65]/70 bg-[#e8ca8a]/10 text-[#f5dfa0]'
+              : 'border-[#e8ca8a]/25 text-[#e8ca8a]/60 hover:border-[#e8ca8a]/50 hover:text-[#e8ca8a]'
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Dashed "add new" affordances (moved out of MainMenu so every screen's
+// empty-state / add-row control matches)
+// ---------------------------------------------------------------------------
+
+export const DASHED_ROW_CLASS =
+  'flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-[#e8ca8a]/35 text-[#e8ca8a]/80 py-2.5 font-display text-sm bg-transparent backdrop-blur-sm transition-colors duration-150 hover:border-[#e8ca8a] hover:text-[#f5dfa0]'
+
+export function DashedCard({ icon: Icon, label, onClick, children }: { icon: LucideIcon; label: string; onClick: () => void; children?: ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#e8ca8a]/35 text-[#e8ca8a]/80 py-10 bg-transparent backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#e8ca8a] hover:text-[#f5dfa0] hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.2)]"
+    >
+      <span className="w-12 h-12 rounded-full border border-[#e8ca8a]/50 flex items-center justify-center transition-all duration-200 group-hover:border-[#f0ca65] group-hover:scale-110">
+        <Icon size={22} />
+      </span>
+      <span className="font-display text-sm">{label}</span>
+      {children}
+    </button>
+  )
+}

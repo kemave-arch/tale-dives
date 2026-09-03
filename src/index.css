@@ -27,36 +27,20 @@
   --font-mono: "JetBrains Mono", monospace;
 }
 
-/* Parchment skin — light mode, gold glassmorphism (Blueprint §6.1). Default. */
+/* ONE theme — the dark "obsidian glass" language established by Title and
+   MainMenu, now the whole app's (the selectable parchment/obsidian skins were
+   retired: the light-parchment default was why Codex/Settings/the creation
+   flow read as a different app from the front door). Colors here are the
+   values Title/MainMenu already hardcode, promoted to tokens so screens stop
+   re-inventing them: #e8ca8a accent, #f0ca65 action gold, warm off-white ink. */
 :root {
-  --td-canvas: #f8f4ea;
-  --td-surface: #fdfaf0e6;
-  --td-surface-raised: #fdfaf0;
-  --td-ink: #2a241e;
-  --td-ink-muted: #6b6152;
-  --td-gold-primary: #9c7a2e;
-  --td-gold-accent: #e2c275;
-  --td-gold-action: #f0ca65;
-  --td-emerald: #0f5132;
-  --td-emerald-bg: #dff3e8;
-  --td-rose: #9f1239;
-  --td-rose-bg: #fce7ea;
-  --td-skill: #31456e;
-  --td-skill-bg: #e8eefb;
-  --td-parchment: #f8f1de;
-  --td-parchment-header: #e0d3ba;
-  --td-glow: 0 8px 28px rgba(120, 90, 20, 0.12);
-}
-
-/* Obsidian skin — dark ground, brighter gold for contrast, glowing glass. */
-[data-skin="obsidian"] {
-  --td-canvas: #0b0d13;
-  --td-surface: #151926e6;
-  --td-surface-raised: #1a1f2e;
-  --td-ink: #ece4d3;
-  --td-ink-muted: #a89f8c;
+  --td-canvas: #07050c;
+  --td-surface: #14101ccc;
+  --td-surface-raised: #1b1626;
+  --td-ink: #ecdcb8;
+  --td-ink-muted: #a08e6d;
   --td-gold-primary: #f0ca65;
-  --td-gold-accent: #caa24a;
+  --td-gold-accent: #e8ca8a;
   --td-gold-action: #f0ca65;
   --td-emerald: #34d399;
   --td-emerald-bg: #143223b3;
@@ -64,9 +48,33 @@
   --td-rose-bg: #3a1620b3;
   --td-skill: #a9c1f5;
   --td-skill-bg: #1e2a4ab3;
-  --td-parchment: #11141c;
-  --td-parchment-header: #1b1f2c;
-  --td-glow: 0 0 24px rgba(240, 202, 101, 0.15), 0 8px 28px rgba(0, 0, 0, 0.5);
+  --td-parchment: #f8f1de;
+  --td-parchment-header: #e0d3ba;
+  --td-glow: 0 0 24px rgba(240, 202, 101, 0.12), 0 8px 28px rgba(0, 0, 0, 0.55);
+}
+
+/* The Story Viewer's reading surface stays warm light paper while everything
+   around it is dark glass — the one deliberate exception to the palette above.
+   That inversion is why these tokens are re-declared HERE rather than the text
+   colors being changed at each call site: `--td-ink` and friends are used both
+   for text on dark chrome and for text on this light paper, so they have to
+   diverge. Redefining them on the container re-points every `text-ink` /
+   `text-gold-primary` / `text-skill` inside it (TurnBlock's badges, richText's
+   skill and item spans, the dossier rows) to on-paper values through the
+   normal cascade, with no per-class changes anywhere in the subtree.
+   Anything added inside the reading surface inherits this automatically. */
+.parchment-surface {
+  --td-ink: #2a241e;
+  --td-ink-muted: #6b6152;
+  --td-gold-primary: #8a6a24;
+  --td-gold-accent: #b08d3f;
+  --td-emerald: #0f5132;
+  --td-emerald-bg: #dff3e8;
+  --td-rose: #9f1239;
+  --td-rose-bg: #fce7ea;
+  --td-skill: #31456e;
+  --td-skill-bg: #e8eefb;
+  color: var(--td-ink);
 }
 
 body {
@@ -76,12 +84,24 @@ body {
   font-family: var(--font-narrative);
 }
 
-/* Standard glass surface — Blueprint §6.1a, generalized across both skins. */
+/* Standard glass surface — Blueprint §6.1a, now border-only to match the
+   GLASS_SURFACE class in lib/glassChrome.tsx that Title/MainMenu use: a
+   near-transparent fill that lets the ground through, a thin gold hairline,
+   and blur doing the real work. Kept as a CSS class (rather than folded into
+   glassChrome.tsx) because several screens apply it to non-button elements
+   and to framer-motion components. */
 .glass-panel {
-  backdrop-filter: blur(16px);
-  background: var(--td-surface);
-  border: 1px solid color-mix(in srgb, var(--td-gold-accent) 40%, transparent);
+  backdrop-filter: blur(12px);
+  background: rgba(232, 202, 138, 0.045);
+  border: 1px solid color-mix(in srgb, var(--td-gold-accent) 25%, transparent);
   box-shadow: var(--td-glow);
+}
+.glass-panel-hover {
+  transition: border-color 0.15s ease-out, background-color 0.15s ease-out;
+}
+.glass-panel-hover:hover {
+  background: rgba(232, 202, 138, 0.09);
+  border-color: color-mix(in srgb, var(--td-gold-accent) 60%, transparent);
 }
 
 .glow-ring {

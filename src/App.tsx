@@ -110,10 +110,6 @@ export default function App() {
   useEffect(() => { if (activeCampaignId) store.saveActiveCampaignId(activeCampaignId) }, [activeCampaignId])
   useEffect(() => { store.saveGlobalSlashCommands(globalSlashCommands) }, [globalSlashCommands])
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-skin', uiPrefs.skin)
-  }, [uiPrefs.skin])
-
   // The actively-played campaign is kept in `game` for the turn loop, and
   // mirrored into the `campaigns` library on every change.
   useEffect(() => {
