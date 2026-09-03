@@ -1,14 +1,32 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-03, end of a home-machine session, written as a leaving-the-desk
-handoff. Everything below is committed and pushed; `master`/`origin/master` are in sync at
-`c270b8f`, working tree clean. Since the last handoff paragraph below: added a 3rd
-background slot (`title-bg3`, real `.webp` pair, not a placeholder) and then made slot
-discovery **automatic** — `CyclingBackground` no longer takes a hardcoded `stems` list, it
-probes `public/img/pc_title-bg<N>.webp` at runtime starting from 1 and stops at the first
-gap. **Dropping a new numbered `m_`/`pc_` pair into `public/img/` is now enough on its
-own** to add it to the Title/MainMenu rotation — no code change needed. `BACKGROUND_SLOTS`
-no longer exists; if you see a reference to it anywhere, it's stale.
+**Last updated:** 2026-09-03, end of a Claude-Code-on-the-web session, written as a
+leaving-the-desk handoff.
+
+> ### ⚠️ READ FIRST — the tip is NOT on `master` this time
+> Unlike every prior session in this log, the newest work sits on a **feature branch**:
+> `claude/tale-dives-audio-ui-w6ka4c` (tip `5a5b455`, pushed to `origin`, working tree
+> clean). `master`/`origin/master` are at `4ff2177`. **GitHub Pages deploys from `master`
+> only** (`.github/workflows/deploy.yml` triggers on push to `master`), so the audio fix
+> below **is not live** until that branch is merged. No PR was opened. If the live site
+> still has no sound, this is why — check the branch before re-diagnosing the bug.
+
+Since the last handoff paragraph below, in order: a **background soundtrack** shipped
+(`4ff2177` — auto-discovered `public/tracks/ost_<N>.mp3`, crossfades, mute toggle), which
+was never logged here at the time; then that soundtrack turned out to be **completely
+silent in production**, and the fix plus a small Title/MainMenu control pass landed on the
+branch above (`5a5b455`). The silence was **not** a path or Vite-config problem — see the
+new muted-autoplay trap in §0, which is the single most important thing to read before
+touching audio here.
+
+Still true from the session before that: background slot discovery is **automatic** —
+`CyclingBackground` takes no hardcoded `stems` list, it probes
+`public/img/pc_title-bg<N>.webp` at runtime starting from 1 and stops at the first gap.
+**Dropping a new numbered `m_`/`pc_` pair into `public/img/` is enough on its own** to add
+it to the Title/MainMenu rotation — no code change needed. `BACKGROUND_SLOTS` no longer
+exists; if you see a reference to it anywhere, it's stale. The soundtrack deliberately
+copies this convention (`ost_1.mp3`, `ost_2.mp3`, …), so the same "just drop the file in"
+rule applies to music.
 
 > ## ⏭️ PICK UP HERE — pending work, in the user's own priority order
 > Full detail for each is in **§4's item 8**; this is the at-a-glance version.
@@ -210,6 +228,64 @@ true and hover works first try. Two follow-on facts worth knowing:
   setting `element.style.*` directly does **not**, because React resets the `style`
   attribute on its next render of that element.
 
+### The muted-autoplay trap — check this FIRST before debugging "no sound"
+
+**This is what made the soundtrack silent on the live site, and the first two theories
+about it (both plausible, both wrong) were about file paths.** Read this before touching
+`src/lib/backgroundMusic.tsx`.
+
+The original implementation leaned on a comment that said *"every browser permits muted
+autoplay"* — so it created the `<audio>` element, called `play()` while muted, and treated
+that as having succeeded. It hadn't. A refused `play()` returns a **rejected promise and
+nothing else**: no `error` event, no console warning, `readyState` still climbs to 4, the
+element just quietly stays `paused`. And because `toggleMute()` only flipped `.muted` and
+never called `play()`, there was **nothing to unmute** — the button was inert forever, no
+matter how many times it was clicked.
+
+The measured state, on a server emulating GitHub Pages (app under `/tale-dives/`, real
+404s, no SPA fallback):
+```
+AFTER LOAD:  {"paused":true, "muted":true, "volume":1, "readyState":4, "src":"ost_1.mp3"}
+AFTER CLICK: {"paused":true, "muted":false, "volume":1, "readyState":4}   <- still paused
+```
+Note `readyState: 4` — the file was **fully downloaded and decoded**. Everything about
+loading worked. Only playback never started. This reproduces under Chrome's **default**
+autoplay policy, not just `--autoplay-policy=document-user-activation-required`.
+
+**Two path theories were tested and disproven — don't spend the session re-testing them:**
+- *"Vite's `base: './'` breaks the track URLs on the Pages subpath."* It does not.
+  `BASE_URL` compiles to the literal `./`, which resolves **against the document**, giving
+  `/tale-dives/tracks/ost_1.mp3`. Confirmed requested and served `200`. (Verify by
+  grepping the built bundle for the discovery call — it compiles to a literal `qh("./")`.)
+- *"`BASE_URL` needs trailing-slash normalization."* A no-op — `'./'` already ends in a
+  slash. This changes nothing in either dev or production.
+- *"The `<audio>` metadata probe hangs, blocking discovery."* It did not hang here;
+  discovery completed and correctly stopped at `ost_3`'s 404. (A timeout was still added
+  as genuine hardening — probes are awaited **in sequence**, so one stalled request really
+  could block the soundtrack forever — but it was not the bug.)
+
+**The rule: never treat autoplay as having worked.** Playback must be (re)startable from
+something carrying a real user gesture. Current design does this from two places:
+`resume()` is called (a) from the mute toggle, since the click is *itself* the gesture
+browsers require, and (b) from a self-removing `pointerdown`/`keydown` listener, for a
+player who never touches the toggle — that one keeps the element muted, so it is silent,
+it just means a later unmute is instant. `resume()` deliberately does **not** rewind;
+`playCurrent()` still owns starting a fresh track.
+
+**How to actually verify audio here** (a screenshot can never confirm sound, and this repo
+has no test suite): drive a real headless browser and read the element's live state.
+Serve the built `dist/` under a `/tale-dives/` path with **real 404s** — the dev server's
+SPA fallback returns `200 index.html` for missing files and will hide exactly the class of
+bug you're hunting. Then:
+```js
+const a = document.getElementById('td-soundtrack')   // the element is given this id on purpose
+;({paused: a.paused, muted: a.muted, volume: a.volume, t: a.currentTime, rs: a.readyState})
+```
+**`currentTime` advancing across two samples is the only real proof of playback** —
+`paused: false` alone is not enough. Run it under both the default autoplay policy and
+`--autoplay-policy=document-user-activation-required`; the strict flag is the closest
+stand-in available here for Safari/iOS, which are the browsers most likely to refuse.
+
 ## 1. What Tale Dives is
 
 A single-player, browser-only (no backend) AI-narrated text RPG. Vite + React 19 +
@@ -245,8 +321,13 @@ client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `c
 (§5.3 Summoning/Minion engine), `factions.ts` (§5.4/§5.11 rivalry + derived standing),
 `fsAccess.ts` (§6.4B File System Access API wrapper), `useConfirm.tsx` (an in-app confirm
 modal; see its Revision log entry for why `window.confirm()` had to go),
-`cyclingBackground.tsx` (the shared background-slot picker/crossfader — `BACKGROUND_SLOTS`,
-`CyclingBackground`, used by both Title and MainMenu), `glassChrome.tsx` (the shared
+`cyclingBackground.tsx` (the shared background-slot picker/crossfader — exports
+`CyclingBackground`; slots are discovered at runtime, there is no `BACKGROUND_SLOTS`
+array any more), `backgroundMusic.tsx` (`useBackgroundMusic` — the soundtrack hook:
+runtime track discovery, per-track fade in/out, wrap-around, and the mute toggle's state.
+Mounted once in `App.tsx`, deliberately **not** in a screen, so music survives navigation
+instead of restarting on every unmount. Read §0's muted-autoplay trap before editing it),
+`glassChrome.tsx` (the shared
 border-only-glassmorphism pieces — `TAPER_CLIP`, `GlassCTAButton`, `GlassIconButton`,
 `GLASS_SURFACE`), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`,
 `autoRegister.ts`, `turnStates.ts`, `backup.ts` (`downloadJSON`/`readJSONFile` plus
@@ -271,14 +352,23 @@ in-app `screen` state.
 **Static assets** (`public/img/`): the Title/MainMenu cycling background artwork, one pair
 per "slot" — `m_<stem>.webp` (phone-composed) and `pc_<stem>.webp` (tablet/desktop-
 composed, also the guaranteed fallback if a slot's `m_` file doesn't exist yet). `.webp`,
-not `.png` — converted for ~90% smaller files, no visible quality loss. Two slots today,
-`title-bg1` and `title-bg2`, both real crossfading content (not a placeholder). `src/lib/
-cyclingBackground.tsx`'s `BACKGROUND_SLOTS` array holds the stem list; add a stem there
-once its `m_`/`pc_` pair exists to extend the cycle. Paths are built off
+not `.png` — converted for ~90% smaller files, no visible quality loss. **Three** slots
+today — `title-bg1`, `title-bg2`, `title-bg3` — all real crossfading content, no
+placeholders. There is no stem list to maintain: `cyclingBackground.tsx` probes
+`pc_title-bg<N>.webp` from 1 upward and stops at the first gap, so dropping a new
+numbered `m_`/`pc_` pair into the folder extends the cycle on its own. Paths are built off
 `import.meta.env.BASE_URL`, not a hardcoded leading slash — that hardcoding is exactly what
 broke these images on the live GitHub Pages deploy (which serves from `/tale-dives/`, not
 the domain root) until this session's fix; see that file's `useResponsiveBg` and its own
 Revision log entry below before ever reintroducing a literal `/img/...` path anywhere.
+
+**Static assets** (`public/tracks/`): the background soundtrack, as `ost_1.mp3`,
+`ost_2.mp3`, … — same numbered auto-discovery convention as the artwork above, probed by
+`src/lib/backgroundMusic.tsx` from 1 upward and stopping at the first gap, so dropping in
+`ost_3.mp3` adds it to the rotation with no code change. Two tracks today (~4 MB each,
+64 kbps stereo). They are committed to the repo, copied verbatim into `dist/` by Vite as
+ordinary `public/` files, and served correctly from the Pages subpath — **if there is no
+sound, the files are not the problem;** see §0's muted-autoplay trap.
 
 **Ambient types** (`src/types/`): `fileSystemAccess.d.ts` — minimal File System Access API
 types not yet in TS's bundled DOM lib, new this session.
@@ -1444,3 +1534,68 @@ office session above — same repo, same `master` branch.**
   was correctly NOT picked up. Both `tale-dives` and `TaleDivesGem` pushed and confirmed
   byte-identical on the changed files (see the new §"How to push to `backup`" note above
   for the cherry-pick workflow used, now that the two repos have diverged).
+- **2026-09-03** — Background soundtrack shipped (`4ff2177`). **This entry is written
+  retroactively** — the commit landed without a revision-log entry, and the header
+  paragraph still claimed `master` was at `c270b8f` for a while afterward. Added
+  `src/lib/backgroundMusic.tsx` (`useBackgroundMusic`), mounted once in `App.tsx` so the
+  music survives screen navigation, plus a mute toggle on Title next to the Settings gear
+  and two real tracks in `public/tracks/`. Track discovery copies the background-art
+  convention exactly (probe `ost_<N>.mp3` from 1, stop at the first gap), and the fade
+  logic uses `setInterval` rather than `requestAnimationFrame` on purpose — rAF does not
+  fire in a hidden document, which had stranded a fade at volume 0 in the preview pane.
+  All of that still stands. What did **not** stand is the autoplay assumption baked into
+  its comments; see the next entry.
+- **2026-09-03** — **The soundtrack was completely silent in production**, and the fix
+  plus a small Title/MainMenu control pass landed on branch
+  `claude/tale-dives-audio-ui-w6ka4c` (`5a5b455`). ⚠️ **Not merged to `master`, so not
+  live** — Pages deploys from `master` only.
+
+  **Diagnosis, and two wrong theories worth not repeating.** The user arrived with an
+  analysis from another AI blaming asset paths: that the `<audio>` metadata probe hangs
+  and blocks discovery, and that `import.meta.env.BASE_URL` needed trailing-slash
+  normalization for the Pages subpath. Both were tested directly and both are false. The
+  built `dist/` was served under `/tale-dives/` by a server that emulates Pages properly
+  — **real 404s, no SPA fallback**, which matters because the dev server's fallback
+  returns `200 index.html` for missing files and masks exactly this class of bug — and
+  driven in headless Chromium. Result: discovery completed fine and correctly stopped at
+  `ost_3`'s 404; the URL resolved to `/tale-dives/tracks/ost_1.mp3` and was served `200`;
+  `readyState` reached 4 (fully decoded). `BASE_URL` compiles to the literal `./`, which
+  resolves against the document and is already correct — and already ends in a slash, so
+  the proposed normalization is a no-op.
+
+  **The actual bug**: the element sat at `paused: true` after loading, and *stayed* paused
+  after clicking unmute. Autoplay had been refused, which rejects a promise silently and
+  leaves no other trace, and `toggleMute()` only flipped `.muted` — it never called
+  `play()`, so there was nothing to unmute however many times you clicked. The code's own
+  comment ("every browser permits muted autoplay") was the false premise. It reproduces
+  under Chrome's **default** policy, not only the strict flag. Full write-up, including
+  the verification recipe, is in §0's new **muted-autoplay trap** — read that before
+  touching audio.
+
+  **What landed:** a `resume()` that restarts playback without rewinding, called from the
+  mute toggle (the click is itself the user gesture browsers demand) and from a
+  self-removing first-interaction listener for players who never touch the toggle;
+  muted autoplay is still attempted, just no longer trusted. The existence probe also got
+  a timeout — not the bug, but real hardening, since probes are awaited in sequence and
+  one stalled request could otherwise block music forever. UI, per the user's asks: the
+  mute toggle now also appears in **Main Menu** beside Settings, with a **"Back to title"**
+  button on the left of that same header row (both `GlassIconButton`, so the row reads as
+  one set; the tagline truncates so it holds one line at 390px), and Title's **Continue**
+  was promoted from a small underlined text link to a full `GlassCTAButton` matching
+  **Dive In**, both `w-full` so their widths match despite different label lengths.
+
+  **Verified**, under both the default autoplay policy and
+  `--autoplay-policy=document-user-activation-required`: unmute → `paused: false`,
+  `muted: false`, **`currentTime` advancing** (the only real proof of playback — screenshots
+  cannot confirm sound). Also verified the gesture-elsewhere path (click Dive In → element
+  running silently → unmute in Main Menu → audible) and that music survives Main Menu →
+  Title navigation. Screenshots confirmed both new layouts at 1280px and 390px.
+  `npm run build` (tsc + vite) clean.
+
+  **Where this leaves things (end-of-session handoff):** the pending feature list at the
+  top of this file is **untouched** — Skills is still next up, Action Suggestion Pills is
+  still the cheapest of the four. The one piece of unfinished business from *this* session
+  is purely mechanical: **merge `claude/tale-dives-audio-ui-w6ka4c` into `master`** (no PR
+  was opened) so the audio fix actually deploys, and push the same commit to the `backup`
+  remote via the cherry-pick workflow documented near the top of this file if that repo is
+  still being kept in step.
