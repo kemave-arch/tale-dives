@@ -875,6 +875,11 @@ export default function App() {
           setWorldSetupInitial(null)
           setScreen('worldsetup')
         }}
+        onEditWorld={(id) => {
+          setWorldSetupMode('library')
+          setWorldSetupInitial(worlds[id] ?? null)
+          setScreen('worldsetup')
+        }}
         onSetDefaultWorld={(id) =>
           setWorlds((w) => Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { ...v, isDefault: k === id }])))
         }
@@ -889,6 +894,11 @@ export default function App() {
         onNewProtagonist={() => {
           setNewGameMode('library')
           setNewGameInitial(null)
+          setScreen('newgame')
+        }}
+        onEditProtagonist={(id) => {
+          setNewGameMode('library')
+          setNewGameInitial(protagonists[id] ?? null)
           setScreen('newgame')
         }}
         onSetDefaultProtagonist={(id) =>
