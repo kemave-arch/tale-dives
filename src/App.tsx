@@ -33,6 +33,7 @@ import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { readJSONFile, saveJSON } from './lib/backup.ts'
 import { useConfirm } from './lib/useConfirm.tsx'
 import * as store from './lib/store.ts'
+import { CURRENT_SCHEMA_VERSION } from './types.ts'
 import type {
   BestiaryEntry, Campaign, CombatMode, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
   Player, ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
@@ -130,6 +131,19 @@ export default function App() {
     return entry
   }
 
+  function resumeCampaign(id: string) {
+    setGame(campaigns[id])
+    setActiveCampaignId(id)
+    setHistory([])
+    setScreen('chronicle')
+  }
+
+  // Title's "Continue" shortcut and Main Menu's Tales tab both want the same
+  // Tale — whichever was last actually played.
+  function mostRecentCampaignId(): string | undefined {
+    return Object.values(campaigns).sort((a, b) => (b.lastPlayed ?? 0) - (a.lastPlayed ?? 0))[0]?.id
+  }
+
   function beginCampaign(protagonistData: ProtagonistData, combatMode: CombatMode = 'NARRATIVE', worldOverride?: Partial<WorldData>) {
     const cls = getClassById(protagonistData.classId)
     const attrs = startingAttributes(cls.weights)
@@ -175,6 +189,7 @@ export default function App() {
     const campaignId = store.newId('campaign')
     const campaign: Campaign = {
       id: campaignId,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       title: `${player.name}'s Tale`,
       synopsis: (protagonistData.opening || world.background || '').slice(0, 140),
       worldId: worldEntry.id!,
@@ -800,7 +815,13 @@ export default function App() {
   let content: ReactNode
 
   if (screen === 'title') {
-    content = <Title onEnter={() => setScreen('mainmenu')} onSettings={() => openSettings('title')} />
+    content = (
+      <Title
+        onEnter={() => setScreen('mainmenu')}
+        onSettings={() => openSettings('title')}
+        onContinue={mostRecentCampaignId() ? () => resumeCampaign(mostRecentCampaignId()!) : undefined}
+      />
+    )
   } else if (screen === 'settings') {
     content = (
       <Settings
@@ -819,6 +840,7 @@ export default function App() {
         onExportActive={() => game && saveJSON(`${game.title}.json`, game)}
         onBackupAll={() =>
           saveJSON('tale-dives-backup.json', {
+            schemaVersion: CURRENT_SCHEMA_VERSION,
             worlds,
             protagonists,
             campaigns,
@@ -834,7 +856,10 @@ export default function App() {
               setCampaigns((c) => ({ ...c, ...(data.campaigns ?? {}) }))
             } else if (data.player && data.log) {
               const id = data.id ?? store.newId('campaign')
-              setCampaigns((c) => ({ ...c, [id]: { ...data, id, lastPlayed: Date.now() } }))
+              setCampaigns((c) => ({
+                ...c,
+                [id]: { schemaVersion: CURRENT_SCHEMA_VERSION, ...data, id, lastPlayed: Date.now() },
+              }))
             }
           } catch {
             setError('That file could not be read as a Tale Dives save.')
@@ -853,12 +878,7 @@ export default function App() {
         worlds={worlds}
         protagonists={protagonists}
         campaigns={campaigns}
-        onResume={(id) => {
-          setGame(campaigns[id])
-          setActiveCampaignId(id)
-          setHistory([])
-          setScreen('chronicle')
-        }}
+        onResume={resumeCampaign}
         onNewSession={(worldId, protagonistId) => startNewStory(worldId, protagonistId)}
         onDeleteCampaign={async (id) => {
           if (!(await confirm('Delete this Tale? This cannot be undone.'))) return
@@ -877,7 +897,10 @@ export default function App() {
           try {
             const data = await readJSONFile(file)
             const id = data.id ?? store.newId('campaign')
-            setCampaigns((c) => ({ ...c, [id]: { ...data, id, lastPlayed: Date.now() } }))
+            setCampaigns((c) => ({
+              ...c,
+              [id]: { schemaVersion: CURRENT_SCHEMA_VERSION, ...data, id, lastPlayed: Date.now() },
+            }))
           } catch {
             setError('That file could not be read as a Tale save.')
           }
@@ -1055,7 +1078,13 @@ export default function App() {
       />
     )
   } else {
-    content = <Title onEnter={() => setScreen('mainmenu')} onSettings={() => openSettings('title')} />
+    content = (
+      <Title
+        onEnter={() => setScreen('mainmenu')}
+        onSettings={() => openSettings('title')}
+        onContinue={mostRecentCampaignId() ? () => resumeCampaign(mostRecentCampaignId()!) : undefined}
+      />
+    )
   }
 
   // §6.0 Motion System — cross-fade + slight vertical slide between screens.

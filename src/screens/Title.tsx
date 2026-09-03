@@ -6,6 +6,9 @@ import { GlassCTAButton } from '../lib/glassChrome.tsx'
 interface TitleProps {
   onEnter: () => void
   onSettings: () => void
+  // Jumps straight into the most recently played Tale, skipping Main Menu.
+  // Omitted (no button rendered) when there's no Tale to resume yet.
+  onContinue?: () => void
 }
 
 // Rising gold embers over the artwork, echoing its own painted light-streaks.
@@ -45,7 +48,7 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
 // scrim, and the buttons that lead somewhere real. No Worlds/Journal/
 // Profile/Inventory/Achievements row — those aren't separate screens yet, so
 // a button for them would just be decoration.
-export default function Title({ onEnter, onSettings }: TitleProps) {
+export default function Title({ onEnter, onSettings, onContinue }: TitleProps) {
   return (
     <div
       className="h-dvh relative flex flex-col justify-end items-center text-center px-6 overflow-hidden bg-[#050308]"
@@ -70,6 +73,14 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
         <GlassCTAButton onClick={onEnter} icon={BookOpen}>
           Dive In
         </GlassCTAButton>
+        {onContinue && (
+          <button
+            onClick={onContinue}
+            className="mt-1 font-mono text-[10px] uppercase tracking-wide text-[#e8ca8a]/50 hover:text-[#e8ca8a]/85 underline underline-offset-2"
+          >
+            Continue
+          </button>
+        )}
       </div>
     </div>
   )

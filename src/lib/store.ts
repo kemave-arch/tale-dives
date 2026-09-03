@@ -1,4 +1,5 @@
 import { FOURTH_WING_WORLD, VIOLET_SORRENGAIL } from '../data/starterTemplates.ts'
+import { CURRENT_SCHEMA_VERSION } from '../types.ts'
 import type { ApiSettings, Campaign, Dict, ProtagonistData, SlashCommand, UiPrefs, WorldData } from '../types.ts'
 
 // Centralized localStorage persistence. Splits the old single-save shape
@@ -69,7 +70,20 @@ export const saveProtagonists = (p: Dict<ProtagonistData>): void => save(KEYS.pr
 // progress isn't lost by this redesign.
 export function loadCampaigns(): Dict<Campaign> {
   const campaigns = load<Dict<Campaign> | null>(KEYS.campaigns, null)
-  if (campaigns) return campaigns
+  if (campaigns) {
+    // §8 — backfill campaigns saved before schemaVersion existed, so the
+    // field is universally present going forward rather than only on ones
+    // created after this was added.
+    let touched = false
+    for (const c of Object.values(campaigns)) {
+      if (c.schemaVersion === undefined) {
+        c.schemaVersion = CURRENT_SCHEMA_VERSION
+        touched = true
+      }
+    }
+    if (touched) save(KEYS.campaigns, campaigns)
+    return campaigns
+  }
 
   const legacy = load<(Partial<Campaign> & { player?: { name?: string }; world?: { background?: string } }) | null>(
     KEYS.legacyGame,
@@ -82,6 +96,7 @@ export function loadCampaigns(): Dict<Campaign> {
     [id]: {
       ...legacy,
       id,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       title: legacy.player?.name ? `${legacy.player.name}'s Tale` : 'Untitled Tale',
       synopsis: legacy.world?.background?.slice(0, 140) ?? '',
       lastPlayed: Date.now(),

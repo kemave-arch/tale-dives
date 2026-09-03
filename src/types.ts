@@ -254,9 +254,18 @@ export interface SlashCommand {
   pauseRoleplay: boolean
 }
 
+// §8 — bump this whenever a change to Campaign's shape would need old saves
+// migrated on load rather than just picking up a new field as `undefined`.
+// Written on every new campaign and export; backfilled onto any older
+// campaign missing it the first time it's loaded (see store.ts's
+// loadCampaigns). No migration logic exists yet because nothing has needed
+// one yet — this only pays off the day something does.
+export const CURRENT_SCHEMA_VERSION = 1
+
 // A Tale — the full persisted campaign shape (§6.4B Tales library).
 export interface Campaign {
   id: string
+  schemaVersion?: number // §8 — see CURRENT_SCHEMA_VERSION; optional since older saves predate this field
   title: string
   synopsis: string
   worldId?: string
