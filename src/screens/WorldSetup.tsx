@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { ArrowRight, Globe, Save, Plus } from 'lucide-react'
 import { DEFAULT_NARRATION_STYLE } from '../api/turnContract.ts'
+import {
+  FIELD_CLASS, GLASS_SURFACE, GlassButton, GlassCTAButton, GlassField, GlassHeader, GlassScreen, LABEL_CLASS,
+} from '../lib/glassChrome.tsx'
 import type { WorldData } from '../types.ts'
 
 interface WorldSetupProps {
@@ -11,17 +14,6 @@ interface WorldSetupProps {
   onSavePreset?: (world: WorldData) => void
   onSaveAsNewPreset?: (world: WorldData) => void
 }
-
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <label className="text-sm font-display block">
-      {label} {hint && <span className="opacity-50 font-normal">{hint}</span>}
-      <div className="mt-1">{children}</div>
-    </label>
-  )
-}
-
-const inputClass = 'w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2.5 font-narrative text-sm'
 
 // Blueprint §Phase A.1 — Original Mode world setup, now also usable as the
 // World Library's create/edit form (§6.4B) since both need the same fields.
@@ -76,28 +68,23 @@ export default function WorldSetup({
   }
 
   return (
-    <div className="h-dvh flex flex-col bg-canvas text-ink">
-      <header
-        className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gold-accent/20"
-        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
-      >
-        <h2 className="font-display font-bold text-lg text-gold-primary">Build a World</h2>
-      </header>
+    <GlassScreen ground="art" fill>
+      <GlassHeader title="Build a World" subtitle="Step 2 — the setting your tale grows from" onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
         <div className="max-w-md mx-auto flex flex-col gap-4">
           {worldTemplates.length > 0 && (
             <div>
-              <p className="text-xs font-display text-ink-muted mb-1.5">Start from a saved World</p>
+              <p className={`${LABEL_CLASS} mb-2`}>Start from a saved World</p>
               <div className="flex gap-2 overflow-x-auto pb-1 -mx-4 px-4">
                 {worldTemplates.map((t) => (
                   <button
                     key={t.id}
                     onClick={() => applyTemplate(t)}
-                    className={`shrink-0 flex items-center gap-1.5 rounded-full px-3 py-2 text-xs font-display transition-colors ${
+                    className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-display backdrop-blur-sm transition-colors duration-150 ${
                       templateId === t.id
-                        ? 'bg-gold-accent/20 border border-gold-accent/60 text-gold-primary'
-                        : 'glass-panel text-gold-primary/80'
+                        ? 'border-[#f0ca65]/70 bg-[#e8ca8a]/12 text-[#f5dfa0]'
+                        : 'border-[#e8ca8a]/25 text-[#e8ca8a]/75 hover:border-[#e8ca8a]/60 hover:text-[#f5dfa0]'
                     }`}
                   >
                     <Globe size={13} />
@@ -108,104 +95,92 @@ export default function WorldSetup({
             </div>
           )}
 
-          <Field label="World Name">
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Navarre" className={inputClass} />
-          </Field>
+          <GlassField label="World Name">
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Navarre" className={FIELD_CLASS} />
+          </GlassField>
 
-          <div>
-            <p className="text-sm font-display mb-1">
-              Adapted From <span className="opacity-50 font-normal">(optional — attribution only, not sent to the Narrator)</span>
-            </p>
+          <GlassField label="Adapted From" hint="Optional — attribution only, never sent to the Narrator.">
             <div className="flex gap-2">
               <input
                 value={sourceTitle}
                 onChange={(e) => setSourceTitle(e.target.value)}
                 placeholder="Novel/Series title"
-                className={inputClass}
+                className={FIELD_CLASS}
               />
               <input
                 value={sourceAuthor}
                 onChange={(e) => setSourceAuthor(e.target.value)}
                 placeholder="Author"
-                className={inputClass}
+                className={FIELD_CLASS}
               />
             </div>
-          </div>
+          </GlassField>
 
-          <Field label="Genre & Tone" hint="(optional)">
+          <GlassField label="Genre & Tone" hint="Optional.">
             <input
               value={genreTone}
               onChange={(e) => setGenreTone(e.target.value)}
               placeholder="Dark fantasy, morally grey"
-              className={inputClass}
+              className={FIELD_CLASS}
             />
-          </Field>
+          </GlassField>
 
-          <Field label="Core Regional Conflict" hint="(optional)">
+          <GlassField label="Core Regional Conflict" hint="Optional.">
             <input
               value={conflict}
               onChange={(e) => setConflict(e.target.value)}
               placeholder="A border war between two rival holds"
-              className={inputClass}
+              className={FIELD_CLASS}
             />
-          </Field>
+          </GlassField>
 
-          <Field label="World Background">
+          <GlassField label="World Background">
             <textarea
               value={background}
               onChange={(e) => setBackground(e.target.value)}
               placeholder="The setting's key backdrop, e.g. the continent of Navarre"
               rows={3}
-              className={inputClass}
+              className={FIELD_CLASS}
             />
-          </Field>
+          </GlassField>
 
-          <Field label="Narration Style">
+          <GlassField label="Narration Style">
             <textarea
               value={narrationStyle}
               onChange={(e) => setNarrationStyle(e.target.value)}
               rows={4}
-              className={`${inputClass} text-xs`}
+              className={`${FIELD_CLASS} text-xs`}
             />
-          </Field>
+          </GlassField>
 
           {(onSavePreset || onSaveAsNewPreset) && (
             <div className="flex gap-2">
               {templateId && onSavePreset && (
-                <button
-                  onClick={() => onSavePreset(currentData())}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-gold-accent/40 py-2 font-display text-xs text-gold-primary"
-                >
-                  <Save size={13} /> Save Preset
-                </button>
+                <GlassButton onClick={() => onSavePreset(currentData())} icon={Save} className="flex-1">
+                  Save Preset
+                </GlassButton>
               )}
               {onSaveAsNewPreset && (
-                <button
-                  onClick={() => onSaveAsNewPreset({ ...currentData(), id: null })}
-                  className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-gold-accent/40 py-2 font-display text-xs text-gold-primary"
-                >
-                  <Plus size={13} /> Save as New Preset
-                </button>
+                <GlassButton onClick={() => onSaveAsNewPreset({ ...currentData(), id: null })} icon={Plus} className="flex-1">
+                  Save as New Preset
+                </GlassButton>
               )}
             </div>
           )}
         </div>
       </div>
 
+      {/* Back lives in the header now, so the footer carries only the single
+          forward action. It needs its own blur/tint because the artwork keeps
+          scrolling underneath it. */}
       <div
-        className="shrink-0 border-t border-gold-accent/20 px-4 py-3 flex justify-end gap-2"
+        className={`shrink-0 ${GLASS_SURFACE} border-x-0 border-b-0 bg-[#07050c]/50 px-4 py-3 flex justify-center`}
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <button onClick={onBack} className="rounded-full border border-gold-accent/50 px-5 py-2.5 font-display text-sm">
-          Back
-        </button>
-        <button
-          onClick={() => onContinue(currentData())}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-gold-action px-6 py-2.5 font-display text-sm font-semibold text-ink"
-        >
-          Continue <ArrowRight size={15} />
-        </button>
+        <GlassCTAButton onClick={() => onContinue(currentData())} icon={ArrowRight}>
+          Continue
+        </GlassCTAButton>
       </div>
-    </div>
+    </GlassScreen>
   )
 }

@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Sparkles, BookOpen } from 'lucide-react'
+import { GlassHeader, GlassScreen } from '../lib/glassChrome.tsx'
 
 interface StoryModeProps {
   onBack: () => void
@@ -9,17 +10,16 @@ interface StoryModeProps {
 // §Phase A / §6.4B "Story Creation — Cards Row" — the entry point into
 // campaign creation, split out as its own step so Original/Inspired reads as
 // a real choice rather than an inline toggle buried inside World Setup.
+//
+// Sits on the cycling artwork, like the other three creation steps: building a
+// story is a continuation of the front door, not a separate utility screen.
+// Back moved into the shared header rather than its own bordered footer.
 export default function StoryMode({ onBack, onSelectOriginal }: StoryModeProps) {
   return (
-    <div className="h-dvh flex flex-col bg-canvas text-ink">
-      <header
-        className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gold-accent/20"
-        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
-      >
-        <h2 className="font-display font-bold text-lg text-gold-primary">Choose Your Story Mode</h2>
-      </header>
+    <GlassScreen ground="art" fill>
+      <GlassHeader title="Choose Your Story Mode" subtitle="How should this tale begin?" onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-4 py-6 flex flex-col justify-center">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6 flex flex-col justify-center">
         <div className="max-w-md mx-auto w-full flex flex-col gap-4">
           <motion.button
             initial={{ opacity: 0, y: 14 }}
@@ -27,7 +27,7 @@ export default function StoryMode({ onBack, onSelectOriginal }: StoryModeProps) 
             transition={{ duration: 0.3 }}
             whileHover={{ y: -3 }}
             onClick={onSelectOriginal}
-            className="glass-panel glow-ring rounded-2xl p-6 flex flex-col items-center gap-3 text-center transition-shadow"
+            className="glass-panel glass-panel-hover rounded-2xl p-6 flex flex-col items-center gap-3 text-center"
           >
             <span className="w-14 h-14 rounded-full border border-gold-accent/50 flex items-center justify-center text-gold-primary">
               <Sparkles size={26} />
@@ -53,15 +53,6 @@ export default function StoryMode({ onBack, onSelectOriginal }: StoryModeProps) 
           </motion.div>
         </div>
       </div>
-
-      <div
-        className="shrink-0 border-t border-gold-accent/20 px-4 py-3"
-        style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
-      >
-        <button onClick={onBack} className="rounded-full border border-gold-accent/50 px-5 py-2.5 font-display text-sm">
-          Back
-        </button>
-      </div>
-    </div>
+    </GlassScreen>
   )
 }

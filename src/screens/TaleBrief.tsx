@@ -1,5 +1,8 @@
 import { useState } from 'react'
 import { ArrowRight, Info, X } from 'lucide-react'
+import {
+  FIELD_CLASS, GLASS_SURFACE, GlassCTAButton, GlassField, GlassHeader, GlassScreen, LABEL_CLASS,
+} from '../lib/glassChrome.tsx'
 import type { CombatMode } from '../types.ts'
 
 interface TaleBriefPayload {
@@ -17,8 +20,6 @@ interface TaleBriefProps {
   onBack: () => void
   onBegin: (payload: TaleBriefPayload) => void
 }
-
-const inputClass = 'w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2.5 font-narrative text-sm'
 
 const COMBAT_MODE_INFO: Record<CombatMode, string> = {
   NARRATIVE: 'The Narrator resolves fights from context — your exact move, footwork, and cleverness matter, the same way SOCIAL or EXPLORE turns are judged. No hidden math.',
@@ -73,40 +74,33 @@ export default function TaleBrief({
   const [combatMode, setCombatMode] = useState<CombatMode>(initialCombatMode)
 
   return (
-    <div className="h-dvh flex flex-col bg-canvas text-ink">
-      <header
-        className="shrink-0 flex items-center gap-3 px-4 py-3 border-b border-gold-accent/20"
-        style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}
-      >
-        <h2 className="font-display font-bold text-lg text-gold-primary">Tale Dive Brief</h2>
-      </header>
+    <GlassScreen ground="art" fill>
+      <GlassHeader title="Tale Dive Brief" subtitle="Step 4 — where the first page opens" onBack={onBack} />
 
-      <div className="flex-1 overflow-y-auto px-4 py-4">
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
         <div className="max-w-md mx-auto flex flex-col gap-4">
-          <label className="text-sm font-display block">
-            Where do you dive in? <span className="opacity-50 font-normal">(optional)</span>
+          <GlassField label="Where do you dive in?" hint="Optional — leave blank and the Narrator decides.">
             <textarea
               value={opening}
               onChange={(e) => setOpening(e.target.value)}
-              placeholder="Describe the exact scene, location, and characters present where Turn 1 should open — or leave blank and let the Narrator decide."
+              placeholder="Describe the exact scene, location, and characters present where Turn 1 should open."
               rows={10}
-              className={`mt-1 ${inputClass} resize-y`}
+              className={`${FIELD_CLASS} resize-y`}
             />
-          </label>
+          </GlassField>
 
-          <label className="text-sm font-display block">
-            Narration Style
+          <GlassField label="Narration Style">
             <textarea
               value={narrationStyle}
               onChange={(e) => setNarrationStyle(e.target.value)}
               rows={6}
-              className={`mt-1 ${inputClass} text-xs resize-y`}
+              className={`${FIELD_CLASS} text-xs resize-y`}
             />
-          </label>
+          </GlassField>
 
           <div>
-            <p className="text-sm font-display mb-1">
-              Creativity Randomness <span className="opacity-50 font-mono text-xs">{temperature.toFixed(1)}</span>
+            <p className={LABEL_CLASS}>
+              Creativity Randomness <span className="opacity-60 font-mono normal-case tracking-normal">{temperature.toFixed(1)}</span>
             </p>
             <input
               type="range"
@@ -115,21 +109,26 @@ export default function TaleBrief({
               step="0.1"
               value={temperature}
               onChange={(e) => setTemperature(Number(e.target.value))}
-              className="w-full accent-gold-action"
+              className="w-full mt-2 accent-gold-action"
             />
-            <p className="text-[11px] opacity-50 mt-1">
+            <p className="font-narrative text-[11px] text-ink-muted mt-1">
               How unpredictable the prose gets. Low keeps the Narrator steady and consistent; high adds more surprise and flourish.
             </p>
           </div>
 
           <div>
-            <p className="text-sm font-display mb-1">Combat Resolution Mode</p>
-            <div className="flex gap-2">
+            <p className={LABEL_CLASS}>Combat Resolution Mode</p>
+            {/* Not GlassSegmented: each option carries its own InfoTooltip, so
+                the row stays hand-rolled — but matched to GlassSegmented's
+                active/inactive treatment so it reads as the same control. */}
+            <div className="flex gap-2 mt-2">
               {(['NARRATIVE', 'TACTICAL'] as const).map((m) => (
                 <div
                   key={m}
-                  className={`flex-1 rounded-lg border px-2 py-2 flex items-center justify-center gap-1 ${
-                    combatMode === m ? 'border-gold-accent bg-gold-accent/15 text-gold-primary' : 'border-gold-accent/30 text-ink-muted'
+                  className={`flex-1 rounded-xl border px-2 py-2 flex items-center justify-center gap-1 transition-colors duration-150 ${
+                    combatMode === m
+                      ? 'border-[#f0ca65]/70 bg-[#e8ca8a]/10 text-[#f5dfa0]'
+                      : 'border-[#e8ca8a]/25 text-[#e8ca8a]/60 hover:border-[#e8ca8a]/50'
                   }`}
                 >
                   <button onClick={() => setCombatMode(m)} className="font-display text-xs">
@@ -139,25 +138,19 @@ export default function TaleBrief({
                 </div>
               ))}
             </div>
-            <p className="text-[11px] opacity-50 mt-1">Changeable anytime later from Settings.</p>
+            <p className="font-narrative text-[11px] text-ink-muted mt-1.5">Changeable anytime later from Settings.</p>
           </div>
         </div>
       </div>
 
       <div
-        className="shrink-0 border-t border-gold-accent/20 px-4 py-3 flex justify-end gap-2"
+        className={`shrink-0 ${GLASS_SURFACE} border-x-0 border-b-0 bg-[#07050c]/50 px-4 py-3 flex justify-center`}
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <button onClick={onBack} className="rounded-full border border-gold-accent/50 px-5 py-2.5 font-display text-sm">
-          Back
-        </button>
-        <button
-          onClick={() => onBegin({ opening, narrationStyle, temperature, combatMode })}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-full bg-gold-action px-6 py-2.5 font-display text-sm font-semibold text-ink"
-        >
-          Start <ArrowRight size={15} />
-        </button>
+        <GlassCTAButton onClick={() => onBegin({ opening, narrationStyle, temperature, combatMode })} icon={ArrowRight}>
+          Start
+        </GlassCTAButton>
       </div>
-    </div>
+    </GlassScreen>
   )
 }
