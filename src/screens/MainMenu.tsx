@@ -1,43 +1,20 @@
-import { useRef, useState, type ReactNode } from 'react'
-import type { LucideIcon } from 'lucide-react'
+import { useRef, useState } from 'react'
 import {
   BookOpen, Globe, UserCircle, Plus, Upload, Download, Trash2, Play, Sparkles, Star, Settings as SettingsIcon, Pencil,
   ArrowLeft, Volume2, VolumeX,
 } from 'lucide-react'
 import type { Campaign, Dict, ProtagonistData, WorldData } from '../types.ts'
 import { CyclingBackground } from '../lib/cyclingBackground.tsx'
-import { GLASS_SURFACE, GlassIconButton } from '../lib/glassChrome.tsx'
-
-const DASHED_ROW_CLASS =
-  'flex items-center justify-center gap-1.5 rounded-xl border-2 border-dashed border-[#e8ca8a]/35 text-[#e8ca8a]/80 py-2.5 font-display text-sm bg-transparent backdrop-blur-sm transition-colors duration-150 hover:border-[#e8ca8a] hover:text-[#f5dfa0]'
+// DashedCard/DASHED_ROW_CLASS started here and now live in glassChrome, so
+// the Codex and Slash manager share the same add-affordance rather than each
+// growing a near-copy.
+import { DASHED_ROW_CLASS, DashedCard, GLASS_SURFACE, GlassIconButton, GlassTabs } from '../lib/glassChrome.tsx'
 
 const TABS = [
   { id: 'tales', label: 'Tales', icon: BookOpen },
   { id: 'worlds', label: 'Worlds', icon: Globe },
   { id: 'protagonists', label: 'Protagonists', icon: UserCircle },
 ] as const
-
-interface DashedCardProps {
-  icon: LucideIcon
-  label: string
-  onClick: () => void
-  children?: ReactNode
-}
-
-function DashedCard({ icon: Icon, label, onClick, children }: DashedCardProps) {
-  return (
-    <button
-      onClick={onClick}
-      className="group flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[#e8ca8a]/35 text-[#e8ca8a]/80 py-10 bg-transparent backdrop-blur-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#e8ca8a] hover:text-[#f5dfa0] hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.2)]"
-    >
-      <span className="w-12 h-12 rounded-full border border-[#e8ca8a]/50 flex items-center justify-center transition-all duration-200 group-hover:border-[#f0ca65] group-hover:scale-110">
-        <Icon size={22} />
-      </span>
-      <span className="font-display text-sm">{label}</span>
-      {children}
-    </button>
-  )
-}
 
 interface MainMenuProps {
   worlds: Dict<WorldData>
@@ -126,20 +103,7 @@ export default function MainMenu({
           </div>
         </header>
 
-        <nav className={`${GLASS_SURFACE} rounded-2xl p-1 flex gap-1 mb-5`}>
-          {TABS.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 border font-display text-xs transition-colors duration-150 ${
-                tab === id ? 'border-[#f0ca65]/70 text-[#f5dfa0]' : 'border-transparent text-[#e8ca8a]/60 hover:text-[#e8ca8a]'
-              }`}
-            >
-              <Icon size={15} />
-              {label}
-            </button>
-          ))}
-        </nav>
+        <GlassTabs tabs={TABS} value={tab} onChange={setTab} className="mb-5" />
 
         {tab === 'tales' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
