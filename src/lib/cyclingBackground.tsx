@@ -3,12 +3,51 @@ import { useEffect, useState } from 'react'
 // Each slot ships as a pair: public/img/m_<stem>.webp (phone-composed) and
 // public/img/pc_<stem>.webp (tablet/desktop-composed, also the guaranteed
 // fallback if a slot's m_ file doesn't exist yet). Shared by Title and
-// MainMenu so both cycle through the same backdrop. Add a stem here once its
-// pair does.
-export const BACKGROUND_SLOTS = ['title-bg1', 'title-bg2', 'title-bg3']
+// MainMenu so both cycle through the same backdrop. Slots are discovered at
+// runtime (see useDiscoveredSlots below) — dropping a new numbered pair into
+// public/img/ is enough on its own to add it to the rotation.
 const MOBILE_QUERY = '(max-width: 767px)'
 const BG_FADE_MS = 7000
 const BG_HOLD_MS = 6000
+const MAX_SLOT_PROBE = 20 // sanity cap, not an expected real count
+
+function probeImageExists(src: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.onload = () => resolve(true)
+    img.onerror = () => resolve(false)
+    img.src = src
+  })
+}
+
+// Probes public/img/pc_title-bg<N>.webp starting at 1, stopping at the
+// first gap (pc_ is the guaranteed file per useResponsiveBg below, so it's
+// the right one to probe). Starts from ['title-bg1'] so something renders
+// immediately rather than waiting on the probe round-trip; updates once
+// discovery finishes if there turn out to be more.
+function useDiscoveredSlots(): string[] {
+  const [slots, setSlots] = useState<string[]>(['title-bg1'])
+
+  useEffect(() => {
+    let cancelled = false
+    async function discover() {
+      const base = import.meta.env.BASE_URL
+      const found: string[] = []
+      for (let i = 1; i <= MAX_SLOT_PROBE; i++) {
+        const stem = `title-bg${i}`
+        if (!(await probeImageExists(`${base}img/pc_${stem}.webp`))) break
+        found.push(stem)
+      }
+      if (!cancelled && found.length > 0) setSlots(found)
+    }
+    discover()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  return slots
+}
 
 // pc_ is the guaranteed default — a slot's m_ file is optional and can lag
 // behind. On a phone-width viewport, try the m_ variant first and silently
@@ -75,7 +114,8 @@ function BackgroundLayer({ stem, active }: { stem: string; active: boolean }) {
 // background. `fixed` pins the art to the viewport regardless of the page's
 // own scroll (for a scrollable screen like MainMenu); Title, which never
 // scrolls, uses the cheaper `absolute`.
-export function CyclingBackground({ stems, fixed = false }: { stems: string[]; fixed?: boolean }) {
+export function CyclingBackground({ fixed = false }: { fixed?: boolean }) {
+  const stems = useDiscoveredSlots()
   const [active, setActive] = useState(0)
 
   useEffect(() => {

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { BookOpen, Settings as SettingsIcon } from 'lucide-react'
-import { BACKGROUND_SLOTS, CyclingBackground } from '../lib/cyclingBackground.tsx'
+import { CyclingBackground } from '../lib/cyclingBackground.tsx'
 import { GlassCTAButton } from '../lib/glassChrome.tsx'
 
 interface TitleProps {
@@ -41,20 +41,20 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
   )
 }
 
-// Blueprint §6.4A — Title/entry screen. The artwork (see BACKGROUND_SLOTS in
-// lib/cyclingBackground.tsx) already carries the wordmark, tagline and
-// dedication, so this screen adds nothing on top of it but a slow crossfade
-// between images (once more than one slot exists), ambient sparks, a bottom
-// scrim, and the buttons that lead somewhere real. No Worlds/Journal/
-// Profile/Inventory/Achievements row — those aren't separate screens yet, so
-// a button for them would just be decoration.
+// Blueprint §6.4A — Title/entry screen. The artwork (auto-discovered by
+// lib/cyclingBackground.tsx — see useDiscoveredSlots) already carries the
+// wordmark, tagline and dedication, so this screen adds nothing on top of it
+// but a slow crossfade between images (once more than one slot exists),
+// ambient sparks, a bottom scrim, and the buttons that lead somewhere real.
+// No Worlds/Journal/Profile/Inventory/Achievements row — those aren't
+// separate screens yet, so a button for them would just be decoration.
 export default function Title({ onEnter, onSettings, onContinue }: TitleProps) {
   return (
     <div
       className="h-dvh relative flex flex-col justify-end items-center text-center px-6 overflow-hidden bg-[#050308]"
       style={{ paddingBottom: 'max(2rem, env(safe-area-inset-bottom))' }}
     >
-      <CyclingBackground stems={BACKGROUND_SLOTS} />
+      <CyclingBackground />
       <div
         className="absolute inset-x-0 bottom-0 h-2/5 pointer-events-none"
         style={{ background: 'linear-gradient(180deg, transparent, rgba(4,3,7,0.55) 40%, rgba(4,3,7,0.92) 85%)' }}

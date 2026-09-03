@@ -4,7 +4,7 @@ import {
   BookOpen, Globe, UserCircle, Plus, Upload, Download, Trash2, Play, Sparkles, Star, Settings as SettingsIcon, Pencil,
 } from 'lucide-react'
 import type { Campaign, Dict, ProtagonistData, WorldData } from '../types.ts'
-import { BACKGROUND_SLOTS, CyclingBackground } from '../lib/cyclingBackground.tsx'
+import { CyclingBackground } from '../lib/cyclingBackground.tsx'
 import { GLASS_SURFACE, GlassIconButton } from '../lib/glassChrome.tsx'
 
 const DASHED_ROW_CLASS =
@@ -86,7 +86,7 @@ export default function MainMenu({
 
   return (
     <div className="relative min-h-dvh text-[#f5dfa0]">
-      <CyclingBackground stems={BACKGROUND_SLOTS} fixed />
+      <CyclingBackground fixed />
       {/* The art carries its own wordmark/logo already (see Title), so this
           screen's chrome is just the tab nav, lists, and a Settings icon —
           no repeated "TALE DIVES" heading. A uniform scrim (rather than
