@@ -83,7 +83,7 @@ export default function App() {
   const [worldSetupInitial, setWorldSetupInitial] = useState<WorldData | null>(null)
   const [newGameMode, setNewGameMode] = useState<CreationMode>('tale')
   const [newGameInitial, setNewGameInitial] = useState<ProtagonistData | null>(null)
-  const [codexTarget, setCodexTarget] = useState<{ category: CategoryId; id: string } | null>(null)
+  const [codexTarget, setCodexTarget] = useState<{ category: CategoryId; id?: string } | null>(null)
   const [slashManagerOpen, setSlashManagerOpen] = useState(false)
 
   const [history, setHistory] = useState<HistoryTurn[]>([]) // Gemini `contents` sliding window (§3.1)
@@ -988,6 +988,7 @@ export default function App() {
         lore={game.lore}
         quests={game.quests}
         bestiary={game.bestiary}
+        crafting={game.crafting}
         onSend={sendAction}
         onBangCommand={handleBangCommand}
         slashCommands={[...Object.values(game.slashCommands ?? {}), ...Object.values(globalSlashCommands)]}
@@ -1000,6 +1001,10 @@ export default function App() {
         }}
         onOpenCodexEntry={(category, id) => {
           setCodexTarget({ category: KEYWORD_CATEGORY_TO_CODEX[category], id })
+          setScreen('codex')
+        }}
+        onOpenCodexCategory={(category) => {
+          setCodexTarget({ category })
           setScreen('codex')
         }}
       />

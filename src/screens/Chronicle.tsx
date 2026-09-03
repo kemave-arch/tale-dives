@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback, memo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock, Repeat, Hammer, Ghost,
+  Unlock, Lock, Repeat, Hammer, Ghost, Wand2, ScrollText, User,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -11,9 +12,10 @@ import { formatCurrency } from '../lib/currency.ts'
 import { slugify } from '../lib/slug.ts'
 import { BANG_COMMANDS } from '../lib/bangCommands.ts'
 import { isHidden } from '../lib/discovery.ts'
+import type { CategoryId } from './Codex.tsx'
 import type {
-  BestiaryEntry, CombatState, FactionEntry, GameTime, KeywordLink, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry,
-  SlashCommand,
+  BestiaryEntry, CombatState, CraftingJob, FactionEntry, GameTime, KeywordLink, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player,
+  QuestEntry, SlashCommand,
 } from '../types.ts'
 
 interface ChronicleProps {
@@ -30,6 +32,7 @@ interface ChronicleProps {
   lore: Record<string, LoreEntry>
   quests: Record<string, QuestEntry>
   bestiary: Record<string, BestiaryEntry>
+  crafting?: CraftingJob[]
   onSend: (action: string, forcePause?: boolean) => void
   onBangCommand: (raw: string) => void
   slashCommands: SlashCommand[]
@@ -38,10 +41,23 @@ interface ChronicleProps {
   onOpenMenu: () => void
   onOpenCodex: () => void
   onOpenCodexEntry: (category: KeywordLink['category'], id: string) => void
+  onOpenCodexCategory: (category: CategoryId) => void
 }
 
 const WINDOW_SIZE = 20 // §9.2 — cap how many turns stay mounted; older ones load in on demand
 const INPUT_MAX_HEIGHT = 88
+
+// §6.5 Fantasy Radial Menu — a fan of shortcuts arcing upward from the FAB so
+// it never covers the input tray below. Angles are standard math degrees
+// (0=right, 90=up); spread across the upper arc rather than a full circle.
+const RADIAL_RADIUS = 108
+function radialPos(index: number, count: number): { x: number; y: number } {
+  const startDeg = 12
+  const endDeg = 168
+  const deg = count === 1 ? 90 : startDeg + (index * (endDeg - startDeg)) / (count - 1)
+  const rad = (deg * Math.PI) / 180
+  return { x: Math.cos(rad) * RADIAL_RADIUS, y: -Math.sin(rad) * RADIAL_RADIUS }
+}
 
 function PoolBar({ label, value, max, colorVar }: { label: string; value: number; max: number; colorVar: string }) {
   const pct = max > 0 ? Math.max(0, Math.min(100, (value / max) * 100)) : 0
@@ -348,8 +364,8 @@ const TurnBlock = memo(function TurnBlock({ entry, globalIndex, onTapTerm, regis
   )
 })
 
-// Blueprint §6.4C — v1 scaffold: no parchment pagination/radial menu/quick-slots
-// yet, just enough surface to prove the turn loop (§2 Phase D) actually works.
+// Blueprint §6.4C — v1 scaffold: no parchment pagination/quick-slots yet,
+// just enough surface to prove the turn loop (§2 Phase D) actually works.
 export default function Chronicle({
   title,
   player,
@@ -364,6 +380,7 @@ export default function Chronicle({
   lore,
   quests,
   bestiary,
+  crafting,
   onSend,
   onBangCommand,
   slashCommands,
@@ -372,6 +389,7 @@ export default function Chronicle({
   onOpenMenu,
   onOpenCodex,
   onOpenCodexEntry,
+  onOpenCodexCategory,
 }: ChronicleProps) {
   const [input, setInput] = useState('')
   const [bangHighlight, setBangHighlight] = useState(0)
@@ -386,6 +404,25 @@ export default function Chronicle({
   const [statsCollapsed, setStatsCollapsed] = useState(false)
   const [navDragPos, setNavDragPos] = useState<{ y: number } | null>(null)
   const [navDragging, setNavDragging] = useState(false)
+  const [radialOpen, setRadialOpen] = useState(false)
+
+  // §6.5 Fantasy Radial Menu — Codex/Settings already have one-tap header
+  // buttons, so the ring's value is fast shortcuts straight into the
+  // categories actually checked mid-scene; Crafting only appears while a job
+  // is queued or ready, keeping the resting ring uncluttered otherwise.
+  const radialActions = useMemo(() => {
+    const actions: { icon: LucideIcon; label: string; onClick: () => void }[] = [
+      { icon: BookOpen, label: 'Codex', onClick: onOpenCodex },
+      { icon: ScrollText, label: 'Quest Log', onClick: () => onOpenCodexCategory('quests') },
+      { icon: Backpack, label: 'Inventory', onClick: () => onOpenCodexCategory('items') },
+      { icon: User, label: 'Character', onClick: () => onOpenCodexCategory('character') },
+      { icon: SettingsIcon, label: 'Settings', onClick: onOpenSettings },
+    ]
+    if (crafting && crafting.length > 0) {
+      actions.push({ icon: Hammer, label: 'Crafting', onClick: () => onOpenCodexCategory('crafting') })
+    }
+    return actions
+  }, [crafting, onOpenCodex, onOpenCodexCategory, onOpenSettings])
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLDivElement>(null)
@@ -717,6 +754,50 @@ export default function Chronicle({
           </button>
         </div>
       )}
+
+      {/* §6.5 Fantasy Radial Menu — Codex/Settings already have header buttons,
+          so this ring exists for the shortcuts that don't: Quest Log,
+          Inventory, Character, and Crafting once a job is queued. The FAB
+          sits centered on the input tray's top edge, reading as the hub the
+          tray radiates from rather than a separate floating button. Backdrop
+          sits one layer below the FAB/fan so an outside tap collapses it
+          without swallowing taps on the fan itself. */}
+      {radialOpen && <div className="fixed inset-0 z-[15]" onClick={() => setRadialOpen(false)} aria-hidden="true" />}
+      <div className="fixed left-1/2 z-20" style={{ bottom: bottomHeight - 22, transform: 'translateX(-50%)' }}>
+        <AnimatePresence>
+          {radialOpen &&
+            radialActions.map((action, i) => {
+              const { x, y } = radialPos(i, radialActions.length)
+              return (
+                <motion.button
+                  key={action.label}
+                  onClick={() => {
+                    action.onClick()
+                    setRadialOpen(false)
+                  }}
+                  aria-label={action.label}
+                  title={action.label}
+                  initial={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+                  animate={{ opacity: 1, x, y, scale: 1 }}
+                  exit={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 22, delay: i * 0.03 }}
+                  className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full flex items-center justify-center text-[#e8ca8a] shadow-xl backdrop-blur-sm"
+                  style={{ marginLeft: -22, marginTop: -22, background: 'rgba(20,22,34,0.92)', border: '1px solid rgba(232,202,138,0.35)' }}
+                >
+                  <action.icon size={18} />
+                </motion.button>
+              )
+            })}
+        </AnimatePresence>
+        <button
+          onClick={() => setRadialOpen((v) => !v)}
+          aria-label={radialOpen ? 'Close quick actions' : 'Quick actions'}
+          className="relative w-12 h-12 rounded-full inline-flex items-center justify-center text-[#0e1017] shadow-2xl"
+          style={{ background: '#e8ca8a' }}
+        >
+          {radialOpen ? <X size={20} /> : <Wand2 size={20} />}
+        </button>
+      </div>
 
       <div
         ref={bottomRef}
