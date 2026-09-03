@@ -37,8 +37,11 @@
   --td-canvas: #07050c;
   --td-surface: #14101ccc;
   --td-surface-raised: #1b1626;
-  --td-ink: #ecdcb8;
-  --td-ink-muted: #a08e6d;
+  --td-ink: #f0e3c4;
+  /* Secondary text sits on artwork as often as on flat dark, so it is kept
+     well above a typical "muted" value — at #a08e6d it washed out against the
+     brighter regions of the background images. */
+  --td-ink-muted: #d3c1a0;
   --td-gold-primary: #f0ca65;
   --td-gold-accent: #e8ca8a;
   --td-gold-action: #f0ca65;

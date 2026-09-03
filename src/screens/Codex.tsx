@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
-  ArrowLeft, ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
+  ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
   Pencil, Save, X, Trash2, Plus, Lock, User, Hammer, Clock,
 } from 'lucide-react'
+import { DASHED_ROW_CLASS, GlassHeader, GlassIconButton, GlassScreen } from '../lib/glassChrome.tsx'
 import { slugify } from '../lib/slug.ts'
 import { isHidden } from '../lib/discovery.ts'
 import { PRESET_CLASSES } from '../data/classes.ts'
@@ -113,10 +114,10 @@ function LockBadge() {
 function MaskedDetail({ teaser }: { teaser?: string }) {
   return (
     <DetailPanel>
-      <p className="font-narrative text-sm text-white/50 flex items-center gap-1.5">
+      <p className="font-narrative text-sm text-ink-muted flex items-center gap-1.5">
         <Lock size={13} /> ??? — Not yet discovered
       </p>
-      {teaser && <p className="font-narrative text-xs italic text-white/40">{teaser}</p>}
+      {teaser && <p className="font-narrative text-xs italic text-ink-muted">{teaser}</p>}
     </DetailPanel>
   )
 }
@@ -127,11 +128,11 @@ function MaskedDetail({ teaser }: { teaser?: string }) {
 function DiscoveryEditor({ discovery, onChange }: { discovery: Discovery | undefined; onChange: (d: Discovery | undefined) => void }) {
   const hidden = discovery?.state === 'hidden'
   return (
-    <div className="rounded-lg border border-[#e8ca8a]/15 p-3 flex flex-col gap-2.5">
-      <span className="text-[11px] font-display text-white/40 uppercase tracking-wide flex items-center gap-1">
+    <div className="rounded-lg border border-[#e8ca8a]/25 p-3 flex flex-col gap-2.5">
+      <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide flex items-center gap-1">
         <Lock size={11} /> Discovery (Fog of Lore)
       </span>
-      <label className="flex items-center gap-2 text-xs text-white/70">
+      <label className="flex items-center gap-2 text-xs text-ink-muted">
         <input
           type="checkbox"
           checked={hidden}
@@ -149,11 +150,11 @@ function DiscoveryEditor({ discovery, onChange }: { discovery: Discovery | undef
       {hidden && (
         <>
           <label className="block">
-            <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Reveal Trigger</span>
+            <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">Reveal Trigger</span>
             <select
               value={discovery?.revealTrigger ?? 'manual'}
               onChange={(e) => onChange({ ...discovery!, state: 'hidden', revealTrigger: e.target.value as RevealTrigger })}
-              className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-xs text-white/90"
+              className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-mono text-xs text-ink"
             >
               <option value="manual">Manual (CRUD only)</option>
               <option value="flag">World Flag</option>
@@ -185,11 +186,11 @@ function DiscoveryEditor({ discovery, onChange }: { discovery: Discovery | undef
 function StatBar({ label, value }: { label: string; value: number }) {
   return (
     <div className="flex items-center gap-2 text-xs">
-      <span className="w-14 font-display text-white/50">{label}</span>
-      <div className="flex-1 h-1.5 rounded-full bg-white/10 overflow-hidden">
+      <span className="w-14 font-display text-ink-muted">{label}</span>
+      <div className="flex-1 h-1.5 rounded-full bg-[#e8ca8a]/12 overflow-hidden">
         <div className="h-full bg-[#e8ca8a]" style={{ width: `${value}%` }} />
       </div>
-      <span className="font-mono w-8 text-right text-white/80">{value}</span>
+      <span className="font-mono w-8 text-right text-ink">{value}</span>
     </div>
   )
 }
@@ -198,13 +199,13 @@ function EntryCard({ title, subtitle, badge, onClick }: { title: string; subtitl
   return (
     <button
       onClick={onClick}
-      className="rounded-2xl p-4 text-left flex flex-col gap-1 w-full border border-[#e8ca8a]/15 bg-[#141622]"
+      className="rounded-2xl p-4 text-left flex flex-col gap-1 w-full border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm"
     >
       <div className="flex items-center justify-between gap-2">
         <h3 className="font-display font-bold text-sm text-[#e8ca8a]">{title}</h3>
         {badge}
       </div>
-      {subtitle && <p className="font-narrative text-xs text-white/50 line-clamp-2">{subtitle}</p>}
+      {subtitle && <p className="font-narrative text-xs text-ink-muted line-clamp-2">{subtitle}</p>}
     </button>
   )
 }
@@ -212,14 +213,14 @@ function EntryCard({ title, subtitle, badge, onClick }: { title: string; subtitl
 function DetailField({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
-      <p className="text-[11px] font-display text-white/40 uppercase tracking-wide">{label}</p>
-      <div className="font-narrative text-sm text-white/85">{value}</div>
+      <p className="text-[11px] font-display text-ink-muted uppercase tracking-wide">{label}</p>
+      <div className="font-narrative text-sm text-ink">{value}</div>
     </div>
   )
 }
 
 function DetailPanel({ children }: { children: React.ReactNode }) {
-  return <div className="rounded-2xl p-5 flex flex-col gap-4 border border-[#e8ca8a]/15 bg-[#141622]">{children}</div>
+  return <div className="rounded-2xl p-5 flex flex-col gap-4 border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm">{children}</div>
 }
 
 function TextField({
@@ -231,10 +232,10 @@ function TextField({
   textarea?: boolean
   placeholder?: string
 }) {
-  const cls = 'mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-narrative text-sm text-white/90 placeholder:text-white/25'
+  const cls = 'mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-narrative text-sm text-ink placeholder:text-[#e8ca8a]/35'
   return (
     <label className="block">
-      <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">{label}</span>
+      <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">{label}</span>
       {textarea ? (
         <textarea rows={3} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} className={cls} />
       ) : (
@@ -247,12 +248,12 @@ function TextField({
 function NumberField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
   return (
     <label className="block">
-      <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">{label}</span>
+      <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">{label}</span>
       <input
         type="number"
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+        className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-mono text-sm text-ink"
       />
     </label>
   )
@@ -273,35 +274,22 @@ function CrudToolbar({
   if (editing) {
     return (
       <div className="flex items-center gap-1 ml-auto">
-        <button onClick={onCancel} aria-label="Cancel" className="w-9 h-9 rounded-full inline-flex items-center justify-center text-white/50 hover:bg-white/10">
-          <X size={17} />
-        </button>
-        <button onClick={onSave} aria-label="Save" className="w-9 h-9 rounded-full inline-flex items-center justify-center text-[#0e1017] bg-[#e8ca8a]">
-          <Save size={16} />
-        </button>
+        <GlassIconButton icon={X} label="Cancel" compact onClick={onCancel} />
+        <GlassIconButton icon={Save} label="Save" tone="action" compact onClick={onSave} />
       </div>
     )
   }
   return (
     <div className="flex items-center gap-1 ml-auto">
-      <button onClick={onEdit} aria-label="Edit" className="w-9 h-9 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
-        <Pencil size={16} />
-      </button>
-      {canDelete && (
-        <button onClick={onDelete} aria-label="Delete" className="w-9 h-9 rounded-full inline-flex items-center justify-center text-rose-400 hover:bg-white/10">
-          <Trash2 size={16} />
-        </button>
-      )}
+      <GlassIconButton icon={Pencil} label="Edit" compact onClick={onEdit} />
+      {canDelete && <GlassIconButton icon={Trash2} label="Delete" tone="danger" compact onClick={onDelete} />}
     </div>
   )
 }
 
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-xl px-4 py-2.5 flex items-center justify-center gap-1.5 border border-dashed border-[#e8ca8a]/30 text-[#e8ca8a]/80 font-display text-xs hover:border-[#e8ca8a]/60 hover:text-[#e8ca8a]"
-    >
+    <button onClick={onClick} className={DASHED_ROW_CLASS}>
       <Plus size={14} /> {label}
     </button>
   )
@@ -517,13 +505,11 @@ export default function Codex({
     categories.find((c) => c.id === category)?.label ?? 'Codex'
 
   return (
-    <div className="min-h-screen text-white/90 px-4 py-6 pb-16" style={{ background: '#0b0d13' }}>
-      <header className="flex items-center gap-3 mb-5">
-        <button onClick={back} aria-label="Back" className="w-9 h-9 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
-          <ArrowLeft size={18} />
-        </button>
-        <h1 className="font-display font-bold text-xl text-[#e8ca8a] truncate">{title}</h1>
-      </header>
+    // Dark ground, not the creation flow's artwork: the Codex is dense,
+    // heavily scrolled reference reading, where a picture behind the text
+    // would fight it.
+    <GlassScreen ground="dark" className="px-4 pb-16">
+      <GlassHeader title={title} onBack={back} className="!px-0 mb-5" />
 
       {/* Level 1 — Category List */}
       {!category && (
@@ -532,18 +518,18 @@ export default function Codex({
             <button
               key={id}
               onClick={() => setCategory(id)}
-              className="rounded-xl px-4 py-3 flex items-center gap-3 text-left border border-[#e8ca8a]/15 bg-[#141622] hover:border-[#e8ca8a]/50 transition-colors"
+              className="rounded-xl px-4 py-3 flex items-center gap-3 text-left border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm hover:border-[#e8ca8a]/50 transition-colors"
             >
               <span className="w-10 h-10 shrink-0 rounded-full bg-[#e8ca8a]/10 inline-flex items-center justify-center text-[#e8ca8a]">
                 <Icon size={18} />
               </span>
               <span className="flex-1 min-w-0">
-                <span className="block font-display font-bold text-sm text-white/95">{label}</span>
-                <span className="block font-narrative text-xs text-white/45 truncate">{description}</span>
+                <span className="block font-display font-bold text-sm text-ink">{label}</span>
+                <span className="block font-narrative text-xs text-ink-muted truncate">{description}</span>
               </span>
               <span
                 className={`font-mono text-xs font-semibold px-2 py-0.5 rounded-md shrink-0 ${
-                  count > 0 ? 'bg-[#e8ca8a]/20 text-[#e8ca8a]' : 'bg-white/5 text-white/30'
+                  count > 0 ? 'bg-[#e8ca8a]/20 text-[#e8ca8a]' : 'bg-[#e8ca8a]/10 text-ink-muted/60'
                 }`}
               >
                 {count}
@@ -581,18 +567,18 @@ export default function Codex({
           {editing ? (
             <DetailPanel>
               <label className="block">
-                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Class</span>
+                <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">Class</span>
                 <select
                   value={draft.classId ?? player.classId}
                   onChange={(e) => setDraft((d) => ({ ...d, classId: e.target.value }))}
-                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-mono text-sm text-ink"
                 >
                   {PRESET_CLASSES.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
               </label>
-              <p className="font-narrative text-xs italic text-white/40">
+              <p className="font-narrative text-xs italic text-ink-muted">
                 §5.1b Class Evolution — the class slot is replaced outright, no blending. Attribute
                 points already earned are never recalculated; only points earned from here forward
                 follow the new class's growth.
@@ -621,15 +607,15 @@ export default function Codex({
         <div className="flex flex-col gap-4">
           {crafting.length > 0 && (
             <div>
-              <p className="text-[11px] font-display text-white/40 uppercase tracking-wide mb-1.5">In Progress</p>
+              <p className="text-[11px] font-display text-ink-muted uppercase tracking-wide mb-1.5">In Progress</p>
               <div className="flex flex-col gap-2">
                 {crafting.map((job) => {
                   const recipe = RECIPES.find((r) => r.id === job.recipeId)
                   const remaining = hoursRemaining(player.time, job.completeTime)
                   return (
-                    <div key={job.jobId} className="rounded-xl border border-[#e8ca8a]/15 bg-[#141622] px-3 py-2.5 flex items-center justify-between gap-2">
+                    <div key={job.jobId} className="rounded-xl border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm px-3 py-2.5 flex items-center justify-between gap-2">
                       <span className="font-display font-semibold text-sm text-[#e8ca8a]">{recipe?.name ?? job.recipeId}</span>
-                      <span className="inline-flex items-center gap-1 font-mono text-xs text-white/60">
+                      <span className="inline-flex items-center gap-1 font-mono text-xs text-ink-muted">
                         <Clock size={12} /> {remaining > 0 ? `${remaining}h remaining` : 'Ready'}
                       </span>
                     </div>
@@ -640,20 +626,20 @@ export default function Codex({
           )}
 
           <div>
-            <p className="text-[11px] font-display text-white/40 uppercase tracking-wide mb-1.5">Recipes</p>
+            <p className="text-[11px] font-display text-ink-muted uppercase tracking-wide mb-1.5">Recipes</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {RECIPES.map((recipe) => {
                 const affordable = canAffordRecipe(inventory, recipe)
                 return (
-                  <div key={recipe.id} className="rounded-2xl p-4 flex flex-col gap-2 border border-[#e8ca8a]/15 bg-[#141622]">
+                  <div key={recipe.id} className="rounded-2xl p-4 flex flex-col gap-2 border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm">
                     <div className="flex items-center justify-between gap-2">
                       <h3 className="font-display font-bold text-sm text-[#e8ca8a]">{recipe.name}</h3>
-                      <span className="inline-flex items-center gap-1 font-mono text-[10px] text-white/40">
+                      <span className="inline-flex items-center gap-1 font-mono text-[10px] text-ink-muted">
                         <Clock size={11} /> {recipe.craftHours}h
                       </span>
                     </div>
-                    {recipe.stationRequired && <p className="font-narrative text-[11px] text-white/40">Station: {recipe.stationRequired}</p>}
-                    <p className="font-narrative text-xs text-white/60">
+                    {recipe.stationRequired && <p className="font-narrative text-[11px] text-ink-muted">Station: {recipe.stationRequired}</p>}
+                    <p className="font-narrative text-xs text-ink-muted">
                       {recipe.ingredients.map((i) => `${i.qty}x ${i.id.replace(/_/g, ' ')} (${inventory[i.id] ?? 0} held)`).join(', ')}
                     </p>
                     <button
@@ -697,7 +683,7 @@ export default function Codex({
               {world.genreTone && <DetailField label="Genre & Tone" value={world.genreTone} />}
               {world.conflict && <DetailField label="Core Regional Conflict" value={world.conflict} />}
               {world.background && <DetailField label="World Background" value={world.background} />}
-              <DetailField label="Narration Style" value={<span className="text-xs text-white/70">{world.narrationStyle}</span>} />
+              <DetailField label="Narration Style" value={<span className="text-xs text-ink-muted">{world.narrationStyle}</span>} />
               {flags.length > 0 && (
                 <DetailField
                   label="World Flags"
@@ -720,11 +706,11 @@ export default function Codex({
       {/* Chapters — generated recap, read-only, no CRUD */}
       {category === 'chapters' && (
         <div className="flex flex-col gap-3">
-          {chapters.length === 0 && <p className="font-narrative italic text-sm text-white/40">No chapters recorded yet.</p>}
+          {chapters.length === 0 && <p className="font-narrative italic text-sm text-ink-muted">No chapters recorded yet.</p>}
           {chapters.map((c, i) => (
-            <div key={i} className="rounded-2xl p-4 border border-[#e8ca8a]/15 bg-[#141622]">
+            <div key={i} className="rounded-2xl p-4 border border-[#e8ca8a]/25 bg-transparent backdrop-blur-sm">
               <h3 className="font-display font-bold text-sm text-[#e8ca8a] mb-1">Chapter {c.chapterNumber}</h3>
-              <p className="font-narrative text-sm italic text-white/70">{c.chapterSummary}</p>
+              <p className="font-narrative text-sm italic text-ink-muted">{c.chapterSummary}</p>
             </div>
           ))}
         </div>
@@ -743,7 +729,7 @@ export default function Codex({
               onClick={() => setEntryId(id)}
             />
           ))}
-          {Object.keys(npcs).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No NPCs met yet.</p>}
+          {Object.keys(npcs).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">No NPCs met yet.</p>}
         </div>
       )}
       {category === 'npcs' && entryId && (editing || npcs[entryId]) && (
@@ -800,7 +786,7 @@ export default function Codex({
               onClick={() => setEntryId(id)}
             />
           ))}
-          {Object.keys(factions).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No factions encountered yet.</p>}
+          {Object.keys(factions).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">No factions encountered yet.</p>}
         </div>
       )}
       {category === 'factions' && entryId && (editing || factions[entryId]) && (
@@ -813,18 +799,18 @@ export default function Codex({
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <NumberField label="Reputation Tier (-2 to 2)" value={draft.repTier ?? 0} onChange={(v) => setDraft((d) => ({ ...d, repTier: v }))} />
               <label className="block">
-                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Rival Faction (§5.4)</span>
+                <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">Rival Faction (§5.4)</span>
                 <select
                   value={draft.rivalId ?? ''}
                   onChange={(e) => setDraft((d) => ({ ...d, rivalId: e.target.value || null }))}
-                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-mono text-sm text-ink"
                 >
                   <option value="">None</option>
                   {Object.entries(factions).filter(([id]) => id !== entryId).map(([id, f]) => (
                     <option key={id} value={id}>{f.name}</option>
                   ))}
                 </select>
-                <span className="text-[10px] text-white/35">A rep change here mirrors an inverse change on the rival, automatically.</span>
+                <span className="text-[10px] text-ink-muted/70">A rep change here mirrors an inverse change on the rival, automatically.</span>
               </label>
               <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
             </DetailPanel>
@@ -857,7 +843,7 @@ export default function Codex({
               onClick={() => setEntryId(id)}
             />
           ))}
-          {Object.keys(locations).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No locations visited yet.</p>}
+          {Object.keys(locations).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">No locations visited yet.</p>}
         </div>
       )}
       {category === 'locations' && entryId && (editing || locations[entryId]) && (
@@ -871,11 +857,11 @@ export default function Codex({
               <TextField label="Region" value={draft.region ?? ''} onChange={(v) => setDraft((d) => ({ ...d, region: v }))} />
               <TextField label="Danger Level" value={draft.dangerLevel ?? ''} onChange={(v) => setDraft((d) => ({ ...d, dangerLevel: v }))} />
               <label className="block">
-                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Faction Owner (§5.11)</span>
+                <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">Faction Owner (§5.11)</span>
                 <select
                   value={draft.factionOwner ?? ''}
                   onChange={(e) => setDraft((d) => ({ ...d, factionOwner: e.target.value || null }))}
-                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-mono text-sm text-ink"
                 >
                   <option value="">None (independent territory)</option>
                   {Object.entries(factions).map(([id, f]) => (
@@ -884,9 +870,9 @@ export default function Codex({
                 </select>
               </label>
               {draft.factionOwner && factions[draft.factionOwner] ? (
-                <p className="font-narrative text-xs text-white/50 italic">
+                <p className="font-narrative text-xs text-ink-muted italic">
                   Standing is derived from {factions[draft.factionOwner].name}'s reputation:{' '}
-                  <span className="text-white/80 not-italic">{deriveStanding(factions[draft.factionOwner].repTier)}</span>
+                  <span className="text-ink not-italic">{deriveStanding(factions[draft.factionOwner].repTier)}</span>
                 </p>
               ) : (
                 <TextField label="Standing" value={draft.standing ?? ''} onChange={(v) => setDraft((d) => ({ ...d, standing: v }))} />
@@ -923,7 +909,7 @@ export default function Codex({
               onClick={() => setEntryId(id)}
             />
           ))}
-          {Object.keys(lore).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No lore uncovered yet.</p>}
+          {Object.keys(lore).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">No lore uncovered yet.</p>}
         </div>
       )}
       {category === 'lore' && entryId && (editing || lore[entryId]) && (
@@ -960,7 +946,7 @@ export default function Codex({
               onClick={() => setEntryId(id)}
             />
           ))}
-          {Object.keys(quests).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No quests tracked yet.</p>}
+          {Object.keys(quests).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">No quests tracked yet.</p>}
         </div>
       )}
       {category === 'quests' && entryId && (editing || quests[entryId]) && (
@@ -999,7 +985,7 @@ export default function Codex({
               onClick={() => setEntryId(id)}
             />
           ))}
-          {Object.keys(bestiary).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">No adversaries encountered yet.</p>}
+          {Object.keys(bestiary).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">No adversaries encountered yet.</p>}
         </div>
       )}
       {category === 'bestiary' && entryId && (editing || bestiary[entryId]) && (
@@ -1055,7 +1041,7 @@ export default function Codex({
               />
             )
           })}
-          {Object.keys(inventory).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">Nothing carried yet.</p>}
+          {Object.keys(inventory).length === 0 && <p className="font-narrative italic text-sm text-ink-muted col-span-full">Nothing carried yet.</p>}
         </div>
       )}
       {category === 'items' && entryId && (editing || inventory[entryId] !== undefined) && (
@@ -1082,11 +1068,11 @@ export default function Codex({
             <DetailPanel>
               <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
               <label className="block">
-                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Type</span>
+                <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">Type</span>
                 <select
                   value={draft.type ?? 'material'}
                   onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value as ItemType }))}
-                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-mono text-sm text-ink"
                 >
                   {ITEM_TYPES.map((t) => (
                     <option key={t} value={t}>{t}</option>
@@ -1102,8 +1088,8 @@ export default function Codex({
                 placeholder="Optional — worth writing for key items and notable gear, not routine loot"
               />
               {EQUIPPABLE_TYPES.includes(draft.type) && (
-                <div className="rounded-lg border border-[#e8ca8a]/15 p-3 flex flex-col gap-2">
-                  <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Stat Bonus (applied on equip)</span>
+                <div className="rounded-lg border border-[#e8ca8a]/25 p-3 flex flex-col gap-2">
+                  <span className="text-[11px] font-display text-ink-muted uppercase tracking-wide">Stat Bonus (applied on equip)</span>
                   <div className="grid grid-cols-3 gap-2">
                     {STAT_BONUS_KEYS.map((k) => (
                       <NumberField
@@ -1145,6 +1131,6 @@ export default function Codex({
       )}
 
       {confirmDialog}
-    </div>
+    </GlassScreen>
   )
 }

@@ -128,7 +128,7 @@ export default function TaleBrief({
                   className={`flex-1 rounded-xl border px-2 py-2 flex items-center justify-center gap-1 transition-colors duration-150 ${
                     combatMode === m
                       ? 'border-[#f0ca65]/70 bg-[#e8ca8a]/10 text-[#f5dfa0]'
-                      : 'border-[#e8ca8a]/25 text-[#e8ca8a]/60 hover:border-[#e8ca8a]/50'
+                      : 'border-[#e8ca8a]/25 text-[#e8ca8a]/85 hover:border-[#e8ca8a]/50'
                   }`}
                 >
                   <button onClick={() => setCombatMode(m)} className="font-display text-xs">

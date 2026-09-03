@@ -84,7 +84,7 @@ export default function WorldSetup({
                     className={`shrink-0 flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-display backdrop-blur-sm transition-colors duration-150 ${
                       templateId === t.id
                         ? 'border-[#f0ca65]/70 bg-[#e8ca8a]/12 text-[#f5dfa0]'
-                        : 'border-[#e8ca8a]/25 text-[#e8ca8a]/75 hover:border-[#e8ca8a]/60 hover:text-[#f5dfa0]'
+                        : 'border-[#e8ca8a]/25 text-[#e8ca8a]/90 hover:border-[#e8ca8a]/60 hover:text-[#f5dfa0]'
                     }`}
                   >
                     <Globe size={13} />

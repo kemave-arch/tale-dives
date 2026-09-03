@@ -221,7 +221,7 @@ export function GlassHeader({ title, subtitle, onBack, right, className = '' }: 
       {onBack && <GlassIconButton icon={ArrowLeft} label="Back" onClick={onBack} />}
       <div className="flex-1 min-w-0">
         {title && <h2 className="font-display font-bold text-lg text-[#f0ca65] truncate">{title}</h2>}
-        {subtitle && <p className="font-narrative italic text-xs text-[#e8ca8a]/75 truncate">{subtitle}</p>}
+        {subtitle && <p className="font-narrative italic text-xs text-[#e8ca8a]/95 truncate">{subtitle}</p>}
       </div>
       {right && <div className="flex items-center gap-1 shrink-0">{right}</div>}
     </header>
@@ -245,7 +245,7 @@ export function GlassTabs<T extends string>({ tabs, value, onChange, className =
           key={id}
           onClick={() => onChange(id)}
           className={`flex-1 flex items-center justify-center gap-1.5 rounded-xl py-2 px-1 border font-display text-xs transition-colors duration-150 ${
-            value === id ? 'border-[#f0ca65]/70 text-[#f5dfa0]' : 'border-transparent text-[#e8ca8a]/60 hover:text-[#e8ca8a]'
+            value === id ? 'border-[#f0ca65]/70 text-[#f5dfa0]' : 'border-transparent text-[#e8ca8a]/85 hover:text-[#f5dfa0]'
           }`}
         >
           {Icon && <Icon size={15} className="shrink-0" />}
@@ -263,21 +263,21 @@ export function GlassTabs<T extends string>({ tabs, value, onChange, className =
 // Shared by input/textarea. Transparent at rest, warming slightly on focus —
 // same "invisible until you touch it" logic as GlassCTAButton's interior.
 export const FIELD_CLASS =
-  'w-full rounded-xl border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-narrative text-sm text-ink placeholder:text-[#e8ca8a]/35 outline-none transition-colors duration-150 focus:border-[#f0ca65]/70 focus:bg-[#e8ca8a]/[0.08]'
+  'w-full rounded-xl border border-[#e8ca8a]/25 bg-[#e8ca8a]/[0.04] backdrop-blur-sm px-3 py-2 font-narrative text-sm text-ink placeholder:text-[#e8ca8a]/50 outline-none transition-colors duration-150 focus:border-[#f0ca65]/70 focus:bg-[#e8ca8a]/[0.08]'
 
 // A <select>'s dropdown list is painted by the OS, and it inherits the
 // element's own background — a near-transparent select gets an unreadable
 // near-white popup on Windows/Chrome. The option overrides are not optional.
 export const SELECT_CLASS = `${FIELD_CLASS} [&>option]:bg-[#14101c] [&>option]:text-[#ecdcb8]`
 
-export const LABEL_CLASS = 'font-display text-[11px] uppercase tracking-[0.14em] text-[#e8ca8a]/70'
+export const LABEL_CLASS = 'font-display text-[11px] uppercase tracking-[0.14em] text-[#f0d9a4]'
 
 export function GlassField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className={LABEL_CLASS}>{label}</span>
       {children}
-      {hint && <span className="font-narrative text-[11px] text-[#e8ca8a]/50">{hint}</span>}
+      {hint && <span className="font-narrative text-[11px] text-[#e8ca8a]/80">{hint}</span>}
     </label>
   )
 }
@@ -301,7 +301,7 @@ export function GlassSegmented<T extends string>({ options, value, onChange, cla
           className={`flex-1 rounded-xl border px-2 py-2 font-display text-xs transition-colors duration-150 ${
             value === id
               ? 'border-[#f0ca65]/70 bg-[#e8ca8a]/10 text-[#f5dfa0]'
-              : 'border-[#e8ca8a]/25 text-[#e8ca8a]/60 hover:border-[#e8ca8a]/50 hover:text-[#e8ca8a]'
+              : 'border-[#e8ca8a]/25 text-[#e8ca8a]/85 hover:border-[#e8ca8a]/50 hover:text-[#f5dfa0]'
           }`}
         >
           {label}
