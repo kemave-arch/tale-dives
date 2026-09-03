@@ -153,10 +153,27 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
       <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
         <button
           onClick={onEnter}
-          className="group relative inline-flex rounded-full p-[1.5px] shadow-[0_8px_20px_-10px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125"
-          style={{ background: 'linear-gradient(135deg, rgba(245,223,160,0.55), rgba(240,202,101,0.95), rgba(168,127,44,0.5))' }}
+          className="group relative inline-flex rounded-full shadow-[0_8px_20px_-10px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125"
         >
-          <span className="flex items-center justify-center gap-2 rounded-full bg-transparent backdrop-blur-sm px-5 py-2 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0] transition-shadow duration-150 group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]">
+          {/* Gradient ring only — mask-composite:exclude punches out everything
+              but the border itself, so the gradient can never bleed into the
+              interior (a plain padding-box fill, tried first, did exactly
+              that: the "transparent" layer on top let it show straight
+              through). */}
+          <span
+            aria-hidden="true"
+            className="absolute inset-0 rounded-full pointer-events-none"
+            style={{
+              border: '1.5px solid transparent',
+              background: 'linear-gradient(135deg, rgba(245,223,160,0.75), rgba(240,202,101,0.95), rgba(168,127,44,0.65)) border-box',
+              WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0) border-box',
+              WebkitMaskComposite: 'xor',
+              maskComposite: 'exclude',
+            }}
+          />
+          {/* Glass interior — blur with zero fill color of its own. */}
+          <span className="absolute inset-0 rounded-full backdrop-blur-sm transition-shadow duration-150 group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]" />
+          <span className="relative z-10 flex items-center justify-center gap-2 px-5 py-2 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
             <span className="text-[#f0ca65]">◆</span>
             <BookOpen size={14} />
             Dive In
