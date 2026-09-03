@@ -1,6 +1,39 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-03, end of a Claude-Code-on-the-web session, written as a
+**Last updated:** 2026-09-04, home machine — a UI unification pass plus the Skills system.
+
+> ## 🎨 READ THIS BEFORE TOUCHING ANY SCREEN — the app now has ONE theme
+> The selectable parchment/obsidian **skins are gone** (`UiPrefs.skin`, the `Skin` type,
+> the `data-skin` attribute and the Settings picker were all removed). There is one
+> dark-glass theme, defined once in `index.css`, using the values Title/MainMenu had
+> been hardcoding. If you see `data-skin` or `Skin` referenced anywhere, it's stale.
+>
+> **Two grounds, picked by `GlassScreen`'s `ground` prop:**
+> - `ground="art"` — the cycling artwork + scrim. Used by the path *into* a tale:
+>   Title, Main Menu, Story Mode, World Setup, Protagonist Setup, Tale Brief.
+> - `ground="dark"` — flat `bg-canvas`. Used by the screens you work *inside*:
+>   Chronicle, Codex, Settings. Dense text; artwork would fight it.
+>
+> **The one deliberate inversion:** the Chronicle's reading card is warm light paper.
+> `--td-ink` therefore does double duty (text on dark chrome vs text on cream paper), so
+> `.parchment-surface` in `index.css` re-declares the ink/gold/semantic tokens for that
+> subtree only. Every `text-ink`/`text-gold-primary`/`text-skill` inside it re-points
+> through the cascade — which is why TurnBlock's and richText's ~40 classNames needed no
+> edits. **Anything you add inside the reading surface inherits this automatically; do
+> not "fix" a color there by hardcoding it.** Shipping the class but forgetting to apply
+> it to the card is exactly the bug that made narration invisible for one commit
+> (`0637f88`).
+>
+> **Build screens out of `src/lib/glassChrome.tsx`, not from scratch** — that's what the
+> three-way drift was. It exports: `GlassScreen`, `GlassHeader`, `GlassTabs`,
+> `GlassCTAButton` (a screen's ONE primary action), `GlassButton` (tones: default /
+> action / danger / positive), `GlassIconButton`, `GlassField`, `GlassSegmented`,
+> `FIELD_CLASS`, `SELECT_CLASS`, `LABEL_CLASS`, `GLASS_SURFACE`, `DASHED_ROW_CLASS`,
+> `DashedCard`, `TAPER_CLIP`. Use `SELECT_CLASS` (not `FIELD_CLASS`) on every `<select>`:
+> it overrides the option background, because a transparent select renders an unreadable
+> near-white OS popup on Windows/Chrome.
+
+Previous entry: 2026-09-03, end of a Claude-Code-on-the-web session, written as a
 leaving-the-desk handoff.
 
 Everything below is committed, merged and pushed; `master`/`origin/master` are in sync
@@ -29,18 +62,20 @@ rule applies to music.
 
 > ## ⏭️ PICK UP HERE — pending work, in the user's own priority order
 > Full detail for each is in **§4's item 8**; this is the at-a-glance version.
-> 1. **Skills + Quick-Slot Tray** — *next up.* No skill/spell roster exists at all yet,
->    only inline `[Skill]` text formatting in narration. User's framing: "the biggest
->    missing mechanic for combat feel." **Ley-Arts was explicitly cut — Skills only.**
-> 2. **API Failure Diagnostics Panel** (§3.5) — masked key, one-click "Copy Diagnostic
->    Report," Retry / Open Settings / Dismiss-into-PAUSE.
+> 1. ~~**Skills**~~ — **done** 2026-09-04, commit `d4616a5`. The **Quick-Slot Tray half
+>    is still open** and was explicitly deprioritized by the user ("Skill quick slot is
+>    not a priority"), so do not start it without asking. See §3's Skills entry for what
+>    shipped and the two deliberate omissions.
+> 2. **API Failure Diagnostics Panel** (§3.5) — *next up.* Masked key, one-click "Copy
+>    Diagnostic Report," Retry / Open Settings / Dismiss-into-PAUSE.
 > 3. **Action Suggestion Pills** (§6.4C) — *cheapest of the four.* The `act` schema field
 >    already exists, is required, and the model already populates it every turn; nothing
 >    in `src/` reads it (verified by grep). This is `App.tsx` (store it on the `LogEntry`)
 >    plus `Chronicle.tsx` (render clickable pills that fill the input) — no schema or
 >    prompt work needed.
 > 4. **Codex overhaul — filters.** User: "some items have drilldowns, but what we're
->    missing are filters." Check against the blueprint before scoping.
+>    missing are filters." Check against the blueprint before scoping. Note §6.4D also
+>    specifies a **search bar** above each Entry Grid, which likewise doesn't exist.
 >
 > Also still open from earlier, unrelated to the list above: campaign seeding, the
 > prologue beat, and streaming turn rendering (§4 item 7), and Inspired Mode (§4 item 5,
@@ -583,6 +618,41 @@ the literal commit sequence; the summary here groups by feature, not commit.
   load — pure defensive plumbing, nothing branches on it yet since nothing has needed a
   migration yet.
 
+- **UI unification onto one dark-glass theme** (home machine, 2026-09-04, commits
+  `36d2d62`, `2717f78`, `fa54a16`, `0637f88`, `eb1f5fb`; plus `e187589` fixing the Title
+  CTA). The app had **three competing visual systems**: skin tokens (`bg-canvas`,
+  `glass-panel`) defaulting to a **light parchment** skin, hardcoded dark hex
+  (`bg-[#141622]`, `text-white/NN`) in Codex/SlashCommandManager, and the glass chrome
+  Title/MainMenu had introduced. The light default is why Settings and the Codex read as
+  a different app from the front door. All three collapse onto the glass language — see
+  the box at the top of this file for the rules, which are the part worth reading.
+  Mechanically: skins retired end to end; `glassChrome.tsx` grew the shared shell/header/
+  tabs/button/field/segmented pieces every screen had been re-inventing; all four
+  creation screens moved onto the artwork with glass forms (per the user's explicit
+  ask); Codex's 61 hardcoded colors and the whole Slash manager moved onto tokens;
+  MainMenu deduped onto the shared pieces it had originated. Secondary text was then
+  brightened app-wide at the token level (`--td-ink-muted` `#a08e6d`→`#d3c1a0`) after the
+  user flagged labels washing out against bright regions of the artwork. Verified live
+  screen by screen. **Known open judgment call:** on the creation screens the artwork's
+  own painted wordmark can show through behind the form fields — legible, but busy; the
+  scrim can be deepened for `fill` screens if the user wants it calmer.
+- **Skills (Spells & Abilities)** (2026-09-04, commit `d4616a5`) — blueprint §6.4D's
+  Codex category 6, which the user noticed was missing entirely. Previously only the
+  inline `[Skill]` text formatting existed; there was no schema, entry, or persistence.
+  `SkillEntry` keeps every field past `name` optional on purpose (a skill is named in
+  prose long before it has agreed numbers, and §8 deliberately leaves skill base values
+  open). Entries arrive two ways, mirroring NPCs/Locations: `{{Term|skill}}` keyword
+  links auto-register a free stub, and a new `skill_learn` turn-schema field carries the
+  real record. §3.2 **Skill Affordability is implemented as information, never a gate** —
+  the check always runs, but steers the narrator toward narrating exhaustion rather than
+  refusing the player's action; it surfaces in the Codex detail, the new `!skills`
+  roster, and an `UNAFFORDABLE` marker on the always-on JIT context line (hidden skills
+  are withheld from context entirely, §5.12). Verified live against a seeded Tale
+  covering MP-only, ST-only, both-costs, hidden (masks to `???` + Lock + teaser), and
+  costless skills. **Two deliberate omissions**: the §Phase B.3 **Quick-Slot Tray**
+  (user deprioritized it explicitly) and `suggested_quick_slots` from class grounding
+  (that grounding system doesn't exist — it's bundled with Inspired Mode, item #5).
+
 ## 4. What's NOT built yet — the Tier 3 priority list
 
 This is the standing priority order. Each item was independently verified against the
@@ -700,11 +770,9 @@ assumption.
    - ~~Equipment system (Item Type Taxonomy, stat_bonus on equip)~~ — **done**, see §3
      above. The user's own framing going in: "probably the highest-value gap... loot
      currently can't actually make your character stronger."
-   - **Skills & the Quick-Slot Tray** — not started. Originally scoped from the blueprint
-     as "Skills & Ley-Arts"; the user explicitly cut Ley-Arts — **just Skills.** No
-     skill/spell roster system exists at all right now, only inline `[Skill]` text
-     formatting in narration with nothing persistent or castable with one tap. The user's
-     own framing: "the biggest missing mechanic for combat feel."
+   - ~~**Skills**~~ — **done** (commit `d4616a5`, see §3 above). Ley-Arts was cut by the
+     user before it started. **The Quick-Slot Tray half remains unbuilt** and the user
+     later said explicitly it "is not a priority" — treat it as parked, not pending.
    - **API Failure Diagnostics Panel** — not started. A failed call currently just shows a
      plain error banner; the ask is a proper panel (masked API key, one-click "Copy
      Diagnostic Report," Retry/Open Settings/Dismiss-into-PAUSE actions).
