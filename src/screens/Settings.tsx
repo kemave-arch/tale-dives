@@ -170,7 +170,7 @@ export default function Settings({
             </div>
             <div>
               <label className="text-sm font-display">
-                Temperature
+                Narrative Variance
                 <input
                   type="number"
                   step="0.1"
@@ -181,6 +181,10 @@ export default function Settings({
                   className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
                 />
               </label>
+              <p className="mt-1 text-[11px] text-ink-muted">
+                How unpredictable the prose gets. Low (0–0.5) keeps the Narrator steady and consistent; high (1.5–2)
+                adds more surprise and flourish but risks losing coherence.
+              </p>
             </div>
           </div>
         )}
