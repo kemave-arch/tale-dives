@@ -2,6 +2,7 @@ import { useRef, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   BookOpen, Globe, UserCircle, Plus, Upload, Download, Trash2, Play, Sparkles, Star, Settings as SettingsIcon, Pencil,
+  ArrowLeft, Volume2, VolumeX,
 } from 'lucide-react'
 import type { Campaign, Dict, ProtagonistData, WorldData } from '../types.ts'
 import { CyclingBackground } from '../lib/cyclingBackground.tsx'
@@ -56,6 +57,11 @@ interface MainMenuProps {
   onSetDefaultProtagonist: (id: string) => void
   onDeleteProtagonist: (id: string) => void
   onOpenSettings: () => void
+  // Same soundtrack controls as Title, so the toggle is reachable from
+  // wherever the player happens to be rather than only the entry screen.
+  onBackToTitle: () => void
+  musicMuted: boolean
+  onToggleMusicMute: () => void
 }
 
 export default function MainMenu({
@@ -76,6 +82,9 @@ export default function MainMenu({
   onSetDefaultProtagonist,
   onDeleteProtagonist,
   onOpenSettings,
+  onBackToTitle,
+  musicMuted,
+  onToggleMusicMute,
 }: MainMenuProps) {
   const [tab, setTab] = useState<(typeof TABS)[number]['id']>('tales')
   const importRef = useRef<HTMLInputElement>(null)
@@ -98,9 +107,23 @@ export default function MainMenu({
         className="relative z-10 px-4 pb-16"
         style={{ paddingTop: 'max(1.5rem, env(safe-area-inset-top))' }}
       >
-        <header className="flex items-center justify-between mb-5">
-          <p className="font-narrative italic text-sm text-[#e8ca8a]/80">Choose a tale, or begin a new one</p>
-          <GlassIconButton icon={SettingsIcon} label="Settings" onClick={onOpenSettings} />
+        {/* Back on the left, soundtrack + Settings on the right, all four
+            sharing GlassIconButton so they read as one row of controls. The
+            tagline takes the slack between them and truncates rather than
+            wraps, so the row stays a single line at phone widths. */}
+        <header className="flex items-center gap-3 mb-5">
+          <GlassIconButton icon={ArrowLeft} label="Back to title" onClick={onBackToTitle} />
+          <p className="flex-1 min-w-0 truncate font-narrative italic text-sm text-[#e8ca8a]/80">
+            Choose a tale, or begin a new one
+          </p>
+          <div className="flex items-center gap-1 shrink-0">
+            <GlassIconButton
+              icon={musicMuted ? VolumeX : Volume2}
+              label={musicMuted ? 'Unmute music' : 'Mute music'}
+              onClick={onToggleMusicMute}
+            />
+            <GlassIconButton icon={SettingsIcon} label="Settings" onClick={onOpenSettings} />
+          </div>
         </header>
 
         <nav className={`${GLASS_SURFACE} rounded-2xl p-1 flex gap-1 mb-5`}>

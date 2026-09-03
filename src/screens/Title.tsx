@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { BookOpen, Settings as SettingsIcon, Volume2, VolumeX } from 'lucide-react'
+import { BookOpen, Play, Settings as SettingsIcon, Volume2, VolumeX } from 'lucide-react'
 import { CyclingBackground } from '../lib/cyclingBackground.tsx'
 import { GlassCTAButton } from '../lib/glassChrome.tsx'
 
@@ -83,16 +83,18 @@ export default function Title({ onEnter, onSettings, onContinue, musicMuted, onT
       </div>
 
       <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
-        <GlassCTAButton onClick={onEnter} icon={BookOpen}>
+        <GlassCTAButton onClick={onEnter} icon={BookOpen} className="w-full">
           Dive In
         </GlassCTAButton>
+        {/* Same GlassCTAButton chrome as Dive In so the two read as one pair
+            of equal-weight choices, rather than a button and a footnote.
+            `w-full` on both keeps their widths matched despite the different
+            label lengths — GlassCTAButton is inline-flex, so it would
+            otherwise shrink to fit its own text. */}
         {onContinue && (
-          <button
-            onClick={onContinue}
-            className="mt-1 font-mono text-[10px] uppercase tracking-wide text-[#e8ca8a]/50 hover:text-[#e8ca8a]/85 underline underline-offset-2"
-          >
+          <GlassCTAButton onClick={onContinue} icon={Play} className="w-full">
             Continue
-          </button>
+          </GlassCTAButton>
         )}
       </div>
     </div>

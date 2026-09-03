@@ -1054,6 +1054,9 @@ export default function App() {
           })
         }}
         onOpenSettings={() => openSettings('mainmenu')}
+        onBackToTitle={() => setScreen('title')}
+        musicMuted={musicMuted}
+        onToggleMusicMute={toggleMusicMute}
       />
     )
   } else if (screen === 'storymode') {
