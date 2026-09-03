@@ -203,11 +203,13 @@ export default function App() {
       world.conflict?.trim() && `Core Regional Conflict: ${world.conflict.trim()}`,
     ].filter(Boolean) as string[]
 
+    const backgroundLine = protagonistData.background?.trim() && `Protagonist Background: ${protagonistData.background.trim()}`
+
     const briefLine = protagonistData.opening?.trim()
       ? `Tale Dive Brief — open Turn 1 here: ${protagonistData.opening.trim()}`
       : 'No Tale Dive Brief given — invent a fitting, evocative opening scene consistent with the world above.'
 
-    const firstAction = [...worldLines, briefLine].join('\n')
+    const firstAction = [...worldLines, backgroundLine, briefLine].filter(Boolean).join('\n')
 
     // Pass campaign + a fresh history directly — setGame/setHistory above
     // haven't flushed into this closure yet, so sendAction needs both handed

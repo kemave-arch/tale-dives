@@ -190,6 +190,8 @@ export interface WorldData {
   conflict: string
   background: string
   narrationStyle: string
+  sourceTitle?: string // Appendix A.1 "Title" — attribution only when adapted from existing work; never sent to the model
+  sourceAuthor?: string // Appendix A.1 "Author" — same caveat as sourceTitle
   isDefault?: boolean
 }
 
@@ -199,6 +201,7 @@ export interface ProtagonistData {
   name: string
   classId: string
   className?: string
+  background?: string // Appendix A.2 "Background" — origin/family history, distinct from `opening`'s Turn-1 scene brief
   opening: string
   isDefault?: boolean
 }

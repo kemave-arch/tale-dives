@@ -117,15 +117,22 @@ export default function SlashCommandManager({ campaignCommands, globalCommands, 
               </label>
 
               <div className="flex justify-end gap-2 mt-1">
-                <button onClick={() => setDraft(null)} className="rounded-full border border-white/15 px-4 py-1.5 font-display text-xs text-white/70">
-                  Cancel
+                <button
+                  onClick={() => setDraft(null)}
+                  aria-label="Cancel"
+                  title="Cancel"
+                  className="w-8 h-8 rounded-full border border-white/15 inline-flex items-center justify-center text-white/70 hover:bg-white/10"
+                >
+                  <X size={14} />
                 </button>
                 <button
                   onClick={save}
                   disabled={!draft.name.trim() || !draft.prompt.trim()}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-[#e8ca8a] px-4 py-1.5 font-display text-xs font-semibold text-[#0e1017] disabled:opacity-40"
+                  aria-label="Save"
+                  title="Save"
+                  className="w-8 h-8 rounded-full inline-flex items-center justify-center bg-[#e8ca8a] text-[#0e1017] disabled:opacity-40"
                 >
-                  <Save size={13} /> Save
+                  <Save size={14} />
                 </button>
               </div>
             </div>

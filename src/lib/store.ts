@@ -1,3 +1,4 @@
+import { FOURTH_WING_WORLD, VIOLET_SORRENGAIL } from '../data/starterTemplates.ts'
 import type { ApiSettings, Campaign, Dict, ProtagonistData, SlashCommand, UiPrefs, WorldData } from '../types.ts'
 
 // Centralized localStorage persistence. Splits the old single-save shape
@@ -39,10 +40,28 @@ export function loadUiPrefs(): UiPrefs {
 }
 export const saveUiPrefs = (p: UiPrefs): void => save(KEYS.uiPrefs, p)
 
-export const loadWorlds = (): Dict<WorldData> => load(KEYS.worlds, {})
+// Seeded once, only on a genuinely first-ever load (the raw key has never
+// been written) — so there's a real, rich example to try immediately instead
+// of a blank Library, but deleting it afterward is respected like any other
+// entry rather than being silently re-seeded on the next load.
+export function loadWorlds(): Dict<WorldData> {
+  if (localStorage.getItem(KEYS.worlds) === null) {
+    const seeded: Dict<WorldData> = { [FOURTH_WING_WORLD.id!]: FOURTH_WING_WORLD }
+    save(KEYS.worlds, seeded)
+    return seeded
+  }
+  return load(KEYS.worlds, {})
+}
 export const saveWorlds = (w: Dict<WorldData>): void => save(KEYS.worlds, w)
 
-export const loadProtagonists = (): Dict<ProtagonistData> => load(KEYS.protagonists, {})
+export function loadProtagonists(): Dict<ProtagonistData> {
+  if (localStorage.getItem(KEYS.protagonists) === null) {
+    const seeded: Dict<ProtagonistData> = { [VIOLET_SORRENGAIL.id!]: VIOLET_SORRENGAIL }
+    save(KEYS.protagonists, seeded)
+    return seeded
+  }
+  return load(KEYS.protagonists, {})
+}
 export const saveProtagonists = (p: Dict<ProtagonistData>): void => save(KEYS.protagonists, p)
 
 // Migrates the old single td_game_state save (pre-library) into the new

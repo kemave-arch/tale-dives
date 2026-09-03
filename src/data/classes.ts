@@ -11,6 +11,10 @@ export const PRESET_CLASSES: ClassDef[] = [
   { id: 'mage', name: 'Mage', weights: { STR: 0.05, INT: 0.7, AGI: 0.25 } },
   { id: 'tank', name: 'Tank', weights: { STR: 0.7, INT: 0.05, AGI: 0.25 } },
   { id: 'paladin', name: 'Paladin', weights: { STR: 0.4, INT: 0.4, AGI: 0.2 } },
+  // Blueprint Appendix A.2 — a genuinely non-combat, INT-heavy starting class
+  // (trained for scholarly work, not the battlefield); a valid Class Evolution
+  // target can still move a character out of this later (§5.1b).
+  { id: 'apprentice_scribe', name: 'Apprentice Scribe', weights: { STR: 0.1, INT: 0.65, AGI: 0.25 } },
 ]
 
 export function getClassById(id: string): ClassDef {

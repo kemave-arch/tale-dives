@@ -93,26 +93,31 @@ export default function Settings({
     <div className="min-h-screen bg-canvas text-ink flex items-start justify-center px-4 py-8">
       <div className="glass-panel glow-ring rounded-3xl w-full max-w-md p-5">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="font-display font-bold text-lg text-gold-primary">Chronicle &amp; Narrator Settings</h2>
+          <h2 className="font-display font-bold text-lg text-gold-primary">App Settings</h2>
           <button onClick={onBack} aria-label="Close" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-ink-muted hover:text-ink">
             <X size={18} />
           </button>
         </div>
 
-        <nav className="flex gap-1 mb-4 overflow-x-auto">
+        <nav className="flex gap-1 mb-3">
           {TABS.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`shrink-0 flex items-center gap-1.5 rounded-xl px-3 py-2 font-display text-xs transition-colors ${
+              aria-label={label}
+              title={label}
+              className={`flex-1 flex items-center justify-center rounded-xl py-2.5 transition-colors ${
                 tab === id ? 'bg-gold-accent/20 border border-gold-accent/50 text-gold-primary' : 'text-ink-muted'
               }`}
             >
-              <Icon size={14} />
-              {label}
+              <Icon size={18} />
             </button>
           ))}
         </nav>
+
+        <p className="font-display font-bold text-sm text-gold-primary mb-4">
+          {TABS.find((t) => t.id === tab)?.label}
+        </p>
 
         {tab === 'model' && (
           <div className="flex flex-col gap-4">
@@ -169,19 +174,19 @@ export default function Settings({
               </label>
             </div>
             <div>
-              <label className="text-sm font-display">
-                Narrative Variance
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="2"
-                  value={temperature}
-                  onChange={(e) => setTemperature(Number(e.target.value))}
-                  className="mt-1 w-full rounded-lg border border-gold-accent/40 bg-surface-raised px-3 py-2 font-mono text-sm"
-                />
-              </label>
-              <p className="mt-1 text-[11px] text-ink-muted">
+              <p className="text-sm font-display mb-1">
+                Creativity Randomness <span className="opacity-50 font-mono text-xs">{temperature.toFixed(1)}</span>
+              </p>
+              <input
+                type="range"
+                min="0"
+                max="2"
+                step="0.1"
+                value={temperature}
+                onChange={(e) => setTemperature(Number(e.target.value))}
+                className="w-full accent-gold-action"
+              />
+              <p className="text-[11px] opacity-50 mt-1">
                 How unpredictable the prose gets. Low (0–0.5) keeps the Narrator steady and consistent; high (1.5–2)
                 adds more surprise and flourish but risks losing coherence.
               </p>
@@ -252,7 +257,7 @@ export default function Settings({
 
             <div>
               <p className="text-sm font-display mb-1">
-                Chronicle HUD Opacity <span className="opacity-50 font-mono text-xs">{Math.round(chromeOpacity * 100)}%</span>
+                HUD Opacity <span className="opacity-50 font-mono text-xs">{Math.round(chromeOpacity * 100)}%</span>
               </p>
               <input
                 type="range"
@@ -358,15 +363,22 @@ export default function Settings({
         )}
 
         <div className="flex justify-end gap-2 mt-6">
-          <button onClick={onBack} className="rounded-full border border-gold-accent/50 px-5 py-2 font-display text-sm">
-            Cancel
+          <button
+            onClick={onBack}
+            aria-label="Cancel"
+            title="Cancel"
+            className="w-10 h-10 rounded-full border border-gold-accent/50 inline-flex items-center justify-center text-ink-muted hover:text-ink"
+          >
+            <X size={16} />
           </button>
           <button
             onClick={save}
             disabled={!model || !apiKey}
-            className="inline-flex items-center gap-1.5 rounded-full bg-gold-action px-5 py-2 font-display text-sm font-semibold text-ink disabled:opacity-40"
+            aria-label="Save Settings"
+            title="Save Settings"
+            className="w-10 h-10 rounded-full inline-flex items-center justify-center bg-gold-action text-ink disabled:opacity-40"
           >
-            <Save size={15} /> Save Settings
+            <Save size={16} />
           </button>
         </div>
       </div>
