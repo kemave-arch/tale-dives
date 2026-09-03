@@ -5,14 +5,16 @@
 Brief), gender/age fields for Player/NPCs, a default-Narrative combat mode, an in-app
 `useConfirm()` modal replacing every `window.confirm()` call site (which was silently
 no-oping — see its Revision log entry), Main Menu Worlds/Protagonists edit buttons, and a
-full art-driven Title screen redesign. See the bottom of the Revision log for full detail;
-this pass also left real unfinished work (campaign seeding, a prologue beat, and streaming
-turn rendering — see the new §4 item below) that a future session should pick up next.
+full art-driven Title screen redesign with a responsive `m_`/`pc_` background-image pairing
+system and a (currently single-slot, so dormant) crossfade cycler. See the bottom of the
+Revision log for full detail; this pass also left real unfinished work (campaign seeding, a
+prologue beat, and streaming turn rendering — see the new §4 item below) that a future
+session should pick up next.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
-resume without re-deriving context. It is kept in sync with the actual code on `master`
-(currently `ce63a71`), verified by direct inspection (grep/read), not by trusting the
-blueprint doc's intentions — several blueprint sections describe features that are **not**
+resume without re-deriving context. It is kept in sync with the actual code on `master`,
+verified by direct inspection (grep/read), not by trusting the blueprint doc's
+intentions — several blueprint sections describe features that are **not**
 built yet, and that distinction matters below. **Check the Revision log at the bottom
 first** — it's the fastest way to see what's changed since your last read of this file.
 
@@ -159,11 +161,13 @@ Actions on every push to `master` (repo's Pages source is set to "GitHub Actions
 subpath without hardcoding the repo name — safe since there's no URL-based router, only
 in-app `screen` state.
 
-**Static assets** (`public/`): `img/title-bg1.png` (the Title screen's full-bleed
-background artwork, new this session — numbered so a future rotating/crossfading
-background can add `title-bg2.png`, `title-bg3.png`, etc. without a path scheme change;
-`img/title-bg2.png` already sits alongside it, uploaded ahead of that feature but not yet
-wired to anything) referenced by `src/screens/Title.tsx` as `url(/img/title-bg1.png)`.
+**Static assets** (`public/img/`): the Title screen's background artwork, one pair per
+"slot" — `m_<stem>.png` (phone-composed) and `pc_<stem>.png` (tablet/desktop-composed,
+also the guaranteed fallback if a slot's `m_` file doesn't exist yet). Today there's one
+slot, `title-bg1` → `m_title-bg1.png` + `pc_title-bg1.png`. `src/screens/Title.tsx`'s
+`BACKGROUND_SLOTS` array holds the stem list; add a stem there once its `m_`/`pc_` pair
+exists to extend the (currently dormant, single-slot) crossfade cycler. See that file's
+`useResponsiveBg` for the breakpoint/fallback logic and its own Revision log entry below.
 
 **Ambient types** (`src/types/`): `fileSystemAccess.d.ts` — minimal File System Access API
 types not yet in TS's bundled DOM lib, new this session.
@@ -1076,3 +1080,45 @@ office session above — same repo, same `master` branch.**
   not-built work in the project right now. The verify-and-fix and beautification passes
   from the office session remain exactly where that session's log left them — untouched
   this session.
+- **2026-09-03** — Follow-up to the Title redesign above, same session: the user asked to
+  verify the background actually cycles and to check the mobile/desktop fit, which surfaced
+  that cycling had never actually been built yet (only two unwired static image files
+  existed) — built it for real this time (commit `2b8f4a5`). Along the way the user
+  clarified the real intended convention isn't one image per slot but a **pair**: a
+  phone-composed `m_<stem>.png` and a tablet/desktop-composed `pc_<stem>.png`, with `pc_`
+  as the always-present default fallback. Renamed the two existing files to
+  `m_title-bg1.png`/`pc_title-bg1.png` (one slot, both variants of the same artwork — the
+  user hadn't supplied a distinct wide/desktop composition yet, this is a placeholder
+  pairing) and rebuilt `Title.tsx`'s background layer around this: `useResponsiveBg(stem)`
+  picks `m_` on a `(max-width: 767px)` match, probing it first via `new Image()` and
+  silently falling back to `pc_` if that file 404s (so a slot can ship `pc_`-only and still
+  work everywhere); a `BackgroundLayer` component wraps that hook per stem so each slot's
+  responsive resolution is an independent hook instance (avoids calling hooks inside a
+  `.map()`); `CyclingBackground` stacks one `BackgroundLayer` per entry in
+  `BACKGROUND_SLOTS` and crossfades between them on a timer — but since `BACKGROUND_SLOTS`
+  has exactly one entry today, that timer never starts (`stems.length < 2` guard), so the
+  cycler is real, tested-ready code that is currently a no-op by design, not a stub.
+  Dropped the earlier `md:bg-contain` letterbox hack from the previous entry entirely —
+  once purpose-composed per-breakpoint art exists, `bg-cover` on both variants is the
+  right call, no CSS fallback needed.
+
+  **Verified live**: at a 375px-wide viewport, confirmed via direct DOM inspection
+  (`el.style.backgroundImage`) that the rendered layer resolves to `m_title-bg1.png`, and a
+  screenshot showed the same full-bleed, uncropped-top/bottom rendering as before (only
+  minor side-cropping from `bg-cover`, unchanged from the original single-image version).
+  At 1440x900, confirmed the same inspection resolves to `pc_title-bg1.png` — but **only
+  after a full page reload**, not through the automation tool's live viewport resize
+  (`resize_window`) — `matchMedia('(max-width: 767px)').matches` updated correctly, but
+  its `'change'` event listener never fired on that resize, meaning `useResponsiveBg`
+  never re-ran there. This reads as a limitation of the CDP-driven viewport emulation
+  tool specifically (it changes layout metrics without necessarily dispatching every
+  event a real OS-level window resize would), not a bug in the hook — a real user's
+  browser firing an actual `resize` reliably fires `matchMedia`'s `change` event, a
+  standard, well-supported platform guarantee. Flagging this so a future session doesn't
+  waste time trying to "fix" `useResponsiveBg` reacting on live automated resize; if it
+  ever matters for real users (e.g. a tablet rotated across the breakpoint), verify against
+  a real device/browser, not this tool's `resize_window`. Confirmed the pc_ placeholder
+  image crops significantly on a 1440px-wide viewport (it's the same 1024×1536 portrait
+  aspect as the mobile image, not an actual wide composition) — expected and not a bug;
+  will resolve itself once a real desktop-composed `pc_title-bg1.png` replaces the
+  placeholder, no code change needed for that. `npm run typecheck`/`npm run build` clean.
