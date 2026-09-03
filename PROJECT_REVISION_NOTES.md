@@ -1,8 +1,14 @@
 # Tale Dives — Project Revision Notes
 
 **Last updated:** 2026-09-03, end of a home-machine session, written as a leaving-the-desk
-handoff. Everything below is committed and pushed; `master` and `origin/master` are in
-sync at `85b2340`, working tree clean.
+handoff. Everything below is committed and pushed; `master`/`origin/master` are in sync at
+`c270b8f`, working tree clean. Since the last handoff paragraph below: added a 3rd
+background slot (`title-bg3`, real `.webp` pair, not a placeholder) and then made slot
+discovery **automatic** — `CyclingBackground` no longer takes a hardcoded `stems` list, it
+probes `public/img/pc_title-bg<N>.webp` at runtime starting from 1 and stops at the first
+gap. **Dropping a new numbered `m_`/`pc_` pair into `public/img/` is now enough on its
+own** to add it to the Title/MainMenu rotation — no code change needed. `BACKGROUND_SLOTS`
+no longer exists; if you see a reference to it anywhere, it's stale.
 
 > ## ⏭️ PICK UP HERE — pending work, in the user's own priority order
 > Full detail for each is in **§4's item 8**; this is the at-a-glance version.
@@ -38,7 +44,25 @@ GitHub Pages 404 on the background images (hardcoded leading-slash path instead 
 **Repos:** `origin` → `github.com/kemave-arch/tale-dives` (the live one; GitHub Pages
 deploys from it). A second remote `backup` → `github.com/kemave-arch/TaleDivesGem` (the
 user renamed it from `TaleDivesDev`; both URLs still resolve to it), created for a Google
-AI Studio experiment. **Nothing syncs automatically** — `git push backup master` manually.
+AI Studio experiment. **Nothing syncs automatically.**
+
+**How to push a change to `backup` now that it has diverged** (see the AI Studio commit
+below) — a plain `git push backup master` will be rejected (non-fast-forward), and
+force-pushing would destroy their commit. Instead, build a throwaway branch off their
+history and cherry-pick just the new commit onto it, so their work stays intact and
+`origin`/local `master` are never touched:
+```bash
+git fetch backup
+git branch -f __backup_sync backup/master
+git checkout __backup_sync
+git cherry-pick <the new commit>
+git push backup __backup_sync:master
+git checkout master
+git branch -D __backup_sync
+```
+Confirm success by comparing file content, not commit hashes (they'll legitimately
+differ since the histories have diverged): `git diff <local-commit> <backup-tip> -- <files>`
+should be empty.
 
 **⚠️ The two repos have now diverged, and merging naively will break the Pages deploy.**
 AI Studio pushed `713fda9` ("chore: improve project configuration and metadata") to
@@ -1408,3 +1432,15 @@ office session above — same repo, same `master` branch.**
   `85b2340`, working tree clean, nothing uncommitted. The pending list is at the top of
   this file and in §4 item 8 — Skills is next up, and Action Suggestion Pills is the
   cheapest of the four if a short session is all that's available.
+- **2026-09-03** — User supplied a real `title-bg3` pair (commit `45884cc`), verified live
+  (3-slot rotation confirmed via polling: bg1→bg2→bg3→bg1). Then, per the user asking
+  whether dropping files in `public/img/` could "just work" without a code edit each time,
+  replaced the hardcoded `BACKGROUND_SLOTS` list with runtime probing (commit `c270b8f`):
+  `CyclingBackground` now discovers slots itself by requesting `pc_title-bg<N>.webp` from 1
+  upward and stopping at the first failure. Verified this is robust against the dev
+  server's SPA-fallback quirk (a genuinely missing file still gets a `200` serving
+  `index.html`, not a real 404) — confirmed live that `Image`'s `onerror` still fires
+  correctly since fallback HTML isn't decodable as an image, so a phantom `title-bg4`
+  was correctly NOT picked up. Both `tale-dives` and `TaleDivesGem` pushed and confirmed
+  byte-identical on the changed files (see the new §"How to push to `backup`" note above
+  for the cherry-pick workflow used, now that the two repos have diverged).
