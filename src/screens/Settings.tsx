@@ -262,14 +262,14 @@ export default function Settings({
               <input
                 type="range"
                 min="0.1"
-                max="0.9"
+                max="1"
                 step="0.05"
                 value={chromeOpacity}
                 onChange={(e) => setChromeOpacity(Number(e.target.value))}
                 className="w-full accent-gold-action"
               />
               <p className="text-[11px] opacity-50 mt-1">
-                How solid the header, HUD, and input bar glass look over the ambient background. Lower is more see-through.
+                How solid the header, HUD, and input bar glass look over the ambient background. Lower is more see-through; 100% is fully solid.
               </p>
             </div>
           </div>

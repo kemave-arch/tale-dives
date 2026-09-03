@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock, Repeat, Hammer, Ghost, Wand2, ScrollText, User,
+  Unlock, Lock, Repeat, Hammer, Ghost, Compass, ScrollText, User,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -50,7 +50,7 @@ const INPUT_MAX_HEIGHT = 88
 // §6.5 Fantasy Radial Menu — a fan of shortcuts arcing upward from the FAB so
 // it never covers the input tray below. Angles are standard math degrees
 // (0=right, 90=up); spread across the upper arc rather than a full circle.
-const RADIAL_RADIUS = 108
+const RADIAL_RADIUS = 74
 function radialPos(index: number, count: number): { x: number; y: number } {
   const startDeg = 12
   const endDeg = 168
@@ -181,6 +181,29 @@ function AmbientBackground({ accent }: { accent: string }) {
   }, [])
 
   return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" aria-hidden="true" />
+}
+
+// Small ambient sparkle layer for the header/footer glass itself — the main
+// AmbientBackground canvas sits behind the chrome (z-0) and gets fully
+// masked at high HUD Opacity, so it can't provide this on its own. Pure CSS
+// (see .chrome-motes in index.css), positions randomized once per mount.
+function ChromeMotes({ count = 6 }: { count?: number }) {
+  const motes = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => ({
+        left: `${8 + Math.random() * 84}%`,
+        top: `${15 + Math.random() * 70}%`,
+        delay: `${(i / count) * 5}s`,
+      })),
+    [count],
+  )
+  return (
+    <div className="chrome-motes" aria-hidden="true">
+      {motes.map((m, i) => (
+        <span key={i} style={{ left: m.left, top: m.top, animationDelay: m.delay }} />
+      ))}
+    </div>
+  )
 }
 
 interface PopupTarget {
@@ -671,6 +694,7 @@ export default function Chronicle({
           borderColor: `${stateAccent}45`,
         }}
       >
+        <ChromeMotes count={4} />
         <button onClick={onOpenMenu} aria-label="Menu" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
           <Menu size={18} />
         </button>
@@ -757,13 +781,16 @@ export default function Chronicle({
 
       {/* §6.5 Fantasy Radial Menu — Codex/Settings already have header buttons,
           so this ring exists for the shortcuts that don't: Quest Log,
-          Inventory, Character, and Crafting once a job is queued. The FAB
-          sits centered on the input tray's top edge, reading as the hub the
-          tray radiates from rather than a separate floating button. Backdrop
-          sits one layer below the FAB/fan so an outside tap collapses it
-          without swallowing taps on the fan itself. */}
+          Inventory, Character, and Crafting once a job is queued. Kept small
+          and quiet (matches the block navigator's low-visual-weight style)
+          rather than a bold floating action button — a thin gold ring at
+          rest, brightening into a glow on hover and peaking on press. The
+          FAB sits centered on the input tray's top edge, reading as the hub
+          the tray radiates from. Backdrop sits one layer below the FAB/fan
+          so an outside tap collapses it without swallowing taps on the fan
+          itself. */}
       {radialOpen && <div className="fixed inset-0 z-[15]" onClick={() => setRadialOpen(false)} aria-hidden="true" />}
-      <div className="fixed left-1/2 z-20" style={{ bottom: bottomHeight - 22, transform: 'translateX(-50%)' }}>
+      <div className="fixed left-1/2 z-20" style={{ bottom: bottomHeight - 18, transform: 'translateX(-50%)' }}>
         <AnimatePresence>
           {radialOpen &&
             radialActions.map((action, i) => {
@@ -781,10 +808,10 @@ export default function Chronicle({
                   animate={{ opacity: 1, x, y, scale: 1 }}
                   exit={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
                   transition={{ type: 'spring', stiffness: 320, damping: 22, delay: i * 0.03 }}
-                  className="absolute left-1/2 top-1/2 w-11 h-11 rounded-full flex items-center justify-center text-[#e8ca8a] shadow-xl backdrop-blur-sm"
-                  style={{ marginLeft: -22, marginTop: -22, background: 'rgba(20,22,34,0.92)', border: '1px solid rgba(232,202,138,0.35)' }}
+                  className="absolute left-1/2 top-1/2 w-10 h-10 rounded-full flex items-center justify-center text-[#e8ca8a] backdrop-blur-sm transition-shadow duration-150 shadow-[0_0_0_1px_rgba(232,202,138,0.18),0_2px_8px_rgba(0,0,0,0.45)] hover:shadow-[0_0_0_1px_rgba(232,202,138,0.4),0_0_16px_3px_rgba(232,202,138,0.5)] active:shadow-[0_0_0_1.5px_rgba(232,202,138,0.6),0_0_22px_5px_rgba(232,202,138,0.75)]"
+                  style={{ marginLeft: -20, marginTop: -20, background: 'rgba(20,22,34,0.92)', border: '1px solid rgba(232,202,138,0.35)' }}
                 >
-                  <action.icon size={18} />
+                  <action.icon size={15} />
                 </motion.button>
               )
             })}
@@ -792,10 +819,14 @@ export default function Chronicle({
         <button
           onClick={() => setRadialOpen((v) => !v)}
           aria-label={radialOpen ? 'Close quick actions' : 'Quick actions'}
-          className="relative w-12 h-12 rounded-full inline-flex items-center justify-center text-[#0e1017] shadow-2xl"
-          style={{ background: '#e8ca8a' }}
+          className={`relative w-10 h-10 rounded-full inline-flex items-center justify-center backdrop-blur-sm transition-shadow duration-150 ${
+            radialOpen
+              ? 'text-[#e8ca8a] shadow-[0_0_0_1.5px_rgba(232,202,138,0.6),0_0_20px_4px_rgba(232,202,138,0.65)]'
+              : 'text-[#e8ca8a] shadow-[0_0_0_1px_rgba(232,202,138,0.25),0_2px_8px_rgba(0,0,0,0.45)] hover:shadow-[0_0_0_1px_rgba(232,202,138,0.4),0_0_14px_3px_rgba(232,202,138,0.45)]'
+          }`}
+          style={{ background: 'rgba(20,22,34,0.92)', border: '1px solid rgba(232,202,138,0.4)' }}
         >
-          {radialOpen ? <X size={20} /> : <Wand2 size={20} />}
+          {radialOpen ? <X size={17} /> : <Compass size={17} />}
         </button>
       </div>
 
@@ -807,6 +838,7 @@ export default function Chronicle({
           borderColor: `${stateAccent}45`,
         }}
       >
+        <ChromeMotes count={7} />
         {combat?.active && (
           <div className="border-b border-rose/30 px-4 py-1 text-white/80">
             <PoolBar label={combat.enemyName?.slice(0, 3).toUpperCase() ?? 'ENM'} value={combat.enemyHp ?? 0} max={combat.enemyHpMax ?? 1} colorVar="#e11d48" />
