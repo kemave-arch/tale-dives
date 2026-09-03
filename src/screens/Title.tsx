@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { BookOpen, Settings as SettingsIcon } from 'lucide-react'
+import { BookOpen, Settings as SettingsIcon, Volume2, VolumeX } from 'lucide-react'
 import { CyclingBackground } from '../lib/cyclingBackground.tsx'
 import { GlassCTAButton } from '../lib/glassChrome.tsx'
 
@@ -9,6 +9,8 @@ interface TitleProps {
   // Jumps straight into the most recently played Tale, skipping Main Menu.
   // Omitted (no button rendered) when there's no Tale to resume yet.
   onContinue?: () => void
+  musicMuted: boolean
+  onToggleMusicMute: () => void
 }
 
 // Rising gold embers over the artwork, echoing its own painted light-streaks.
@@ -41,6 +43,10 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
   )
 }
 
+// Shared by the mute toggle and the Settings gear so the two read as one set.
+const TOP_ICON_BUTTON =
+  'w-10 h-10 rounded-full inline-flex items-center justify-center text-[#e8ca8a]/80 bg-black/30 backdrop-blur-sm hover:text-[#e8ca8a]'
+
 // Blueprint §6.4A — Title/entry screen. The artwork (auto-discovered by
 // lib/cyclingBackground.tsx — see useDiscoveredSlots) already carries the
 // wordmark, tagline and dedication, so this screen adds nothing on top of it
@@ -48,7 +54,7 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
 // ambient sparks, a bottom scrim, and the buttons that lead somewhere real.
 // No Worlds/Journal/Profile/Inventory/Achievements row — those aren't
 // separate screens yet, so a button for them would just be decoration.
-export default function Title({ onEnter, onSettings, onContinue }: TitleProps) {
+export default function Title({ onEnter, onSettings, onContinue, musicMuted, onToggleMusicMute }: TitleProps) {
   return (
     <div
       className="h-dvh relative flex flex-col justify-end items-center text-center px-6 overflow-hidden bg-[#050308]"
@@ -61,13 +67,20 @@ export default function Title({ onEnter, onSettings, onContinue }: TitleProps) {
       />
       <AmbientSparks />
 
-      <button
-        onClick={onSettings}
-        aria-label="Settings"
-        className="absolute top-0 right-0 z-10 mt-[max(1rem,env(safe-area-inset-top))] mr-4 w-10 h-10 rounded-full inline-flex items-center justify-center text-[#e8ca8a]/80 bg-black/30 backdrop-blur-sm hover:text-[#e8ca8a]"
-      >
-        <SettingsIcon size={18} />
-      </button>
+      {/* Positioning lives on the row so both icons share one identical
+          button style — see TOP_ICON_BUTTON above. */}
+      <div className="absolute top-0 right-0 z-10 mt-[max(1rem,env(safe-area-inset-top))] mr-4 flex items-center gap-2">
+        <button
+          onClick={onToggleMusicMute}
+          aria-label={musicMuted ? 'Unmute music' : 'Mute music'}
+          className={TOP_ICON_BUTTON}
+        >
+          {musicMuted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+        </button>
+        <button onClick={onSettings} aria-label="Settings" className={TOP_ICON_BUTTON}>
+          <SettingsIcon size={18} />
+        </button>
+      </div>
 
       <div className="relative z-10 w-full max-w-xs flex flex-col items-center gap-3 mb-14">
         <GlassCTAButton onClick={onEnter} icon={BookOpen}>

@@ -32,6 +32,7 @@ import { getProvider } from './api/providers/index.ts'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { readJSONFile, saveJSON } from './lib/backup.ts'
 import { useConfirm } from './lib/useConfirm.tsx'
+import { useBackgroundMusic } from './lib/backgroundMusic.tsx'
 import * as store from './lib/store.ts'
 import { CURRENT_SCHEMA_VERSION, EQUIPPABLE_TYPES } from './types.ts'
 import type {
@@ -97,6 +98,9 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [pendingRecall, setPendingRecall] = useState<string | null>(null) // §6.6 — a targeted/full !recall snapshot waiting to ride along on the next real turn
   const { confirm, dialog: confirmDialog } = useConfirm()
+  // Mounted here rather than in a screen so the soundtrack keeps playing
+  // across navigation instead of restarting whenever a screen unmounts.
+  const { muted: musicMuted, toggleMute: toggleMusicMute } = useBackgroundMusic()
 
   useEffect(() => { store.saveApiSettings(apiSettings) }, [apiSettings])
   useEffect(() => { store.saveUiPrefs(uiPrefs) }, [uiPrefs])
@@ -920,6 +924,8 @@ export default function App() {
         onEnter={() => setScreen('mainmenu')}
         onSettings={() => openSettings('title')}
         onContinue={mostRecentCampaignId() ? () => resumeCampaign(mostRecentCampaignId()!) : undefined}
+        musicMuted={musicMuted}
+        onToggleMusicMute={toggleMusicMute}
       />
     )
   } else if (screen === 'settings') {
@@ -1186,6 +1192,8 @@ export default function App() {
         onEnter={() => setScreen('mainmenu')}
         onSettings={() => openSettings('title')}
         onContinue={mostRecentCampaignId() ? () => resumeCampaign(mostRecentCampaignId()!) : undefined}
+        musicMuted={musicMuted}
+        onToggleMusicMute={toggleMusicMute}
       />
     )
   }
