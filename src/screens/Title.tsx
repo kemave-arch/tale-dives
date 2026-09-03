@@ -178,9 +178,15 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
               maskComposite: 'exclude',
             }}
           />
-          {/* Glass interior — blur with zero fill color of its own. */}
+          {/* Glass interior — no blur at rest; blur (and the glow) only kick
+              in on hover/press, so the resting button stays fully invisible
+              except for its border. Transition is scoped to box-shadow only
+              — Tailwind's backdrop-blur-none compiles to an *empty* custom
+              property rather than an explicit blur(0), which a transition
+              covering backdrop-filter can get stuck interpolating towards
+              and never actually reach; snapping it instead sidesteps that. */}
           <span
-            className="absolute inset-0 backdrop-blur-sm transition-shadow duration-150 group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
+            className="absolute inset-0 backdrop-blur-none transition-[box-shadow] duration-150 group-hover:backdrop-blur-sm group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:backdrop-blur-sm group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
             style={{ clipPath: TAPER_CLIP }}
           />
           <span className="relative z-10 flex items-center justify-center gap-2 px-6 py-2.5 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
