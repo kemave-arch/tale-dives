@@ -31,6 +31,7 @@ import { slugify } from './lib/slug.ts'
 import { getProvider } from './api/providers/index.ts'
 import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { readJSONFile, saveJSON } from './lib/backup.ts'
+import { useConfirm } from './lib/useConfirm.tsx'
 import * as store from './lib/store.ts'
 import type {
   BestiaryEntry, Campaign, CombatMode, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
@@ -94,6 +95,7 @@ export default function App() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendingRecall, setPendingRecall] = useState<string | null>(null) // §6.6 — a targeted/full !recall snapshot waiting to ride along on the next real turn
+  const { confirm, dialog: confirmDialog } = useConfirm()
 
   useEffect(() => { store.saveApiSettings(apiSettings) }, [apiSettings])
   useEffect(() => { store.saveUiPrefs(uiPrefs) }, [uiPrefs])
@@ -838,8 +840,8 @@ export default function App() {
             setError('That file could not be read as a Tale Dives save.')
           }
         }}
-        onResetDefaults={() => {
-          if (!window.confirm('Erase all Tales, Worlds, and Protagonists on this device? This cannot be undone.')) return
+        onResetDefaults={async () => {
+          if (!(await confirm('Erase all Tales, Worlds, and Protagonists on this device? This cannot be undone.'))) return
           localStorage.clear()
           window.location.reload()
         }}
@@ -858,8 +860,8 @@ export default function App() {
           setScreen('chronicle')
         }}
         onNewSession={(worldId, protagonistId) => startNewStory(worldId, protagonistId)}
-        onDeleteCampaign={(id) => {
-          if (!window.confirm('Delete this Tale? This cannot be undone.')) return
+        onDeleteCampaign={async (id) => {
+          if (!(await confirm('Delete this Tale? This cannot be undone.'))) return
           setCampaigns((c) => {
             const next = { ...c }
             delete next[id]
@@ -893,8 +895,8 @@ export default function App() {
         onSetDefaultWorld={(id) =>
           setWorlds((w) => Object.fromEntries(Object.entries(w).map(([k, v]) => [k, { ...v, isDefault: k === id }])))
         }
-        onDeleteWorld={(id) => {
-          if (!window.confirm('Delete this World template?')) return
+        onDeleteWorld={async (id) => {
+          if (!(await confirm('Delete this World template?'))) return
           setWorlds((w) => {
             const next = { ...w }
             delete next[id]
@@ -914,8 +916,8 @@ export default function App() {
         onSetDefaultProtagonist={(id) =>
           setProtagonists((p) => Object.fromEntries(Object.entries(p).map(([k, v]) => [k, { ...v, isDefault: k === id }])))
         }
-        onDeleteProtagonist={(id) => {
-          if (!window.confirm('Delete this Protagonist template?')) return
+        onDeleteProtagonist={async (id) => {
+          if (!(await confirm('Delete this Protagonist template?'))) return
           setProtagonists((p) => {
             const next = { ...p }
             delete next[id]
@@ -1080,6 +1082,8 @@ export default function App() {
           onClose={() => setSlashManagerOpen(false)}
         />
       )}
+
+      {confirmDialog}
     </>
   )
 }

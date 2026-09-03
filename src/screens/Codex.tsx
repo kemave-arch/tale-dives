@@ -11,6 +11,7 @@ import { RECIPES } from '../data/recipes.ts'
 import { canAffordRecipe } from '../lib/crafting.ts'
 import { hoursRemaining } from '../lib/gameTime.ts'
 import { deriveStanding, effectiveStanding, repTierLabel } from '../lib/factions.ts'
+import { useConfirm } from '../lib/useConfirm.tsx'
 import type { BestiaryEntry, CraftingJob, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
 
 export type CategoryId = 'realm' | 'character' | 'crafting' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
@@ -330,6 +331,7 @@ export default function Codex({
   const [draft, setDraft] = useState<Record<string, any>>({})
   const [addingItem, setAddingItem] = useState(false)
   const [itemDraft, setItemDraft] = useState({ name: '', qty: '1' })
+  const { confirm, dialog: confirmDialog } = useConfirm()
 
   const chapters = log.filter((e) => e.chapterSummary)
 
@@ -447,8 +449,8 @@ export default function Codex({
     setEditing(false)
   }
 
-  function deleteEntry(kind: Exclude<CategoryId, 'chapters' | 'realm' | 'items'>) {
-    if (!entryId || !window.confirm('Delete this entry? This cannot be undone.')) return
+  async function deleteEntry(kind: Exclude<CategoryId, 'chapters' | 'realm' | 'items'>) {
+    if (!entryId || !(await confirm('Delete this entry? This cannot be undone.'))) return
     if (kind === 'npcs') onUpdateNpc(entryId, null)
     else if (kind === 'factions') onUpdateFaction(entryId, null)
     else if (kind === 'locations') onUpdateLocation(entryId, null)
@@ -526,10 +528,10 @@ export default function Codex({
               editing={editing}
               canDelete={false}
               onEdit={() => startEdit('__character__', { classId: player.classId })}
-              onSave={() => {
+              onSave={async () => {
                 if (draft.classId && draft.classId !== player.classId) {
                   const target = PRESET_CLASSES.find((c) => c.id === draft.classId)
-                  if (target && window.confirm(`Evolve into ${target.name}? Attribute points already earned keep their history — only points earned from here forward follow the new class.`)) {
+                  if (target && (await confirm(`Evolve into ${target.name}? Attribute points already earned keep their history — only points earned from here forward follow the new class.`))) {
                     onEvolveClass(draft.classId)
                   }
                 }
@@ -1034,6 +1036,8 @@ export default function Codex({
           {Object.keys(inventory).length === 0 && !addingItem && <p className="font-narrative italic text-sm text-white/40 col-span-full">Nothing carried yet.</p>}
         </div>
       )}
+
+      {confirmDialog}
     </div>
   )
 }

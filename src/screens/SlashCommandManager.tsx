@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { X, Plus, Pencil, Trash2, Save, Globe, ScrollText, Pause } from 'lucide-react'
 import { newId } from '../lib/store.ts'
+import { useConfirm } from '../lib/useConfirm.tsx'
 import type { SlashCommand } from '../types.ts'
 
 interface SlashCommandManagerProps {
@@ -28,6 +29,7 @@ const BLANK_DRAFT: Draft = { id: null, name: '', prompt: '', pauseRoleplay: fals
 // through the normal turn pipeline exactly like typed prose.
 export default function SlashCommandManager({ campaignCommands, globalCommands, onSave, onDelete, onClose }: SlashCommandManagerProps) {
   const [draft, setDraft] = useState<Draft | null>(null)
+  const { confirm, dialog: confirmDialog } = useConfirm()
 
   const campaignList = Object.values(campaignCommands)
   const globalList = Object.values(globalCommands)
@@ -51,8 +53,8 @@ export default function SlashCommandManager({ campaignCommands, globalCommands, 
     setDraft(null)
   }
 
-  function remove(id: string, global: boolean) {
-    if (!window.confirm('Delete this slash command?')) return
+  async function remove(id: string, global: boolean) {
+    if (!(await confirm('Delete this slash command?'))) return
     onDelete(id, global)
     setDraft(null)
   }
@@ -176,6 +178,7 @@ export default function SlashCommandManager({ campaignCommands, globalCommands, 
           )}
         </div>
       </div>
+      {confirmDialog}
     </div>
   )
 }
