@@ -3,13 +3,12 @@
 **Last updated:** 2026-09-03, end of a Claude-Code-on-the-web session, written as a
 leaving-the-desk handoff.
 
-> ### ⚠️ READ FIRST — the tip is NOT on `master` this time
-> Unlike every prior session in this log, the newest work sits on a **feature branch**:
-> `claude/tale-dives-audio-ui-w6ka4c` (tip `5a5b455`, pushed to `origin`, working tree
-> clean). `master`/`origin/master` are at `4ff2177`. **GitHub Pages deploys from `master`
-> only** (`.github/workflows/deploy.yml` triggers on push to `master`), so the audio fix
-> below **is not live** until that branch is merged. No PR was opened. If the live site
-> still has no sound, this is why — check the branch before re-diagnosing the bug.
+Everything below is committed, merged and pushed; `master`/`origin/master` are in sync
+and the working tree is clean. This session's work was built on a feature branch
+(`claude/tale-dives-audio-ui-w6ka4c`) and then **fast-forwarded into `master`** — no merge
+commit, so the history stays linear exactly as if it had been committed to `master`
+directly, which is this project's usual habit. Pushing to `master` is what triggers the
+Pages deploy (`.github/workflows/deploy.yml`), so the audio fix is live.
 
 Since the last handoff paragraph below, in order: a **background soundtrack** shipped
 (`4ff2177` — auto-discovered `public/tracks/ost_<N>.mp3`, crossfades, mute toggle), which
@@ -1592,10 +1591,11 @@ office session above — same repo, same `master` branch.**
   Title navigation. Screenshots confirmed both new layouts at 1280px and 390px.
   `npm run build` (tsc + vite) clean.
 
-  **Where this leaves things (end-of-session handoff):** the pending feature list at the
-  top of this file is **untouched** — Skills is still next up, Action Suggestion Pills is
-  still the cheapest of the four. The one piece of unfinished business from *this* session
-  is purely mechanical: **merge `claude/tale-dives-audio-ui-w6ka4c` into `master`** (no PR
-  was opened) so the audio fix actually deploys, and push the same commit to the `backup`
-  remote via the cherry-pick workflow documented near the top of this file if that repo is
-  still being kept in step.
+  **Where this leaves things (end-of-session handoff):** the branch was fast-forwarded
+  into `master` and pushed, which fired the Pages deploy, so the fix is live — nothing is
+  left outstanding from this session's own work. The pending feature list at the top of
+  this file is **untouched**: Skills is still next up, and Action Suggestion Pills is still
+  the cheapest of the four if a short session is all that's available. One optional
+  loose end: the `backup` remote (`TaleDivesGem`) has **not** been given these commits —
+  use the cherry-pick workflow documented near the top of this file if that repo is still
+  being kept in step.
