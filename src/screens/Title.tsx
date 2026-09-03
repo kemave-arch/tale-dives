@@ -8,9 +8,8 @@ interface TitleProps {
 
 // Each slot below ships as a pair: public/img/m_<stem>.png (phone-composed)
 // and public/img/pc_<stem>.png (tablet/desktop-composed) — see the note on
-// public/img/ in PROJECT_REVISION_NOTES.md. Only one slot exists today; add
-// a stem here once its pair does.
-const BACKGROUND_SLOTS = ['title-bg1']
+// public/img/ in PROJECT_REVISION_NOTES.md. Add a stem here once its pair does.
+const BACKGROUND_SLOTS = ['title-bg1', 'title-bg2']
 const MOBILE_QUERY = '(max-width: 767px)'
 const BG_FADE_MS = 7000
 const BG_HOLD_MS = 6000
@@ -53,15 +52,17 @@ function useResponsiveBg(stem: string): string {
   return src
 }
 
+// Decorative (aria-hidden) rather than described per-slot — with more than
+// one slot cycling through, a single alt text would go stale the moment a
+// second image takes over; the screen's own heading/tagline art already
+// carries the real content.
 function BackgroundLayer({ stem, active }: { stem: string; active: boolean }) {
   const src = useResponsiveBg(stem)
   return (
     <div
       className="absolute inset-0 bg-center bg-cover bg-no-repeat"
       style={{ backgroundImage: `url(${src})`, opacity: active ? 1 : 0, transition: `opacity ${BG_FADE_MS}ms ease-in-out` }}
-      role={active ? 'img' : undefined}
-      aria-hidden={active ? undefined : true}
-      aria-label={active ? 'A protagonist and companion leap from the pages of an open book, surrounded by golden light and vignettes of the worlds within.' : undefined}
+      aria-hidden="true"
     />
   )
 }
