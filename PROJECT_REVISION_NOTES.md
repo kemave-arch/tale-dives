@@ -74,6 +74,24 @@ management itself was proven correct throughout), but it cost significant time b
 workaround was found, so it's worth trying immediately rather than re-diagnosing from
 scratch.
 
+**A third, total variant hit later the same day**, building the Radial Menu below: clicks
+stopped registering at all — not slow, not needing a second click, just completely inert
+— across the existing tab, a freshly closed-and-reopened tab, and a brand-new tab on a
+fully restarted dev server. `tabs_context` reported `"The Browser pane is currently
+hidden"` throughout, even immediately after `tabs_select` claimed to front it, while
+`document.hidden`/`visibilityState`/`hasFocus()` inside the page all reported normal
+(visible, focused). React state itself still updated correctly on every click (confirmed
+via direct fiber inspection, same technique as the second variant above) — only the
+paint/commit and all subsequent interaction were stuck. Screenshots still rendered fine
+throughout, so this wasn't a fully dead pane, just one that stopped delivering input.
+Nothing in this repo's code was implicated (typecheck and build both stayed clean, no
+console/server errors at any point) — this reads as a genuine host-side rendering/input
+stall in the tool itself, distinct from the two variants above, and it did not resolve
+within this session. **If you hit total click unresponsiveness that survives a tab AND
+server restart: don't keep retrying automatically — say so and ship on code review plus a
+clean build, flagging the gap explicitly rather than silently claiming live verification
+that didn't happen.**
+
 ## 1. What Tale Dives is
 
 A single-player, browser-only (no backend) AI-narrated text RPG. Vite + React 19 +
@@ -304,9 +322,10 @@ assumption.
 
 ### Also noted in the blueprint but not on the numbered list above
 
-The blueprint's radial quick-action menu (§6.5) is referenced by both the Crafting and
-general UI sections but doesn't appear to exist as a built component yet — worth
-confirming/scoping if Crafting (#12) is picked up, since its UI hook depends on it.
+~~The blueprint's radial quick-action menu (§6.5)~~ — **done** (office session,
+2026-09-03, commit `7ec0e36`). See the revision log entry near the end of this file —
+built on code review and a clean build only, not live-verified, due to a total
+browser-automation stall that session (§0's third tooling-trap variant).
 
 ## 5. Explicitly requested but not yet started (separate from the feature list)
 
@@ -425,8 +444,13 @@ after the additions below — items 7/8/9 above are unchanged and still the long
 3. ~~Continue the beautification pass to Title/Main Menu~~ — **checked, already clean**,
    see the revision log entry just above this list. Every screen has now had a dedicated
    look at least once.
-4. **Scope the radial quick-action menu (blueprint §6.5)** — referenced by Crafting's UI
-   hook but never built; low urgency until it's actually blocking something.
+4. ~~Scope the radial quick-action menu~~ — **built** (commit `7ec0e36`), but **needs a
+   live spot-check from a human or a future session with working browser automation** —
+   it shipped on code review + a clean build only, since the tool went fully unresponsive
+   to clicks that session (see §0's third tooling-trap entry). Open Chronicle and tap the
+   Wand2 FAB above the input bar; confirm the fan opens without covering the input tray,
+   each shortcut lands on the right Codex category, and Crafting only appears once a job
+   is queued.
 5. **Inspired Mode (item 7 above)** — stays parked until the Google Search grounding quota
    resets or billing is enabled; don't re-spike more than once or twice a session.
 
@@ -755,3 +779,28 @@ the office machine, picking up directly afterward — same repo, same `master` b
   session's own assessment that these were "already read as clean and intentional." No
   code changes made here; recording the check itself so a future session doesn't re-walk
   the same ground without cause.
+- **2026-09-03** — Built the Fantasy Radial Menu (blueprint §6.5, commit `7ec0e36`), the
+  last unbuilt Tier 3 backlog item. A FAB (`Wand2`) centered on the Chronicle input tray's
+  top edge fans out to Quest Log/Inventory/Character/Settings shortcuts plus a conditional
+  Crafting one (only appears while `campaign.crafting` has a queued/ready job), each
+  jumping straight into a Codex category via a new `onOpenCodexCategory` prop threaded
+  through `App.tsx` (required loosening `codexTarget`'s type so `id` is optional — a
+  category-only jump has no entry to preselect). Fan positions are plain trigonometry
+  across a 12°-168° upper arc (`RADIAL_RADIUS` 108px in `Chronicle.tsx`) so the fan always
+  opens upward, never covering the input tray; collapses on selecting an action or tapping
+  a same-layer backdrop one z-index below the fan. Deliberately skipped the blueprint's
+  "FAB tints per active turn state" detail — this app's chrome was already and
+  deliberately made turn-state-independent everywhere else in an earlier session (fixed
+  gold accent throughout, see the "§6.0" chrome comments in `Chronicle.tsx`), and
+  reintroducing per-state tinting for just this one control would contradict that
+  standing decision rather than extend it.
+
+  **Not verified live** — `npm run typecheck` and `npm run build` are both clean, and the
+  implementation was reviewed carefully against already-proven patterns elsewhere in this
+  file (the memoized-block pattern, the icon-button convention, `framer-motion`'s stagger
+  approach already used for screen transitions in `App.tsx`), but the browser-automation
+  tool went fully click-unresponsive partway through this session — see §0's third
+  tooling-trap entry for the specifics. This is shipped on code review + a clean build
+  only; **a live spot-check is the single most valuable thing a human or a future working
+  session could do next** (open Chronicle, tap the FAB, confirm the fan opens correctly
+  and each shortcut lands on the right Codex category).
