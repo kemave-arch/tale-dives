@@ -415,13 +415,10 @@ Per the standing instruction this session was given:
 **Current priority list (2026-09-03, office session)**, folding in what's actually left
 after the additions below — items 7/8/9 above are unchanged and still the long pole:
 
-1. **Finish the verify-and-fix pass (§5/§6 item 8 above)** — Quests/Bestiary Codex CRUD is
-   now **done** (see the revision log entry just above this list). What's left needs a real
-   Gemini API call to exercise and was deliberately not spent without checking with the
-   user first: the defeat/recovery flow (`resolveDefeat`) and chapter recap
-   (`recapChapter`) beyond the one instance already observed. Both are single, cheap calls
-   — worth doing together in one short session once there's a green light to spend the
-   quota (a real key is already in this browser's Settings).
+1. ~~Finish the verify-and-fix pass~~ — **done, completely.** Quests/Bestiary CRUD,
+   defeat/recovery, and chapter recap are all now verified live against a real Gemini turn
+   (see the revision log entries above). The only unverified item left anywhere in the app
+   is on-device folder saves (item 2 below), which needs a human, not more agent time.
 2. **Manually verify on-device folder saves** (§3's Multi-provider entry) — the one gap
    that genuinely needs a human: click Settings → Backup → Choose Folder for real, since a
    native OS picker dialog can't be driven by browser automation.
@@ -734,6 +731,19 @@ the office machine, picking up directly afterward — same repo, same `master` b
   unverified items from that list, since both require a real Gemini API call
   (`getProvider(...).runTurn`/`runSummary`) to exercise — deliberately not spent without
   checking with the user first (see the priority list above, item 1).
+
+  **Follow-up, same day**: with the user's explicit go-ahead to spend a small amount of
+  real API quota, verified the last two items on the verify-and-fix list this way — set a
+  test campaign's `player.hp` to 0 directly in `localStorage` (deterministic: `applyTurn`'s
+  `defeated: next.hp <= 0` check needs no cooperation from the model) and sent one real
+  turn: `resolveDefeat` fired correctly, restoring HP to 11/28 (exactly `hpMax * 0.4`) and
+  narrating a full DESPAIR recovery beat with its own timestamp/location header. Then set
+  the same campaign's `turnCount` to 14 and sent one more turn: `isChapterBoundary(15)`
+  fired correctly, producing a real "Chapter 1" recap card ("After sustaining a near-fatal
+  injury...") alongside the milestone level-up that rides the same boundary. Zero console
+  errors on either call. **This closes every remaining item from the verify-and-fix pass
+  — nothing outstanding except on-device folder saves, which still needs a human's actual
+  click on a native OS picker (§3 above).**
 
   Also spent a few minutes on this session's priority item 3 (continuing the
   beautification pass to Title/Main Menu, since WorldSetup/NewGame got theirs in the entry
