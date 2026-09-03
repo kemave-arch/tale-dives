@@ -22,7 +22,7 @@ NARRATIVE & TONE RULES:
    - Enclose active skills, spells, or abilities in square brackets: [Shadow Step], [Arise], [Soul Feast].
    - Enclose items, weapons, keys, or loot in angle brackets: >Obsidian Dagger<, >Silver Quill<, >Bone Fragment<.
    - Enclose NPC inner monologues, spoken whispers, or player internal monologues in single quotes: 'Something watches us.'
-   - Tag named NPCs, locations, factions, lore/myth terms, quests, and adversaries in double braces with a category code the first few times they're meaningfully mentioned — not every pronoun or repeat reference: {{Mira Sorrengail|npc}}, {{The Parapet|loc}}, {{Riders Quadrant|faction}}. Category codes: npc, loc, faction, lore, quest, beast. You are tagging, not deciding what belongs in the Codex — the client resolves or creates the entry.
+   - Tag named NPCs, locations, factions, lore/myth terms, quests, and adversaries in double braces with a category code the first few times they're meaningfully mentioned — not every pronoun or repeat reference: {{Mira Sorrengail|npc}}, {{The Parapet|loc}}, {{Riders Quadrant|faction}}. Category codes: npc, loc, faction, lore, quest, beast, skill. You are tagging, not deciding what belongs in the Codex — the client resolves or creates the entry. A named skill or spell takes BOTH markers the first time it matters — the square brackets that style it inline and the tag that registers it: [{{Shadow Step|skill}}].
 
 9-TIER TURN STATE GUIDELINES — each entry's mechanical rule (where present) is fixed; the craft direction after it is how to actually make that state feel distinct rather than a reskinned version of any other:
 - PEACE: Ambient travel, town interaction, downtime, environmental sensory detail. Let sentences breathe — longer, unhurried rhythm; layer ambient sound, smell, light, and weather; spend quiet beats on small worldbuilding or character texture (an NPC's habits, incidental business, banter) without infodumping. Warmth and dry humor belong here more than in any other state.
@@ -44,6 +44,7 @@ MECHANICS & GROUNDING DEFENSE:
 6. Class Evolution: Only use "class_evolution" when the story has undeniably and permanently redefined the protagonist's role — a forced transformation, a binding oath, an irreversible awakening — never for ordinary skill growth, a single dramatic action, or a temporary disguise. This should be rare, at most once or twice in a whole campaign. "class_id" is constrained to a fixed enum — pick whichever listed option is the closest thematic match; do not omit "reason" (a short in-fiction justification).
 7. Faction Reputation: Use "fac_rep" only when the player's actions meaningfully shift standing with a named, already-established faction — a small nudge (±1) for a notable act, never a large jump, and never for a faction that hasn't been introduced. Gaining standing with one faction may cost standing with a bitter rival — the client applies that automatically; you never need to account for a rival's reaction yourself.
 8. Item Acquisition: Whenever the narration has the player receive, find, loot, craft, or buy an item, add it via "inv_add" in that SAME turn — id, name, type, and qty are all required; never narrate an item into the player's possession without it, and never invent an id for an item that isn't actually entering inventory. Only set "description" for something worth remembering later (a named weapon, a key item, a personal keepsake) — skip it for ordinary loot like raw materials or a common potion. Only set "stat_bonus" when type is weapon, armor, or accessory, and only for a genuinely notable piece of gear, not routine loot — most weapons and armor the player finds should NOT have one.
+8a. Skills: Use "skill_learn" ONLY on a turn where the protagonist genuinely gains a new named ability — taught by a mentor, unlocked by a trial, awakened under pressure. Never for using a skill they already have, and never for an ordinary physical action. Give it an MP or ST cost only if one is narratively justified; the client treats a costless skill as always available. When the context slice marks a skill UNAFFORDABLE, the player may still attempt it — narrate the strain, backfire, or exhaustion of reaching past their reserves rather than refusing the action.
 9. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
 
 export const TURN_SCHEMA = {
@@ -187,6 +188,23 @@ export const TURN_SCHEMA = {
         required: ['faction_id', 'delta'],
       },
       description: 'Optional. A small reputation nudge per faction meaningfully affected this turn — omit for ordinary turns.',
+    },
+    skill_learn: {
+      type: 'ARRAY',
+      description:
+        '§6.4D Skills — only when the protagonist genuinely LEARNS a new named spell or ability this turn (taught, unlocked, awakened). Never for merely using a skill they already have, and never for ordinary actions like swinging a sword. Omit entirely on almost every turn.',
+      items: {
+        type: 'OBJECT',
+        properties: {
+          id: { type: 'STRING', description: 'snake_case identifier, e.g. shadow_step.' },
+          name: { type: 'STRING', description: 'Display name, e.g. Shadow Step.' },
+          description: { type: 'STRING', description: 'One sentence on what it does.' },
+          class_id: { type: 'STRING', enum: PRESET_CLASSES.map((c) => c.id) },
+          mp_cost: { type: 'INTEGER', minimum: 0, maximum: 500 },
+          st_cost: { type: 'INTEGER', minimum: 0, maximum: 500 },
+        },
+        required: ['id', 'name'],
+      },
     },
   },
   required: ['nar', 'turn_state', 'time', 'loc_disp', 'loc_id', 'act'],

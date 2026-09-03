@@ -18,6 +18,7 @@ import { ensureLocation } from './lib/locations.ts'
 import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
 import { applyQuestUpdate } from './lib/quests.ts'
+import { applySkillLearn } from './lib/skills.ts'
 import { applyInventoryChanges, equipItem, unequipSlot } from './lib/inventory.ts'
 import { resolveBangCommand, findEntry } from './lib/bangCommands.ts'
 import { checkCodexReveals } from './lib/discovery.ts'
@@ -37,7 +38,7 @@ import * as store from './lib/store.ts'
 import { CURRENT_SCHEMA_VERSION, EQUIPPABLE_TYPES } from './types.ts'
 import type {
   BestiaryEntry, Campaign, CombatMode, CombatState, Dict, EquipSlot, FactionEntry, HistoryTurn, ItemEntry, KeywordLink, LocationEntry, LoreEntry,
-  NpcEntry, Player, ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
+  NpcEntry, Player, ProtagonistData, QuestEntry, SkillEntry, SlashCommand, TurnState, WorldData,
 } from './types.ts'
 
 const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
@@ -47,6 +48,7 @@ const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
   lore: 'lore',
   quest: 'quests',
   beast: 'bestiary',
+  skill: 'skills',
 }
 
 type Screen = 'title' | 'settings' | 'mainmenu' | 'storymode' | 'worldsetup' | 'newgame' | 'talebrief' | 'chronicle' | 'codex'
@@ -205,6 +207,7 @@ export default function App() {
       lore: {}, // §5.14 — populated by {{Term|lore}} keyword links
       quests: {}, // §5.14 — populated by {{Term|quest}} keyword links (quest_update integration is still pending)
       bestiary: {}, // §5.13/§5.14 — populated by {{Term|beast}} keyword links, full stat blocks once combat begins
+      skills: {}, // §6.4D — populated by {{Term|skill}} keyword links and skill_learn
       combat: { active: false }, // §2 Phase D.2/§5.13 — ephemeral, reset each encounter
       flags: [], // §5.6 World Impact Ledger
       inventory: {}, // §5.9
@@ -348,12 +351,16 @@ export default function App() {
           lore: current.lore,
           quests: current.quests,
           bestiary: current.bestiary,
+          skills: current.skills ?? {},
         },
         turn.nar,
       )
       const { dict: nextLocations } = ensureLocation(linked.locations, turn.loc_id, turn.loc_disp)
       const nextNpcs = applyNpcUpdates(linked.npcs, turn.npc_mem_up, turn.loc_id)
       const nextQuests = applyQuestUpdate(linked.quests, turn.quest_update)
+      // §6.4D — a skill_learn record fills in (or upgrades) whatever the
+      // {{Term|skill}} keyword pass already stubbed out.
+      const nextSkills = applySkillLearn(linked.skills, turn.skill_learn)
       const nextFlags = turn.flag_add?.length ? Array.from(new Set([...current.flags, ...turn.flag_add])) : current.flags
 
       // §5.4 App-Side Rivalry — a rep change to one faction mirrors an
@@ -512,6 +519,7 @@ export default function App() {
         lore: reveals.lore,
         quests: reveals.quests,
         bestiary: reveals.bestiary,
+        skills: nextSkills,
         combat: nextCombat,
         flags: nextFlags,
         inventory: invResult.inventory,
@@ -638,13 +646,15 @@ export default function App() {
   // whatever's already at that id, so the same call creates a fresh entry
   // when the id doesn't exist yet.
   function patchCodexDict(
-    dictKey: 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary',
+    dictKey: 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'skills',
     id: string,
     patch: Record<string, unknown> | null,
   ) {
     setGame((g) => {
       if (!g) return g
-      const dict = { ...(g[dictKey] as unknown as Dict<Record<string, unknown>>) }
+      // `skills` is optional on Campaign (older saves predate it), so the
+      // spread has to tolerate undefined rather than assuming a dict exists.
+      const dict = { ...((g[dictKey] ?? {}) as unknown as Dict<Record<string, unknown>>) }
       if (patch === null) delete dict[id]
       else dict[id] = { ...(dict[id] ?? {}), ...patch }
       return { ...g, [dictKey]: dict } as Campaign
@@ -1134,6 +1144,8 @@ export default function App() {
         onUpdateLore={(id: string, patch: Partial<LoreEntry> | null) => patchCodexDict('lore', id, patch as Record<string, unknown> | null)}
         onUpdateQuest={(id: string, patch: Partial<QuestEntry> | null) => patchCodexDict('quests', id, patch as Record<string, unknown> | null)}
         onUpdateBestiary={(id: string, patch: Partial<BestiaryEntry> | null) => patchCodexDict('bestiary', id, patch as Record<string, unknown> | null)}
+        skills={game.skills ?? {}}
+        onUpdateSkill={(id: string, patch: Partial<SkillEntry> | null) => patchCodexDict('skills', id, patch as Record<string, unknown> | null)}
         onUpdateItem={updateItem}
         onEquipItem={equipFromCodex}
         onUnequipSlot={unequipFromCodex}
@@ -1164,6 +1176,7 @@ export default function App() {
         lore={game.lore}
         quests={game.quests}
         bestiary={game.bestiary}
+        skills={game.skills ?? {}}
         crafting={game.crafting}
         onSend={sendAction}
         onBangCommand={handleBangCommand}

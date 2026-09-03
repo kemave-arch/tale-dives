@@ -4,7 +4,7 @@ import type { KeywordLink } from '../types.ts'
 // parsing over the streamed `nar` text; the model only tags, the client
 // decides what becomes a Codex entry (§5.14), so this costs nothing extra
 // to run — no new API call, no new schema field.
-const LINK_RE = /\{\{([^{}|]+)\|(npc|loc|faction|lore|quest|beast)\}\}/g
+const LINK_RE = /\{\{([^{}|]+)\|(npc|loc|faction|lore|quest|beast|skill)\}\}/g
 
 export function parseKeywordLinks(nar: string | undefined): KeywordLink[] {
   if (!nar) return []

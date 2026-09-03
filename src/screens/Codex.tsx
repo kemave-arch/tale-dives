@@ -2,11 +2,12 @@ import { useState } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import {
   ChevronRight, Globe, BookOpen, Users, ShieldCheck, Map, ScrollText, Target, Skull, Backpack,
-  Pencil, Save, X, Trash2, Plus, Lock, User, Hammer, Clock,
+  Pencil, Save, X, Trash2, Plus, Lock, User, Hammer, Clock, Sparkles,
 } from 'lucide-react'
-import { DASHED_ROW_CLASS, GlassHeader, GlassIconButton, GlassScreen } from '../lib/glassChrome.tsx'
+import { DASHED_ROW_CLASS, GlassHeader, GlassIconButton, GlassScreen, SELECT_CLASS } from '../lib/glassChrome.tsx'
 import { slugify } from '../lib/slug.ts'
 import { isHidden } from '../lib/discovery.ts'
+import { checkAffordability } from '../lib/skills.ts'
 import { PRESET_CLASSES } from '../data/classes.ts'
 import { RECIPES } from '../data/recipes.ts'
 import { canAffordRecipe } from '../lib/crafting.ts'
@@ -16,7 +17,7 @@ import { useConfirm } from '../lib/useConfirm.tsx'
 import { EQUIPPABLE_TYPES } from '../types.ts'
 import type {
   BestiaryEntry, CraftingJob, Discovery, EquipSlot, FactionEntry, ItemEntry, ItemType, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player,
-  QuestEntry, RevealTrigger, StatBonus, WorldData,
+  QuestEntry, RevealTrigger, SkillEntry, StatBonus, WorldData,
 } from '../types.ts'
 
 const ITEM_TYPES: ItemType[] = ['weapon', 'armor', 'accessory', 'tool', 'key', 'consumable', 'material']
@@ -30,13 +31,15 @@ function statBonusText(bonus: StatBonus | undefined): string | null {
   return parts.length ? parts.join(', ') : null
 }
 
-export type CategoryId = 'realm' | 'character' | 'crafting' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
+export type CategoryId =
+  | 'realm' | 'character' | 'crafting' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items' | 'skills'
 
 interface CodexProps {
   world: WorldData
   player: Player
   log: LogEntry[]
   npcs: Record<string, NpcEntry>
+  skills: Record<string, SkillEntry>
   factions: Record<string, FactionEntry>
   locations: Record<string, LocationEntry>
   lore: Record<string, LoreEntry>
@@ -52,6 +55,7 @@ interface CodexProps {
   onUpdateLore: (id: string, patch: Partial<LoreEntry> | null) => void
   onUpdateQuest: (id: string, patch: Partial<QuestEntry> | null) => void
   onUpdateBestiary: (id: string, patch: Partial<BestiaryEntry> | null) => void
+  onUpdateSkill: (id: string, entry: Partial<SkillEntry> | null) => void
   onUpdateItem: (id: string, qty: number | null, entry?: Partial<ItemEntry>) => void
   onEquipItem: (id: string) => void
   onUnequipSlot: (slot: EquipSlot) => void
@@ -287,6 +291,19 @@ function CrudToolbar({
   )
 }
 
+// §6.4D card badge — MP/ST cost pill in the same cool indigo the [Active
+// Skill] markup uses inline in narration (§4.2), so a skill reads as the same
+// category of thing whether you meet it in prose or in the Codex.
+function SkillCostBadge({ skill }: { skill: SkillEntry }) {
+  const parts = [skill.mpCost ? `${skill.mpCost} MP` : null, skill.stCost ? `${skill.stCost} ST` : null].filter(Boolean)
+  if (!parts.length) return null
+  return (
+    <span className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-skill/40 bg-skill-bg text-skill">
+      {parts.join(' · ')}
+    </span>
+  )
+}
+
 function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className={DASHED_ROW_CLASS}>
@@ -330,6 +347,8 @@ export default function Codex({
   onUpdateWorld,
   onEvolveClass,
   onStartCraft,
+  skills,
+  onUpdateSkill,
   initialCategory,
   initialEntryId,
   onBack,
@@ -339,6 +358,8 @@ export default function Codex({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, any>>({})
   const { confirm, dialog: confirmDialog } = useConfirm()
+
+  const classNameFor = (id?: string) => (id ? PRESET_CLASSES.find((c) => c.id === id)?.name : undefined)
 
   function equippedSlotFor(itemId: string): EquipSlot | undefined {
     return (Object.entries(player.equipped ?? {}) as [EquipSlot, string][]).find(([, id]) => id === itemId)?.[0]
@@ -352,6 +373,7 @@ export default function Codex({
   const categories: { id: CategoryId; label: string; description: string; icon: LucideIcon; count: number }[] = [
     { id: 'quests', label: 'Quests', description: 'Active, completed & tracked objectives', icon: Target, count: Object.keys(quests).length },
     { id: 'npcs', label: 'NPCs', description: 'Companions, allies & trust ratings', icon: Users, count: Object.keys(npcs).length },
+    { id: 'skills', label: 'Skills', description: 'Spells & abilities you have learned', icon: Sparkles, count: Object.keys(skills).length },
     { id: 'items', label: 'Items', description: 'Equipment, relics & carried goods', icon: Backpack, count: Object.keys(inventory).length },
     { id: 'locations', label: 'Locations', description: 'Regions, danger levels & standing', icon: Map, count: Object.keys(locations).length },
     { id: 'bestiary', label: 'Bestiary', description: 'Adversaries encountered in the field', icon: Skull, count: Object.keys(bestiary).length },
@@ -455,6 +477,25 @@ export default function Codex({
     setEditing(false)
   }
 
+  function saveSkill() {
+    const name = (draft.name ?? '').trim()
+    if (!name) return
+    const id = entryId === NEW_ID ? genId(name, skills) : entryId!
+    onUpdateSkill(id, {
+      name,
+      description: draft.description?.trim() || undefined,
+      classId: draft.classId || undefined,
+      // '' means "no cost declared" and must stay undefined rather than
+      // collapsing to 0 — a 0-cost skill and an unpriced one read the same
+      // in the UI but only the latter skips the §3.2 affordability note.
+      mpCost: draft.mpCost === '' || draft.mpCost === undefined ? undefined : Number(draft.mpCost),
+      stCost: draft.stCost === '' || draft.stCost === undefined ? undefined : Number(draft.stCost),
+      discovery: validateDiscovery(draft.discovery, { locations, npcs, quests }),
+    })
+    setEntryId(id)
+    setEditing(false)
+  }
+
   function saveWorld() {
     onUpdateWorld({ name: draft.name, genreTone: draft.genreTone, conflict: draft.conflict, background: draft.background })
     setEditing(false)
@@ -468,6 +509,7 @@ export default function Codex({
     else if (kind === 'lore') onUpdateLore(entryId, null)
     else if (kind === 'quests') onUpdateQuest(entryId, null)
     else if (kind === 'bestiary') onUpdateBestiary(entryId, null)
+    else if (kind === 'skills') onUpdateSkill(entryId, null)
     setEntryId(null)
   }
 
@@ -501,6 +543,7 @@ export default function Codex({
     entryId && category === 'lore' ? (lore[entryId] && isHidden(lore[entryId]) ? '???' : lore[entryId]?.name) :
     entryId && category === 'quests' ? (quests[entryId] && isHidden(quests[entryId]) ? '???' : quests[entryId]?.name) :
     entryId && category === 'bestiary' ? (bestiary[entryId] && isHidden(bestiary[entryId]) ? '???' : bestiary[entryId]?.name) :
+    entryId && category === 'skills' ? (skills[entryId] && isHidden(skills[entryId]) ? '???' : skills[entryId]?.name) :
     entryId && category === 'items' ? (items[entryId]?.name ?? entryId.replace(/_/g, ' ')) :
     categories.find((c) => c.id === category)?.label ?? 'Codex'
 
@@ -1015,6 +1058,101 @@ export default function Codex({
               <DetailField label="Threat Tier" value={bestiary[entryId].threatTier} />
               {bestiary[entryId].hpMax !== undefined && <DetailField label="HP" value={String(bestiary[entryId].hpMax)} />}
               {bestiary[entryId].dmgBase !== undefined && <DetailField label="Base Damage" value={String(bestiary[entryId].dmgBase)} />}
+            </DetailPanel>
+          )}
+        </>
+      )}
+
+      {/* Skills — §6.4D category 6. Entries arrive two ways: a {{Term|skill}}
+          mention in prose auto-registers a bare stub, and `skill_learn` fills
+          in the real record when the protagonist actually gains an ability.
+          Costs are shown as pills matching the [Active Skill] indigo accent
+          the same skills already use inline in narration (§4.2). */}
+      {category === 'skills' && !entryId && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <AddButton label="Add Skill" onClick={() => startCreate({ name: '', description: '', classId: '', mpCost: '', stCost: '' })} />
+          {Object.entries(skills).map(([id, s]) => (
+            <EntryCard
+              key={id}
+              title={isHidden(s) ? '???' : s.name}
+              subtitle={
+                isHidden(s)
+                  ? s.discovery?.teaser || 'Not yet discovered.'
+                  : s.description || classNameFor(s.classId) || 'No description yet.'
+              }
+              badge={isHidden(s) ? <LockBadge /> : <SkillCostBadge skill={s} />}
+              onClick={() => setEntryId(id)}
+            />
+          ))}
+          {Object.keys(skills).length === 0 && (
+            <p className="font-narrative italic text-sm text-ink-muted col-span-full">
+              No skills learned yet. They register automatically as the Narrator names them, or add one by hand.
+            </p>
+          )}
+        </div>
+      )}
+      {category === 'skills' && entryId && (editing || skills[entryId]) && (
+        <>
+          <div className="flex justify-end mb-3">
+            <CrudToolbar
+              editing={editing}
+              canDelete={entryId !== NEW_ID}
+              onEdit={() =>
+                startEdit(entryId, {
+                  ...skills[entryId],
+                  classId: skills[entryId].classId ?? '',
+                  mpCost: skills[entryId].mpCost ?? '',
+                  stCost: skills[entryId].stCost ?? '',
+                })
+              }
+              onSave={saveSkill}
+              onCancel={cancelEdit}
+              onDelete={() => deleteEntry('skills')}
+            />
+          </div>
+          {editing ? (
+            <DetailPanel>
+              <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
+              <TextField label="Description" value={draft.description ?? ''} onChange={(v) => setDraft((d) => ({ ...d, description: v }))} />
+              <label className="block">
+                <span className="text-[11px] font-display uppercase tracking-[0.14em] text-[#f0d9a4]">Owning Class</span>
+                <select
+                  value={draft.classId ?? ''}
+                  onChange={(e) => setDraft((d) => ({ ...d, classId: e.target.value }))}
+                  className={`mt-1 ${SELECT_CLASS}`}
+                >
+                  <option value="">— none —</option>
+                  {PRESET_CLASSES.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <NumberField label="MP Cost" value={draft.mpCost === '' ? 0 : (draft.mpCost ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, mpCost: v }))} />
+              <NumberField label="ST Cost" value={draft.stCost === '' ? 0 : (draft.stCost ?? 0)} onChange={(v) => setDraft((d) => ({ ...d, stCost: v }))} />
+              <DiscoveryEditor discovery={draft.discovery} onChange={(disc) => setDraft((d) => ({ ...d, discovery: disc }))} />
+            </DetailPanel>
+          ) : isHidden(skills[entryId]) ? (
+            <MaskedDetail teaser={skills[entryId].discovery?.teaser} />
+          ) : (
+            <DetailPanel>
+              {skills[entryId].description && <DetailField label="Description" value={skills[entryId].description!} />}
+              {classNameFor(skills[entryId].classId) && <DetailField label="Owning Class" value={classNameFor(skills[entryId].classId)!} />}
+              {skills[entryId].mpCost !== undefined && <DetailField label="MP Cost" value={String(skills[entryId].mpCost)} />}
+              {skills[entryId].stCost !== undefined && <DetailField label="ST Cost" value={String(skills[entryId].stCost)} />}
+              {/* §3.2 — affordability is surfaced, never enforced: the check
+                  tells the narrator whether to describe a clean cast or an
+                  exhaustion penalty, it does not block the player. */}
+              {(() => {
+                const { affordable, missing } = checkAffordability(skills[entryId], player)
+                if (affordable) return null
+                return (
+                  <p className="font-narrative text-xs text-rose">
+                    Not enough reserves right now — short {missing}.
+                  </p>
+                )
+              })()}
             </DetailPanel>
           )}
         </>

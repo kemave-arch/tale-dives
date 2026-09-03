@@ -1,6 +1,8 @@
 import { describeKnownLocation, territoryHostileLine } from './locations.ts'
 import { describePresentNpc, presentNpcs } from './npcs.ts'
-import type { Campaign, Dict, EquipSlot, ItemEntry, Player } from '../types.ts'
+import { isHidden } from './discovery.ts'
+import { checkAffordability } from './skills.ts'
+import type { Campaign, Dict, EquipSlot, ItemEntry, Player, SkillEntry } from '../types.ts'
 
 const RECENT_CHAPTER_DIGEST_COUNT = 3
 const MAX_FLAGS_SHOWN = 20
@@ -25,6 +27,24 @@ function describeEquipped(equipped: Player['equipped'], items: Dict<ItemEntry> |
   return parts.length ? `Equipped: ${parts.join(' | ')}` : null
 }
 
+// One compact line: "Skills: Shadow Step (6 MP) | Rend (4 ST, UNAFFORDABLE)".
+// The UNAFFORDABLE marker is the §3.2 check made visible to the narrator —
+// its job is to steer toward narrating exhaustion rather than a clean cast,
+// never to forbid the attempt.
+function describeSkills(skills: Dict<SkillEntry> | undefined, player: Player): string | null {
+  if (!skills) return null
+  const parts: string[] = []
+  for (const skill of Object.values(skills)) {
+    if (!skill.name || isHidden(skill)) continue
+    const { affordable, missing } = checkAffordability(skill, player)
+    const cost = [skill.mpCost && `${skill.mpCost} MP`, skill.stCost && `${skill.stCost} ST`].filter(Boolean).join(', ')
+    const note = [cost, !affordable && `UNAFFORDABLE: short ${missing}`].filter(Boolean).join(', ')
+    parts.push(`${skill.name}${note ? ` (${note})` : ''}`)
+    if (parts.length >= MAX_KNOWN_NAMES) break
+  }
+  return parts.length ? `Skills: ${parts.join(' | ')}` : null
+}
+
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
@@ -47,6 +67,14 @@ export function buildContextSlice(state: Campaign, combatResultLine?: string | n
   // nothing equipped.
   const equippedLine = describeEquipped(player.equipped, items)
   if (equippedLine) lines.push(equippedLine)
+
+  // §6.4D/§3.2 — same always-on reasoning as equipment: the narrator can only
+  // let the protagonist reach for an ability it's been reminded they have.
+  // Costs ride along so §3.2 affordability is judged against real pools rather
+  // than invented ones. Hidden skills (§5.12) are withheld — the player hasn't
+  // discovered them, so the narrator must not have them either.
+  const skillLine = describeSkills(state.skills, player)
+  if (skillLine) lines.push(skillLine)
 
   // §3.1 — only re-told once a Codex entry exists; first visit to a place omits it.
   const known = locations?.[player.locId]

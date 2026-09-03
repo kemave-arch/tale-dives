@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock, Repeat, Hammer, Ghost, Compass, ScrollText, User, Swords,
+  Unlock, Lock, Repeat, Hammer, Ghost, Compass, ScrollText, User, Swords, Sparkles,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -15,7 +15,7 @@ import { isHidden } from '../lib/discovery.ts'
 import type { CategoryId } from './Codex.tsx'
 import type {
   BestiaryEntry, CombatState, CraftingJob, FactionEntry, GameTime, KeywordLink, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player,
-  QuestEntry, SlashCommand,
+  QuestEntry, SkillEntry, SlashCommand,
 } from '../types.ts'
 
 interface ChronicleProps {
@@ -32,6 +32,7 @@ interface ChronicleProps {
   lore: Record<string, LoreEntry>
   quests: Record<string, QuestEntry>
   bestiary: Record<string, BestiaryEntry>
+  skills: Record<string, SkillEntry>
   crafting?: CraftingJob[]
   onSend: (action: string, forcePause?: boolean) => void
   onBangCommand: (raw: string) => void
@@ -98,6 +99,8 @@ const BANG_DISPLAY: Record<string, { icon: LucideIcon; label: string }> = {
   faction: { icon: ShieldCheck, label: 'Faction Standings' },
   quests: { icon: Target, label: 'Active Quests' },
   bestiary: { icon: Skull, label: 'Bestiary Log' },
+  skill: { icon: Sparkles, label: 'Skill Codex' },
+  skills: { icon: Sparkles, label: 'Skill Codex' },
   recall: { icon: BookOpen, label: 'Codex Recall' },
   minions: { icon: Users, label: 'Minion Roster' },
   arise: { icon: Ghost, label: 'Shadow Extraction' },
@@ -405,6 +408,7 @@ export default function Chronicle({
   lore,
   quests,
   bestiary,
+  skills,
   crafting,
   onSend,
   onBangCommand,
@@ -674,20 +678,23 @@ export default function Chronicle({
   const onTapTerm = useCallback<TapTermHandler>(
     (term, category) => {
       const id = slugify(term)
-      const dict = { npc: npcs, loc: locations, faction: factions, lore, quest: quests, beast: bestiary }[category]
-      if (dict[id]) setPopup({ category, id })
+      const dict = { npc: npcs, loc: locations, faction: factions, lore, quest: quests, beast: bestiary, skill: skills }[category]
+      if (dict?.[id]) setPopup({ category, id })
     },
-    [npcs, locations, factions, lore, quests, bestiary],
+    [npcs, locations, factions, lore, quests, bestiary, skills],
   )
 
-  const popupEntry = popup && ({ npc: npcs, loc: locations, faction: factions, lore, quest: quests, beast: bestiary }[popup.category][popup.id] as
-    | NpcEntry
-    | LocationEntry
-    | FactionEntry
-    | LoreEntry
-    | QuestEntry
-    | BestiaryEntry
-    | undefined)
+  const popupEntry =
+    popup &&
+    ({ npc: npcs, loc: locations, faction: factions, lore, quest: quests, beast: bestiary, skill: skills }[popup.category]?.[popup.id] as
+      | NpcEntry
+      | LocationEntry
+      | FactionEntry
+      | LoreEntry
+      | QuestEntry
+      | BestiaryEntry
+      | SkillEntry
+      | undefined)
 
   return (
     <div className="min-h-screen text-ink relative bg-canvas">
@@ -1049,6 +1056,18 @@ export default function Chronicle({
                 <p>Reputation {popupEntry.repTier > 0 ? '+' : ''}{popupEntry.repTier}</p>
               )}
               {popup.category === 'lore' && 'category' in popupEntry && <p>{popupEntry.category}</p>}
+              {popup.category === 'skill' && (
+                <>
+                  {'description' in popupEntry && popupEntry.description && <p>{popupEntry.description}</p>}
+                  {'mpCost' in popupEntry && (popupEntry.mpCost || popupEntry.stCost) && (
+                    <p className="font-mono">
+                      {popupEntry.mpCost ? `${popupEntry.mpCost} MP` : ''}
+                      {popupEntry.mpCost && popupEntry.stCost ? ' · ' : ''}
+                      {popupEntry.stCost ? `${popupEntry.stCost} ST` : ''}
+                    </p>
+                  )}
+                </>
+              )}
               {popup.category === 'quest' && 'status' in popupEntry && <p>{popupEntry.status ?? 'active'}</p>}
               {popup.category === 'beast' && 'threatTier' in popupEntry && (
                 <p>

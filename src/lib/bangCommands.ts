@@ -1,7 +1,8 @@
 import { slugify } from './slug.ts'
 import { effectiveStanding, repTierLabel } from './factions.ts'
+import { checkAffordability } from './skills.ts'
 import type {
-  BangCommandEntry, BestiaryEntry, Campaign, EquipSlot, FactionEntry, ItemEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry,
+  BangCommandEntry, BestiaryEntry, Campaign, EquipSlot, FactionEntry, ItemEntry, LocationEntry, LoreEntry, NpcEntry, Player, QuestEntry, SkillEntry,
 } from '../types.ts'
 
 const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'accessory']
@@ -28,6 +29,7 @@ export const BANG_COMMANDS: { name: string; usage: string; description: string }
   { name: 'faction', usage: '!faction [name]', description: 'Known factions and standing' },
   { name: 'quests', usage: '!quests [name]', description: 'Tracked objectives, or one in detail' },
   { name: 'bestiary', usage: '!bestiary [name]', description: 'Adversaries encountered so far' },
+  { name: 'skills', usage: '!skills [name]', description: 'Spells & abilities you have learned' },
   { name: 'recall', usage: '!recall', description: 'Full Codex snapshot — also reminds the AI' },
   { name: 'minions', usage: '!minions', description: 'Your current summoned army' },
   { name: 'arise', usage: '!arise', description: 'Dark Monarch — extract a shadow from a slain corpse' },
@@ -89,6 +91,17 @@ function bestiaryRow(id: string, b: BestiaryEntry): BangCommandEntry['rows'][num
   if (b.hpMax !== undefined) fields.push(`HP ${b.hpMax}`)
   if (b.dmgBase !== undefined) fields.push(`DMG ${b.dmgBase}`)
   return { name: b.name, id, category: 'beast', fields }
+}
+// §6.4D — the 0-token skill roster. Shows the §3.2 affordability read inline
+// so the player can see at a glance what they can actually pay for right now.
+function skillRow(id: string, s: SkillEntry, player: Player): BangCommandEntry['rows'][number] {
+  const fields: string[] = []
+  if (s.mpCost) fields.push(`${s.mpCost} MP`)
+  if (s.stCost) fields.push(`${s.stCost} ST`)
+  const { affordable, missing } = checkAffordability(s, player)
+  if (!affordable) fields.push(`short ${missing}`)
+  if (s.description) fields.push(s.description)
+  return { name: s.name, id, category: 'skill', fields }
 }
 function loreRow(id: string, l: LoreEntry): BangCommandEntry['rows'][number] {
   return { name: l.name, id, category: 'lore', fields: [l.category] }
@@ -194,6 +207,17 @@ export function resolveBangCommand(raw: string, campaign: Campaign): BangResult 
       }
       const rows = Object.entries(campaign.bestiary ?? {}).map(([id, b]) => bestiaryRow(id, b))
       return tableResult('Bestiary', rows, 'No adversaries encountered yet.')
+    }
+    case 'skill':
+    case 'skills': {
+      const player = campaign.player
+      if (target) {
+        const found = findEntry(campaign.skills, target)
+        const row = found ? skillRow(found[0], found[1], player) : null
+        return dossierResult('Skills', target, row, undefined, 'Known Skill')
+      }
+      const rows = Object.entries(campaign.skills ?? {}).map(([id, s]) => skillRow(id, s, player))
+      return tableResult('Skills', rows, 'No skills learned yet.')
     }
     case 'minions': {
       const rows = Object.entries(campaign.minions ?? {}).map(([id, m]) => ({

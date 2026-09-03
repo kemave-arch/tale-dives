@@ -3,7 +3,8 @@ import { slugify } from './slug.ts'
 import { parseKeywordLinks } from './keywordLinks.ts'
 import { ensureLocation } from './locations.ts'
 import { emptyNpc } from './npcs.ts'
-import type { BestiaryEntry, Dict, FactionEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry } from '../types.ts'
+import { emptySkill } from './skills.ts'
+import type { BestiaryEntry, Dict, FactionEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry, SkillEntry } from '../types.ts'
 
 function ensureStub<T extends { autoLogged?: boolean }>(
   dict: Dict<T> | undefined,
@@ -20,6 +21,7 @@ export interface CodexDicts {
   lore: Dict<LoreEntry>
   quests: Dict<QuestEntry>
   bestiary: Dict<BestiaryEntry>
+  skills: Dict<SkillEntry>
 }
 
 // §5.14 — applies every {{Term|category}} mention in this turn's prose to the
@@ -29,7 +31,7 @@ export interface CodexDicts {
 // gives both paths a real display name (a keyword tag's Term) instead of a
 // bare id, provided this runs before those other paths each turn.
 export function applyKeywordLinks(codex: CodexDicts, nar: string | undefined): CodexDicts {
-  let { locations, npcs, factions, lore, quests, bestiary } = codex
+  let { locations, npcs, factions, lore, quests, bestiary, skills } = codex
 
   for (const { term, category } of parseKeywordLinks(nar)) {
     const id = slugify(term)
@@ -54,8 +56,11 @@ export function applyKeywordLinks(codex: CodexDicts, nar: string | undefined): C
       case 'beast':
         bestiary = ensureStub(bestiary, id, () => ({ name: term, threatTier: 'Unknown' }))
         break
+      case 'skill':
+        skills = ensureStub(skills, id, () => emptySkill(term))
+        break
     }
   }
 
-  return { locations, npcs, factions, lore, quests, bestiary }
+  return { locations, npcs, factions, lore, quests, bestiary, skills }
 }

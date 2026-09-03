@@ -197,6 +197,22 @@ export interface BestiaryEntry {
   discovery?: Discovery
 }
 
+// §6.4D Codex category 6 — Skills (Spells & Abilities). Every field past the
+// name is optional on purpose: a skill is usually *mentioned* in prose (as
+// [Shadow Step], §4.2) well before it has agreed numbers, and the blueprint
+// deliberately leaves skill base values open rather than pre-specced (§8).
+// §3.2 affordability therefore only gates a skill that actually declares a
+// cost — an unpriced skill is never blocked, just narrated.
+export interface SkillEntry {
+  name: string
+  description?: string
+  classId?: string // owning class, a Preset Class Dictionary id (§6.4D card shows its icon)
+  mpCost?: number
+  stCost?: number
+  autoLogged?: boolean
+  discovery?: Discovery
+}
+
 // §2 Phase D.2 — ephemeral per-encounter state, reset each fight (not part
 // of the persistent Bestiary, which tracks per-species knowledge instead).
 export interface CombatState {
@@ -312,6 +328,7 @@ export interface Campaign {
   lore: Dict<LoreEntry>
   quests: Dict<QuestEntry>
   bestiary: Dict<BestiaryEntry>
+  skills?: Dict<SkillEntry> // §6.4D — the player's known spells & abilities
   combat: CombatState
   flags: string[] // §5.6 World Impact Ledger
   inventory: Dict<number> // item id -> quantity (§5.9)
@@ -430,6 +447,18 @@ export interface TurnResponse {
   npc_mem_up?: NpcMemoryUpdate[]
   class_evolution?: ClassEvolutionUpdate
   fac_rep?: FactionRepChange[]
+  skill_learn?: SkillLearn[]
+}
+
+// §6.4D — the model's side of a newly-learned skill. Snake_case mirrors the
+// turn schema exactly; lib/skills.ts converts it into a SkillEntry.
+export interface SkillLearn {
+  id: string
+  name: string
+  description?: string
+  class_id?: string
+  mp_cost?: number
+  st_cost?: number
 }
 
 // Gemini `contents` sliding window (§3.1).
@@ -451,7 +480,7 @@ export interface RunTurnResult {
 
 export interface KeywordLink {
   term: string
-  category: 'npc' | 'loc' | 'faction' | 'lore' | 'quest' | 'beast'
+  category: 'npc' | 'loc' | 'faction' | 'lore' | 'quest' | 'beast' | 'skill'
 }
 
 export interface EnsureResult<T> {
