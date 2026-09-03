@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Info, X } from 'lucide-react'
+import { Info, X } from 'lucide-react'
 import {
   FIELD_CLASS, GLASS_SURFACE, GlassCTAButton, GlassField, GlassHeader, GlassScreen, LABEL_CLASS,
 } from '../lib/glassChrome.tsx'
@@ -147,9 +147,7 @@ export default function TaleBrief({
         className={`shrink-0 ${GLASS_SURFACE} border-x-0 border-b-0 bg-[#07050c]/50 px-4 py-3 flex justify-center`}
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <GlassCTAButton onClick={() => onBegin({ opening, narrationStyle, temperature, combatMode })} icon={ArrowRight}>
-          Start
-        </GlassCTAButton>
+        <GlassCTAButton onClick={() => onBegin({ opening, narrationStyle, temperature, combatMode })}>Start</GlassCTAButton>
       </div>
     </GlassScreen>
   )

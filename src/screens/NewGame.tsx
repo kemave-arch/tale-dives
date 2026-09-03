@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, UserCircle, Save, Plus } from 'lucide-react'
+import { UserCircle, Save, Plus } from 'lucide-react'
 import { PRESET_CLASSES } from '../data/classes.ts'
 import {
   FIELD_CLASS, GLASS_SURFACE, GlassButton, GlassCTAButton, GlassField, GlassHeader, GlassScreen, LABEL_CLASS, SELECT_CLASS,
@@ -175,9 +175,7 @@ export default function NewGame({
         className={`shrink-0 ${GLASS_SURFACE} border-x-0 border-b-0 bg-[#07050c]/50 px-4 py-3 flex justify-center`}
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <GlassCTAButton onClick={() => onBegin(currentData())} icon={ArrowRight}>
-          Continue
-        </GlassCTAButton>
+        <GlassCTAButton onClick={() => onBegin(currentData())}>Continue</GlassCTAButton>
       </div>
     </GlassScreen>
   )

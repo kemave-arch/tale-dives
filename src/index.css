@@ -232,8 +232,14 @@ body {
    its text by 12px — the gutter appearing was itself the layout shift. Scoped
    to things that actually scroll rather than `*`, because `scrollbar-gutter`
    also applies to overflow:hidden scroll containers and would reserve dead
-   space in a lot of places that never scroll. */
-html,
+   space in a lot of places that never scroll.
+
+   Deliberately NOT on `html`: a gutter there is subtracted from the initial
+   containing block, so every `position: fixed; inset: 0` layer — including
+   the background artwork — paints 10px short of the right edge and the body
+   colour shows through as a black strip down the side of the app. The
+   page-level shift it would have prevented is a one-off between screens
+   anyway, far less disruptive than content moving under a cursor mid-type. */
 textarea,
 .overflow-y-auto,
 .overflow-auto,

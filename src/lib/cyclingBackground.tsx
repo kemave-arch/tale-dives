@@ -55,6 +55,18 @@ function useDiscoveredSlots(): string[] {
   return slots
 }
 
+function usePortrait(): boolean {
+  const [portrait, setPortrait] = useState(() => window.matchMedia(PORTRAIT_QUERY).matches)
+  useEffect(() => {
+    const mq = window.matchMedia(PORTRAIT_QUERY)
+    const sync = () => setPortrait(mq.matches)
+    sync()
+    mq.addEventListener('change', sync)
+    return () => mq.removeEventListener('change', sync)
+  }, [])
+  return portrait
+}
+
 // pc_ is the guaranteed default — a slot's m_ file is optional and can lag
 // behind. On a portrait viewport, try the m_ variant first and silently
 // fall back to pc_ if it 404s; in landscape, always use pc_ directly.
@@ -74,6 +86,7 @@ function useResponsiveBg(stem: string): string {
 
     function resolve() {
       if (!mq.matches) {
+        /* landscape */
         setSrc(pcSrc)
         return
       }
@@ -117,19 +130,45 @@ function useResponsiveBg(stem: string): string {
 // and the blurred one never shows at all.
 function BackgroundLayer({ stem, active }: { stem: string; active: boolean }) {
   const src = useResponsiveBg(stem)
+  const portrait = usePortrait()
   const image = `url(${src})`
+
+  // Different rules by orientation, because the two want different things:
+  //
+  // Landscape (PC/tablet) — `cover`, so the art scales responsively and fills
+  // the screen. `cover` is already the SMALLEST scale that fills, so it is by
+  // definition the least zoomed a filling background can be; what made the old
+  // version feel over-zoomed was a portrait screen being handed 16:9 art, which
+  // the orientation-matched pc_/m_ pick above now prevents. On a 16:9 display
+  // it crops nothing at all.
+  //
+  // Portrait (mobile) — `auto 100%` locks the image's HEIGHT to the viewport,
+  // so its top and bottom always touch the screen edges and it stays centred,
+  // with the sides running off rather than the composition being trimmed.
+  // `cover` cannot promise that: on a portrait tablet it scales to fill the
+  // width instead and slices the top and bottom off. Where the art is
+  // proportionally narrower than the screen this leaves side margins, which
+  // the blurred layer below fills.
+  const size = portrait ? 'auto 100%' : 'cover'
+
   return (
     <div
       className="absolute inset-0"
       style={{ opacity: active ? 1 : 0, transition: `opacity ${BG_FADE_MS}ms ease-in-out` }}
       aria-hidden="true"
     >
-      {/* Scaled past the edges so the blur's own soft border never shows. */}
+      {/* Fills whatever the sharp layer leaves over, with the image's own
+          colour rather than a void. Scaled past the edges so the blur's own
+          soft border never shows. Invisible whenever the layer above covers
+          the screen outright. */}
       <div
         className="absolute inset-0 bg-center bg-cover bg-no-repeat"
         style={{ backgroundImage: image, filter: 'blur(36px) brightness(0.4) saturate(0.85)', transform: 'scale(1.15)' }}
       />
-      <div className="absolute inset-0 bg-center bg-contain bg-no-repeat" style={{ backgroundImage: image }} />
+      <div
+        className="absolute inset-0 bg-center bg-no-repeat"
+        style={{ backgroundImage: image, backgroundSize: size }}
+      />
     </div>
   )
 }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Globe, Save, Plus } from 'lucide-react'
+import { Globe, Save, Plus } from 'lucide-react'
 import { DEFAULT_NARRATION_STYLE } from '../api/turnContract.ts'
 import {
   FIELD_CLASS, GLASS_SURFACE, GlassButton, GlassCTAButton, GlassField, GlassHeader, GlassScreen, LABEL_CLASS,
@@ -177,9 +177,7 @@ export default function WorldSetup({
         className={`shrink-0 ${GLASS_SURFACE} border-x-0 border-b-0 bg-[#07050c]/50 px-4 py-3 flex justify-center`}
         style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
       >
-        <GlassCTAButton onClick={() => onContinue(currentData())} icon={ArrowRight}>
-          Continue
-        </GlassCTAButton>
+        <GlassCTAButton onClick={() => onContinue(currentData())}>Continue</GlassCTAButton>
       </div>
     </GlassScreen>
   )
