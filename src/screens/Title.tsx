@@ -36,7 +36,7 @@ function AmbientSparks({ count = 22 }: { count?: number }) {
   )
 }
 
-// Blueprint §6.4A — Title/entry screen. The artwork itself (public/title-bg1.png
+// Blueprint §6.4A — Title/entry screen. The artwork itself (public/img/title-bg1.png
 // — numbered so a future rotating/crossfading background can add title-bg2.png,
 // title-bg3.png, etc. alongside it) already carries the wordmark, tagline and
 // dedication, so this screen adds nothing on top of it but ambient sparks, a
@@ -51,7 +51,7 @@ export default function Title({ onEnter, onSettings }: TitleProps) {
     >
       <div
         className="absolute inset-0 bg-center bg-cover"
-        style={{ backgroundImage: 'url(/title-bg1.png)' }}
+        style={{ backgroundImage: 'url(/img/title-bg1.png)' }}
         role="img"
         aria-label="A protagonist and companion leap from the pages of an open book, surrounded by golden light and vignettes of the worlds within."
       />
