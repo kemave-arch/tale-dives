@@ -1,17 +1,20 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-03, by a Claude Code session on the office machine, following
-directly on the overnight session below. Added: GitHub Pages deployment, a Settings
-terminology/UI polish pass (icon-only tabs, slider controls, icon-only Cancel/Save), and a
-Fourth Wing/Violet Sorrengail starter World+Protagonist template with a mobile-first
-redesign of WorldSetup/NewGame. See the top of the Revision log for the full detail.
+**Last updated:** 2026-09-03, by a Claude Code session on the home machine. Added: a
+4-screen new-story creation flow (Story Mode → World Setup → Protagonist Setup → Tale Dive
+Brief), gender/age fields for Player/NPCs, a default-Narrative combat mode, an in-app
+`useConfirm()` modal replacing every `window.confirm()` call site (which was silently
+no-oping — see its Revision log entry), Main Menu Worlds/Protagonists edit buttons, and a
+full art-driven Title screen redesign. See the bottom of the Revision log for full detail;
+this pass also left real unfinished work (campaign seeding, a prologue beat, and streaming
+turn rendering — see the new §4 item below) that a future session should pick up next.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
-resume without re-deriving context. It reflects the actual code on `master` as of commit
-`087b413`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
-intentions — several blueprint sections describe features that are **not** built yet, and
-that distinction matters below. **Check the Revision log at the bottom first** — it's the
-fastest way to see what's changed since your last read of this file.
+resume without re-deriving context. It is kept in sync with the actual code on `master`
+(currently `ce63a71`), verified by direct inspection (grep/read), not by trusting the
+blueprint doc's intentions — several blueprint sections describe features that are **not**
+built yet, and that distinction matters below. **Check the Revision log at the bottom
+first** — it's the fastest way to see what's changed since your last read of this file.
 
 **Session summary, if you only read one paragraph:** every Tier 3 priority item shipped
 and was verified live except #15 (Inspired Mode), which was spiked and deliberately
@@ -92,6 +95,19 @@ server restart: don't keep retrying automatically — say so and ship on code re
 clean build, flagging the gap explicitly rather than silently claiming live verification
 that didn't happen.**
 
+**A fourth variant, home machine, 2026-09-03 (Title screen redesign session)**: the
+`computer` tool's `left_click` action itself reported `"computer timed out after 30s...
+Browser pane is currently hidden"` on nearly every click that session, every single time —
+but the click had, in fact, landed. Checking `get_page_text`/`read_page` immediately after
+a reported timeout consistently showed the app had already navigated or updated state
+correctly. This is a *milder* cousin of the second variant above (real input reaches the
+page and the DOM does update — unlike variant two's stuck paint — but the tool's own
+success/failure report is wrong), not the third variant's total stall (screenshots and
+`read_page` both worked fine throughout). **Do not trust a `left_click` timeout error on
+its own as proof nothing happened** — immediately check real state (`get_page_text` or
+`read_page`) before retrying or concluding a click failed; retrying a click that actually
+landed risks a double-submit on anything non-idempotent (e.g. a second nested navigation).
+
 ## 1. What Tale Dives is
 
 A single-player, browser-only (no backend) AI-narrated text RPG. Vite + React 19 +
@@ -105,9 +121,14 @@ section of the blueprint for the full spec," not "this is built."
 
 ## 2. Current file inventory (verified against actual `src/`, not assumed)
 
-**Screens** (`src/screens/*.tsx`): `Title`, `Settings`, `MainMenu`, `WorldSetup`,
-`NewGame`, `Chronicle` (main gameplay), `Codex` (Locations/NPCs/Factions/Lore/Quests/
-Bestiary/Items browser + CRUD), `SlashCommandManager` (new this session).
+**Screens** (`src/screens/*.tsx`): `Title` (redesigned this session — full-bleed artwork,
+see its own Revision log entry; the entry-point screen), `StoryMode` (new this session —
+Original/Inspired mode picker, step 1 of the creation flow), `Settings`, `MainMenu`,
+`WorldSetup` (step 2), `NewGame` (step 3, "Protagonist Setup" in UI copy), `TaleBrief` (new
+this session — step 4, opening scene + narration/creativity/combat-mode settings, the
+screen that actually calls `beginCampaign`), `Chronicle` (main gameplay), `Codex`
+(Locations/NPCs/Factions/Lore/Quests/Bestiary/Items browser + CRUD),
+`SlashCommandManager`.
 
 **Lib** (`src/lib/*.ts`): `store.ts` (persistence), `jitContext.ts` (per-turn context
 slicing), `shadowReferee.ts` (client-side validation of model-proposed deltas), `codex.ts`
@@ -117,9 +138,10 @@ math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts
 client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `crafting.ts`
 + `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic), `summoning.ts`
 (§5.3 Summoning/Minion engine), `factions.ts` (§5.4/§5.11 rivalry + derived standing),
-`fsAccess.ts` (§6.4B File System Access API wrapper, new this session), `currency.ts`,
-`derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`, `turnStates.ts`,
-`backup.ts` (`downloadJSON`/`readJSONFile` plus the new `saveJSON`, folder-aware).
+`fsAccess.ts` (§6.4B File System Access API wrapper), `useConfirm.tsx` (new this session —
+an in-app confirm modal; see its Revision log entry for why `window.confirm()` had to go),
+`currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`,
+`turnStates.ts`, `backup.ts` (`downloadJSON`/`readJSONFile` plus `saveJSON`, folder-aware).
 
 **API** (`src/api/`): `turnContract.ts` (system prompt + `TURN_SCHEMA`),
 `providers/types.ts` (the `Provider` interface, new this session),
@@ -137,17 +159,24 @@ Actions on every push to `master` (repo's Pages source is set to "GitHub Actions
 subpath without hardcoding the repo name — safe since there's no URL-based router, only
 in-app `screen` state.
 
+**Static assets** (`public/`): `img/title-bg1.png` (the Title screen's full-bleed
+background artwork, new this session — numbered so a future rotating/crossfading
+background can add `title-bg2.png`, `title-bg3.png`, etc. without a path scheme change;
+`img/title-bg2.png` already sits alongside it, uploaded ahead of that feature but not yet
+wired to anything) referenced by `src/screens/Title.tsx` as `url(/img/title-bg1.png)`.
+
 **Ambient types** (`src/types/`): `fileSystemAccess.d.ts` — minimal File System Access API
 types not yet in TS's bundled DOM lib, new this session.
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `087b413`. See `git log --oneline` for
+Everything below is implemented and working as of `ce63a71`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
-- **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
-  (Original Mode only) → New Game (protagonist creation) → Chronicle (the turn loop) →
-  Codex. Gemini API wired end-to-end with structured-JSON turns.
+- **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → Story Mode
+  (Original/Inspired picker) → World Setup (Original Mode only) → Protagonist Setup
+  (`NewGame.tsx`) → Tale Dive Brief → Chronicle (the turn loop) → Codex. Gemini API wired
+  end-to-end with structured-JSON turns.
 - **§5.1 / §5.13 Tactical combat** — client-computed exchange math, no round-trip to
   Gemini for damage resolution once a fight is active.
 - **§5.1a Milestone Leveling** — auto level-ups on quest completion / chapter boundaries.
@@ -251,6 +280,75 @@ the literal commit sequence; the summary here groups by feature, not commit.
   (`showDirectoryPicker()` needs a user gesture / opens outside the page DOM) — the
   IndexedDB plumbing and feature detection were verified directly, but a human should
   click through the actual link/write/unlink flow before relying on it.
+- **4-screen new-story creation flow restructure** (home-machine session, commits
+  `3e7dcee`/`a53ec11`) — replaces the old MainMenu → WorldSetup → NewGame → `beginCampaign`
+  path with Story Mode (`StoryMode.tsx`, new — Original/Inspired picker; Inspired stays
+  "Coming soon", same stub as before, just moved earlier) → World Setup (unchanged
+  template picker, minus its old inline mode toggle, plus new Save Preset/Save as New
+  Preset buttons calling `upsertWorld` directly) → Protagonist Setup (`NewGame.tsx`,
+  renamed in UI copy only; same new preset-save buttons via `upsertProtagonist`; the Tale
+  Dive Brief textarea moved out) → Tale Dive Brief (`TaleBrief.tsx`, new — opening-scene
+  textarea, Narration Style, a Creativity Randomness slider, and a Narrative/Tactical
+  combat-mode toggle with tap-to-reveal tooltips explaining each; **this screen is what
+  actually calls `beginCampaign`** now, not Protagonist Setup). Also added: `gender?:
+  string`/`age?: number` on `Player`/`NpcEntry`/`ProtagonistData` (free-short-text/plain
+  int, 0 context cost when unset — appended to the player/NPC context lines in
+  `jitContext.ts`/`npcs.ts` only when set; the model is never asked to supply an NPC's via
+  schema, only the player sets those through Codex CRUD), and new campaigns now default to
+  `combatMode: 'NARRATIVE'` instead of `'TACTICAL'` (existing campaigns unaffected).
+  **Scope note — this was originally planned as a 6-phase effort** (plan file, not in this
+  repo: a Claude Code `EnterPlanMode` artifact from that session); **only phases 1-3
+  shipped** (default combat mode, gender/age, the 4-screen restructure above). Phases 4-6
+  — campaign seeding (a new non-grounded `runSeed` call pre-populating hidden Codex
+  entries via the existing Discovery system before Turn 1), a prologue-beat loading
+  treatment on a brand-new campaign's first turn, and streaming turn rendering (Gemini
+  `:streamGenerateContent`, reusing `gemini.ts`'s existing `extractNarrative()` incremental
+  parser, with a fade-wipe reveal in Chronicle) — were **not started**. See §4's new entry
+  below for the carried-forward detail; do not assume any of the three exist. Verified
+  live: clicked through Story Mode → World Setup (Save Preset confirmed appearing in Main
+  Menu's Worlds tab) → Protagonist Setup (same) → Tale Dive Brief (tooltips open, Start
+  correctly threads `opening`/`combatMode`/`narrationStyle`/`temperature` into
+  `beginCampaign`). `npm run typecheck`/`npm run build` clean throughout.
+- **`useConfirm()` in-app modal, replacing `window.confirm()` everywhere** (commit
+  `a53ec11`) — see this entry's own Revision log write-up below for the root cause
+  (`window.confirm()` was silently returning `false` with no dialog at all in this app's
+  embedded preview environments — a real, previously-invisible bug that had likely been
+  silently no-oping every delete/reset/confirm action in the app for an unknown period,
+  not just the one the user happened to notice). All 7 call sites across `App.tsx` (×4),
+  `Codex.tsx` (×2), and `SlashCommandManager.tsx` (×1) now route through the new
+  `src/lib/useConfirm.tsx` hook instead. Verified live: the user directly confirmed the
+  fix worked ("it worked wonderfully") after this shipped.
+- **Main Menu Worlds/Protagonists tabs gained Edit buttons** (commit `cc1c955`) —
+  previously these library tabs had Set-Default and Delete but no way to edit an existing
+  entry at all, despite `WorldSetup`/`NewGame`'s "library" edit mode already existing and
+  working; just never exposed via a button. Also compacted both tabs' list rows (icon +
+  name/detail + inline icon-button row, replacing tall padded cards) and brightened the
+  Tales tab's `DashedCard` ("New Story"/"Import Tale") hover treatment per user feedback.
+- **Title screen redesign, art-driven** (home-machine session, commits `9a0ce8f`/`ce63a71`)
+  — replaced the plain wordmark-on-canvas v1 scaffold with a full-bleed background artwork
+  (`public/img/title-bg1.png`, a "book portal" illustration the user supplied) topped with
+  a `.title-sparks` rising-ember CSS animation (22 particles, gold, `prefers-reduced-motion`
+  respected — see `index.css`), a bottom scrim for legibility, and a single transparent
+  gold-bordered "Dive In" button (glows on hover/press) plus a Settings icon — deliberately
+  **no** Worlds/Journal/Profile/Inventory/Achievements row, since none of those are actual
+  separate screens today and a button for them would just be decoration. Went through an
+  intermediate `TitleAlt.tsx` "trial alternate" toggle screen first (per the user's initial
+  ask to compare side-by-side); once approved ("omg... it's gorgeous"), `TitleAlt.tsx` was
+  promoted to be the one and only `Title.tsx` and fully deleted as a separate file — if you
+  see any reference to `TitleAlt`/`titlealt` anywhere, it's stale, since the codebase has
+  none. Background art lives under `public/img/` (moved there from a flat `public/` root
+  per user request) and is numbered (`title-bg1.png`) specifically so a future
+  rotating/crossfade background (`title-bg2.png`, `title-bg3.png`, ... — `title-bg2.png`
+  is already sitting there unwired, uploaded ahead of that feature) can be added without a
+  path-scheme change; nothing currently reads `title-bg2.png`. Verified live: full-bleed
+  render confirmed via direct `getBoundingClientRect()` (not just a screenshot — this
+  session's browser tool had a screenshot-capture glitch, see §0's fourth tooling-trap
+  variant above), 22 spark elements confirmed present in the DOM, and the Dive In button
+  confirmed to actually navigate to Main Menu. `npm run typecheck`/`npm run build` clean.
+  **This session's local commits also diverged from `origin/master`** (the office machine
+  had pushed a blueprint-doc-only commit independently) — reconciled with a plain `git
+  merge origin/master` (no conflicts, doc-only content) before the final push; `master` and
+  `origin/master` are in sync as of `ce63a71`.
 
 ## 4. What's NOT built yet — the Tier 3 priority list
 
@@ -319,6 +417,47 @@ assumption.
    commit `9a2fed0`. See §3 above for scope notes (Gemini is still the only real provider;
    the native folder-picker's live click/write/unlink flow needs a human verification
    pass — browser automation can't drive that native OS dialog).
+
+7. **Campaign seeding, prologue beat, and streaming turn rendering** (not a blueprint
+   §-numbered item on the original list — user-requested this session, home machine,
+   2026-09-03, alongside the new-story creation flow in §3 above). Planned as phases 4-6 of
+   a 6-phase plan; **only phases 1-3 shipped** (the creation-flow restructure). None of the
+   three below exist in the code — carrying the plan's detail forward here since the
+   original plan file lives outside this repo (a Claude Code `EnterPlanMode` artifact, not
+   committed anywhere) and would otherwise be lost to a future session:
+   - **Campaign seeding**: a new, small, **non-grounded** JSON schema/call (like
+     `runSummary` — not search-grounded, so unaffected by #15's quota block above) that
+     takes World Background/Genre/Conflict + Protagonist Background/Brief and returns a
+     short batch of Codex entries across NPCs/Locations/Factions/Lore, each optionally
+     marked hidden with a `teaser`/`revealTrigger` — the exact shape `discovery.ts`'s
+     `Discovery` type already expects (§5.12, already built and working). Would need a
+     `SEED_SCHEMA` in `turnContract.ts`, a `runSeed` function in `gemini.ts` + the
+     `Provider` interface, and a call from `App.tsx`'s `beginCampaign` (non-fatal on
+     failure, same pattern as `recapChapter`) before the first real turn fires.
+   - **Prologue beat**: purely a pre-roll loading treatment in `Chronicle.tsx` for
+     `log.length === 0 && busy` (a brand-new campaign's very first turn only) — a short
+     atmospheric loading-phrase sequence with a soft fade/ink-bloom transition
+     (CSS-only, `prefers-reduced-motion`-respecting, same convention as
+     `AmbientBackground`/`.chrome-motes`/this session's own `.title-sparks`). The actual
+     prologue *text* is just Turn 1's narration — no special-cased content, this is only
+     about what shows while waiting for it.
+   - **Streaming turn rendering** (the highest-risk, most cross-cutting piece — touches
+     every turn, not just the first): a new `runTurnStreaming(params, onPartialNar)` in
+     `gemini.ts` calling Gemini's `:streamGenerateContent?alt=sse` endpoint, re-running the
+     **already-existing** `extractNarrative()` (the Stage 3 fallback reader that already
+     tolerates an unterminated JSON string) against the growing SSE buffer after each
+     chunk, invoking a callback with newly-available prose. `App.tsx`'s `sendAction` would
+     hold a transient `streamingNar: string | null`; `Chronicle.tsx` renders it as
+     plain-prose spans (deliberately **not** run through `renderNarrative`'s rich-text
+     markup mid-stream — a `[Skill` or `{{Term` tag can be mid-stream and unparseable) each
+     with a short CSS fade-in, replaced by the normal committed `TurnBlock` once the turn
+     completes and the full Stage 1/2/3 sanitize/parse/Shadow-Referee path runs exactly as
+     today. Input is already disabled during `busy` for its full duration
+     (`disabled={busy}` in `Chronicle.tsx` already), so no new work needed there.
+   Whoever picks this up next should re-derive the phase order rather than assume this
+   summary is exhaustive — it's a compression of a longer plan, kept here specifically so
+   the intent isn't lost, not a replacement for thinking through the integration points
+   fresh.
 
 ### Also noted in the blueprint but not on the numbered list above
 
@@ -823,3 +962,117 @@ the office machine, picking up directly afterward — same repo, same `master` b
   specifically, since the existing `AmbientBackground` canvas sits behind the chrome
   (z-0) and gets fully masked at high HUD Opacity — it could never provide ambience *on*
   the chrome itself, only in gaps around it. `npm run build` clean.
+
+---
+
+**Everything below is a separate session, home machine, 2026-09-03, picking up after the
+office session above — same repo, same `master` branch.**
+
+- **2026-09-03** — Smaller UI feedback batch, each addressed immediately and independently
+  of the larger creation-flow work below: made Chronicle's header more vertically compact
+  and fixed the Block Navigator's scroll-to offset to account for the shorter-but-still-
+  present fixed header (it was scrolling a target block's header line directly behind the
+  header, not past it — `scrollBlockIntoView` now offsets by `headerHeight + 16` instead of
+  a flat `8`); changed Settings' default HUD Opacity from 50% to 80%
+  (`store.ts`'s `loadUiPrefs()`); widened the Tale Dive Brief screen's opening/narration-
+  style textareas (`rows={10}`/`rows={6}`, both `resize-y`) since the fields were cramped
+  for the amount of text they're meant to hold.
+- **2026-09-03** — Requested and planned (via `EnterPlanMode`, approved by the user) a
+  6-phase effort covering a 4-screen new-story creation flow plus campaign
+  seeding/prologue/streaming. **Phases 1-3 shipped this session** (commits `3e7dcee`,
+  `a53ec11`); **phases 4-6 did not** — see §4's new numbered item above for the carried-
+  forward plan detail (kept here since the original plan file isn't part of this repo).
+  Phase 1 (default `combatMode: 'NARRATIVE'`) and phase 2 (`gender`/`age` fields) were
+  small, uneventful, and verified via typecheck/build plus code review. Phase 3 (the
+  4-screen restructure: `StoryMode.tsx` and `TaleBrief.tsx` new, `WorldSetup.tsx`/
+  `NewGame.tsx` gained preset-save buttons and had their old inline mode toggle/Tale-Dive-
+  Brief field moved) hit one real bug caught by console inspection during live testing: a
+  `<button>` nested inside another `<button>` in `TaleBrief.tsx`'s combat-mode selector
+  (each option's tooltip button was a child of the option's own selection button) — invalid
+  HTML that silently broke click handling past that point in the flow. Fixed by
+  restructuring each combat-mode option into a non-interactive wrapper `<div>` holding two
+  sibling `<button>`s. Verified live end-to-end: Story Mode → World Setup (Save Preset
+  confirmed landing in Main Menu's Worlds tab) → Protagonist Setup (same, via
+  `upsertProtagonist`) → Tale Dive Brief (tooltips open on tap, textareas take input, Start
+  correctly threads `opening`/`combatMode`/`narrationStyle`/`temperature` through to
+  `beginCampaign`). Also fixed a stale-closure bug caught by code review before any live
+  testing: `beginCampaign` originally tried to read a just-dispatched `setPendingWorld`
+  update in the same synchronous handler (React state updates aren't synchronous) — fixed
+  by adding a `worldOverride?: Partial<WorldData>` parameter merged directly into the
+  locally-constructed `world` object instead of relying on state timing. `npm run
+  typecheck`/`npm run build` clean throughout.
+- **2026-09-03** — Fixed a real, previously-invisible bug the user reported via an
+  annotated screenshot ("the delete button ain't working"), pointing at MainMenu's Delete
+  action. Root-caused with `javascript_exec`, not guessed: `window.confirm('test')`
+  returned `false` **instantly with no dialog ever shown** in this app's embedded preview
+  environment — meaning every `window.confirm()`-gated action in the entire app (Tale/
+  World/Protagonist/Codex-entry deletion, Settings' Reset Defaults, Class Evolution's
+  manual-trigger save, slash-command deletion — 7 call sites total) had likely been
+  silently no-oping for an unknown period, not just the one button the user happened to
+  click. Fixed by building `src/lib/useConfirm.tsx` (a `useCallback`+`Promise`-based hook
+  returning `{ confirm, dialog }`; the rendered confirm modal's backdrop click calls
+  `e.stopPropagation()` deliberately, so it can safely nest inside another modal — e.g.
+  `SlashCommandManager` — without a Cancel click bubbling into the host modal's own
+  backdrop-close handler) and migrating all 7 call sites in `App.tsx`, `Codex.tsx`, and
+  `SlashCommandManager.tsx` to the async `await confirm(...)` pattern (commit `a53ec11`).
+  User directly confirmed the fix worked after this shipped ("yes it worked wonderfully").
+  Also added, same batch: an Edit button to MainMenu's Worlds/Protagonists tabs (the
+  underlying `WorldSetup`/`NewGame` "library" edit mode already existed and worked, just
+  had no button anywhere to trigger it — a real, previously-unnoticed UX gap), compacted
+  both tabs' rows from tall padded cards to a single-row icon+detail+action layout, and
+  brightened the Tales tab's `DashedCard` ("New Story"/"Import Tale") hover treatment per
+  separate user feedback (commit `cc1c955`). **Verification note**: end-to-end live click-
+  through of every one of these did not fully complete due to the browser-automation
+  tool's instability that session (see §0's tooling-trap entries) — shipped on typecheck/
+  build plus careful code review for the harder-to-verify paths, disclosed as such in the
+  commit messages at the time.
+- **2026-09-03** — Title screen redesign, prompted by the user sharing a reference image
+  (an AI-generated "book portal" mockup) and asking for "an alternate menu screen we can
+  switch to first for this trial" with a real background photo. Built `TitleAlt.tsx` as a
+  genuinely separate, toggleable screen first (a new `'titlealt'` Screen union member in
+  `App.tsx`, with "Try the alt look"/"Switch to classic look" links on each screen) rather
+  than touching the shipping `Title.tsx` directly — deliberate, since this was explicitly
+  framed as a trial. Iterated through several rounds of live feedback before promotion:
+  (1) first pass included a Worlds/Journal/Profile/Inventory/Achievements button dock
+  mirroring the reference image's layout; user then supplied the actual final artwork
+  (which already had the wordmark/tagline/dedication baked into the image itself) and said
+  to drop every button that doesn't lead to a real screen — cut down to just Dive In +
+  Settings. (2) User asked to move the button up (it was covering the artwork's own
+  "BETA 0.8 RELEASE" dedication text), make it transparent with bright-gold text/border
+  instead of a solid cream fill, glow on press, and add light-particle animation matching
+  the artwork, layered **above** the image (an explicit correction after the first particle
+  pass was added below/behind by default) — all four addressed in one pass: `mb-14` lift,
+  `border-2 border-[#e8ca8a] bg-black/20` with `active:shadow-[...]` glow, and a new
+  `.title-sparks` CSS class (22 randomly-positioned rising-ember spans, `z-index` ordered
+  between the image/scrim and the buttons). (3) User then said "make this the default...
+  remove the old one... clean up the classic one and remove its related files" — at that
+  point `TitleAlt.tsx`'s content was moved into `Title.tsx` verbatim (renamed export, drop
+  the now-unnecessary "Switch to classic look" link), `TitleAlt.tsx` was deleted outright,
+  and every `'titlealt'` reference was removed from `App.tsx` (Screen union, both render
+  branches) — grepped afterward to confirm zero stragglers. Pushed as commit `9a0ce8f`.
+  Separately, per a forward-looking question about a future rotating/crossfading title
+  background ("I might add title-bg1, title-bg2..."), confirmed that numbering convention
+  is correct and proactively renamed the current file to `title-bg1.png` (no cycling logic
+  built — the user said "might," not "do it now"), then per immediate follow-up moved the
+  whole thing into `public/img/` (`title-bg1.png` + an already-uploaded, not-yet-wired
+  `title-bg2.png`) — commit `ce63a71`. **Verification**: this session hit a new, milder
+  tooling quirk (§0's fourth variant, documented above) where nearly every reported
+  `left_click` timeout had, in fact, landed — caught by cross-checking `get_page_text`
+  after each reported failure rather than trusting the error or retrying blind. Confirmed
+  live: full-bleed layout via direct `getBoundingClientRect()` (not just a screenshot, since
+  this session's screenshot capture itself glitched mid-session), 22 spark elements present
+  in the DOM, `/img/title-bg1.png` loading with a real `200` (checked via
+  `read_network_requests`), and the Dive In button actually navigating to Main Menu.
+  `npm run typecheck`/`npm run build` clean at every step.
+- **2026-09-03** — Committed and pushed all of the above. Local `master` had diverged from
+  `origin/master` (2 local commits vs. 1 remote-only commit — a blueprint-doc-only update
+  from the office machine, consistent with this project's multi-machine workflow) —
+  reconciled with a plain `git merge origin/master --no-edit` (clean, no conflicts, since
+  the remote commit only touched `Tale-Dives-Blueprint-v2_4.md`) rather than a rebase or
+  force-push. Final state: `master` and `origin/master` both at `ce63a71`. **Where this
+  leaves the project**: creation-flow phases 1-3 and the Title redesign are done and
+  pushed; phases 4-6 (campaign seeding, prologue beat, streaming turn rendering — §4's new
+  item above) are genuinely unstarted and are the most substantial piece of designed-but-
+  not-built work in the project right now. The verify-and-fix and beautification passes
+  from the office session remain exactly where that session's log left them — untouched
+  this session.
