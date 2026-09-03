@@ -2,28 +2,47 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 
 // Shared "border-only glassmorphism" chrome for screens that sit directly on
-// top of the cycling background art (Title, MainMenu) — transparent fill,
-// a thin gradient-gold border, blur that only appears on hover/press. See
-// Title.tsx's original Dive In button for how this was worked out (mask-
-// composite for the ring so the gradient can't bleed into the interior, and
-// a transition scoped to box-shadow only so backdrop-filter doesn't get
-// stuck interpolating toward Tailwind's empty "none" value).
+// top of the cycling background art (Title, MainMenu) — transparent fill at
+// rest, a thin gradient-gold border, a frosted white tint + blur that only
+// appears on hover/press. Two things worth knowing before touching this:
+// - The ring is built as its own clipped/masked shape so the gradient can
+//   never bleed into the interior (a plain fill behind a "transparent"
+//   inner layer just shows straight through — that was the original bug).
+// - `backdrop-filter` is deliberately left OUT of any `transition-[...]`
+//   list here. Tailwind's `backdrop-blur-none` compiles to `none`, not
+//   `blur(0)` — `none` is a keyword, not a numeric function, so most
+//   browser engines can't interpolate toward/from it and instead just
+//   freeze on the last value that *did* render, leaving hover's blur stuck
+//   on after the mouse leaves. Background-color and box-shadow animate
+//   fine (real numeric values); backdrop-filter just switches instantly.
 
 // A tapered-corner (chamfered) rectangle instead of a rounded pill.
 export const TAPER_CLIP =
   'polygon(10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px)'
 
-const RING_GRADIENT = 'linear-gradient(135deg, rgba(245,223,160,0.75), rgba(240,202,101,0.95), rgba(168,127,44,0.65)) border-box'
+// Uniform 1.5px hollow perimeter for the tapered rectangle, covering all 8
+// edges (4 straight, 4 diagonal taper cuts) via one evenodd cutout — traces
+// the outer TAPER_CLIP outline plus an inner copy inset by 1.5px, so the
+// fill between them is the ring. Replaces the mask-composite trick (which
+// only produces a uniform ring for a plain rectangle/rounded-rect — the
+// tapered case needed the ring built taper-aware from the start, not
+// clipped after the fact, or the ring reads unevenly thick at the corners).
+export const TAPER_BORDER_CLIP =
+  'polygon(evenodd, 10px 0, calc(100% - 10px) 0, 100% 10px, 100% calc(100% - 10px), calc(100% - 10px) 100%, 10px 100%, 0 calc(100% - 10px), 0 10px, 10px 0, 10.62px 1.5px, calc(100% - 10.62px) 1.5px, calc(100% - 1.5px) 10.62px, calc(100% - 1.5px) calc(100% - 10.62px), calc(100% - 10.62px) calc(100% - 1.5px), 10.62px calc(100% - 1.5px), 1.5px calc(100% - 10.62px), 1.5px 10.62px, 10.62px 1.5px, 10px 0)'
+
+const RING_GRADIENT = 'linear-gradient(135deg, rgba(245,223,160,0.75), rgba(240,202,101,0.95), rgba(168,127,44,0.65))'
 
 function GradientRing({ tapered }: { tapered?: boolean }) {
+  if (tapered) {
+    return <span aria-hidden="true" className="absolute inset-0 pointer-events-none" style={{ background: RING_GRADIENT, clipPath: TAPER_BORDER_CLIP }} />
+  }
   return (
     <span
       aria-hidden="true"
-      className={`absolute inset-0 pointer-events-none ${tapered ? '' : 'rounded-[inherit]'}`}
+      className="absolute inset-0 pointer-events-none rounded-[inherit]"
       style={{
-        clipPath: tapered ? TAPER_CLIP : undefined,
         border: '1.5px solid transparent',
-        background: RING_GRADIENT,
+        background: `${RING_GRADIENT} border-box`,
         WebkitMask: 'linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0) border-box',
         WebkitMaskComposite: 'xor',
         maskComposite: 'exclude',
@@ -49,8 +68,11 @@ export function GlassCTAButton({ onClick, icon: Icon, children, className = '' }
       style={{ clipPath: TAPER_CLIP }}
     >
       <GradientRing tapered />
+      {/* bg/box-shadow animate; backdrop-filter deliberately doesn't (see the
+          module comment) — it still changes instantly on hover/press, just
+          without a transition riding along that can get stuck. */}
       <span
-        className="absolute inset-0 backdrop-blur-none transition-[box-shadow] duration-150 group-hover:backdrop-blur-sm group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:backdrop-blur-sm group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
+        className="absolute inset-0 bg-white/0 backdrop-blur-none transition-[background-color,box-shadow] duration-200 group-hover:bg-white/20 group-hover:backdrop-blur-md group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:bg-white/25 group-active:backdrop-blur-md group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
         style={{ clipPath: TAPER_CLIP }}
       />
       <span className="relative z-10 flex items-center justify-center gap-2 px-6 py-2.5 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
