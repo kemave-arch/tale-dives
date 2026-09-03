@@ -168,6 +168,33 @@ body {
   .chrome-motes span { animation: none; opacity: 0.35; }
 }
 
+/* Title screen — rising gold embers layered over the artwork, echoing its
+   own painted light-streaks. Pure CSS, randomized once per mount. */
+.title-sparks {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.title-sparks span {
+  position: absolute;
+  bottom: 0;
+  border-radius: 50%;
+  background: #f5dfa0;
+  box-shadow: 0 0 6px 1.5px rgba(240, 202, 101, 0.85);
+  opacity: 0;
+  animation: title-spark-rise linear infinite;
+}
+@keyframes title-spark-rise {
+  0% { opacity: 0; transform: translateY(0) scale(0.6); }
+  12% { opacity: 0.9; }
+  80% { opacity: 0.45; }
+  100% { opacity: 0; transform: translateY(-92vh) scale(1.1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .title-sparks span { animation: none; opacity: 0.2; }
+}
+
 /* Themed scrollbars instead of the browser default. */
 * {
   scrollbar-width: thin;
