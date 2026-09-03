@@ -6,8 +6,8 @@ interface TitleProps {
   onSettings: () => void
 }
 
-// Each slot below ships as a pair: public/img/m_<stem>.png (phone-composed)
-// and public/img/pc_<stem>.png (tablet/desktop-composed) — see the note on
+// Each slot below ships as a pair: public/img/m_<stem>.webp (phone-composed)
+// and public/img/pc_<stem>.webp (tablet/desktop-composed) — see the note on
 // public/img/ in PROJECT_REVISION_NOTES.md. Add a stem here once its pair does.
 const BACKGROUND_SLOTS = ['title-bg1', 'title-bg2']
 const MOBILE_QUERY = '(max-width: 767px)'
@@ -18,8 +18,8 @@ const BG_HOLD_MS = 6000
 // behind. On a phone-width viewport, try the m_ variant first and silently
 // fall back to pc_ if it 404s; on anything wider, always use pc_ directly.
 function useResponsiveBg(stem: string): string {
-  const pcSrc = `/img/pc_${stem}.png`
-  const mobileSrc = `/img/m_${stem}.png`
+  const pcSrc = `/img/pc_${stem}.webp`
+  const mobileSrc = `/img/m_${stem}.webp`
   const [src, setSrc] = useState(pcSrc)
 
   useEffect(() => {
