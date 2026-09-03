@@ -1,19 +1,48 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-03, by a Claude Code session on the home machine. Same-day
-follow-up to the entry below: shipped a small punch list the user gave from the blueprint
-gap-scan (see §4's new item list) — a Title screen "Continue" shortcut, a save
-schema-version field, and the big one, a real **Equipment system** (§5.9 Item Type
-Taxonomy, equip slots, stat_bonus on equip/unequip via new `!equip`/`!unequip` bang
-commands) replacing what had been bare id+qty inventory with no name, type, or
-description at all. Also rebuilt Main Menu around the same cycling background and
-border-only glassmorphism chrome as Title, and fixed a GitHub Pages 404 on the background
-images (hardcoded leading-slash path instead of Vite's `BASE_URL`). See the bottom of the
-Revision log for full detail. Remaining items from that same punch list — Skills +
-Quick-Slot Tray, an API Failure Diagnostics Panel, Action Suggestion Pills (the `act`
-schema field already exists and is populated but is completely unread anywhere — a
-near-free win once picked up), and a Codex filters pass — are queued next; see §4's new
-list for the full detail and priority order the user gave.
+**Last updated:** 2026-09-03, end of a home-machine session, written as a leaving-the-desk
+handoff. Everything below is committed and pushed; `master` and `origin/master` are in
+sync at `85b2340`, working tree clean.
+
+> ## ⏭️ PICK UP HERE — pending work, in the user's own priority order
+> Full detail for each is in **§4's item 8**; this is the at-a-glance version.
+> 1. **Skills + Quick-Slot Tray** — *next up.* No skill/spell roster exists at all yet,
+>    only inline `[Skill]` text formatting in narration. User's framing: "the biggest
+>    missing mechanic for combat feel." **Ley-Arts was explicitly cut — Skills only.**
+> 2. **API Failure Diagnostics Panel** (§3.5) — masked key, one-click "Copy Diagnostic
+>    Report," Retry / Open Settings / Dismiss-into-PAUSE.
+> 3. **Action Suggestion Pills** (§6.4C) — *cheapest of the four.* The `act` schema field
+>    already exists, is required, and the model already populates it every turn; nothing
+>    in `src/` reads it (verified by grep). This is `App.tsx` (store it on the `LogEntry`)
+>    plus `Chronicle.tsx` (render clickable pills that fill the input) — no schema or
+>    prompt work needed.
+> 4. **Codex overhaul — filters.** User: "some items have drilldowns, but what we're
+>    missing are filters." Check against the blueprint before scoping.
+>
+> Also still open from earlier, unrelated to the list above: campaign seeding, the
+> prologue beat, and streaming turn rendering (§4 item 7), and Inspired Mode (§4 item 5,
+> deferred on a quota block with evidence — read that entry before re-attempting).
+
+Recent shipped work, most recent first: a **glass-button pass** on the shared
+`GlassCTAButton` (frosted hover tint, a properly uniform tapered border, ring-above-fill
+layering, focus-visible parity) plus the **hover trap** discovery now documented in §0 —
+read that before ever debugging a `hover:` style here. Before that: a punch list from the
+blueprint gap-scan — a Title screen "Continue" shortcut, a save schema-version field, and
+the big one, a real **Equipment system** (§5.9 Item Type Taxonomy, equip slots, stat_bonus
+on equip/unequip via new `!equip`/`!unequip` bang commands) replacing what had been bare
+id+qty inventory with no name, type, or description at all. Also rebuilt Main Menu around
+the same cycling background and border-only glassmorphism chrome as Title, and fixed a
+GitHub Pages 404 on the background images (hardcoded leading-slash path instead of Vite's
+`BASE_URL`).
+
+**Repos:** `origin` → `github.com/kemave-arch/tale-dives` (the live one; GitHub Pages
+deploys from it). A second remote `backup` → `github.com/kemave-arch/TaleDivesGem` (the
+user renamed it from `TaleDivesDev`; both URLs still resolve to it) holds a full mirror,
+pushed manually — **nothing syncs it automatically**, so `git push backup master` when it
+matters. It was created for a planned Google AI Studio experiment. Verified there is no
+`.env` in the history of either (they share history), and `.gitignore` already excludes
+`.env`/`.env.local` — keep it that way; the API key is per-user in `localStorage` and must
+never enter the bundle or the repo.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It is kept in sync with the actual code on `master`,
@@ -113,6 +142,34 @@ success/failure report is wrong), not the third variant's total stall (screensho
 its own as proof nothing happened** — immediately check real state (`get_page_text` or
 `read_page`) before retrying or concluding a click failed; retrying a click that actually
 landed risks a double-submit on anything non-idempotent (e.g. a second nested navigation).
+
+### The hover trap — check this FIRST before debugging any `hover:` style
+
+**Not a tool bug, and it cost the most time of anything in the 2026-09-03 sessions.**
+Tailwind v4 wraps *every* `hover:` and `group-hover:` rule in `@media (hover: hover)`.
+The preview pane, once it has been put in a mobile/touch viewport (`resize_window` with
+the `mobile` preset or any width < 768), keeps emulating a touch device — reporting
+`(hover: hover) → false`, `(pointer: coarse) → true`, `navigator.maxTouchPoints → 5` —
+**even after navigating, reloading, or restarting the dev server.** In that state every
+hover style in the app is switched off at the CSS level, so hover verification fails
+100% of the time and looks exactly like broken code or a dead input pipeline. An entire
+debugging arc this session (bisecting Title.tsx back through five commits, restarting the
+dev server, opening fresh tabs, concluding "total tool stall") was chasing this.
+
+**The one-line check, before anything else:**
+```js
+matchMedia('(hover: hover)').matches   // false => hover styles are disabled, period
+```
+If it's false, call `resize_window` with preset `desktop` and re-check — it flips to
+true and hover works first try. Two follow-on facts worth knowing:
+- **On genuine touch devices this is correct behavior, not a bug to fix.** A phone will
+  never fire `hover:`. Press feedback is the right affordance there, and `group-active:`
+  is **not** gated behind the hover media query (verified by walking the compiled CSS's
+  at-rule nesting), so tap feedback works on touch while hover styles don't.
+- If you need to *see* a hover state without working pointer input, injecting a `<style>`
+  element that forces the target declarations works and survives React re-renders —
+  setting `element.style.*` directly does **not**, because React resets the `style`
+  attribute on its next render of that element.
 
 ## 1. What Tale Dives is
 
@@ -1301,3 +1358,38 @@ office session above — same repo, same `master` branch.**
   Tray (Ley-Arts explicitly cut — just Skills), then the API Failure Diagnostics Panel,
   Action Suggestion Pills (the `act` schema field already exists and is populated but is
   read nowhere in `src/` — confirmed via grep), and a Codex filters pass.
+- **2026-09-03** — Glass-button pass on the shared `GlassCTAButton` (commits `91c5f40`,
+  `85b2340`), prompted by the user relaying changes another AI had made to
+  `glassChrome.tsx`. Reviewed rather than copied wholesale; adopted most of it, deviated
+  on one point, and the other AI's own follow-up analysis independently confirmed the
+  deviation was right. What landed:
+  - **`TAPER_BORDER_CLIP`** — replaces the old mask-composite ring. This fixed a real
+    bug I had shipped: the mask approach builds a ring from *rectangular* border-box
+    geometry, so chamfer-clipping it afterward left the four diagonal taper edges with no
+    ring drawn on them at all. The user saw exactly that ("now only the top bottom left
+    and right are colored"). The replacement is a single `polygon(evenodd, …)` tracing the
+    outer tapered outline plus an inner copy inset 1.5px, filling between them — uniform
+    thickness across all eight edges.
+  - **Frosted hover fill** — `bg-white/0` → 25% on hover, 30% on press, plus blur and the
+    gold glow. Ring now renders *after* the fill so the tint can't wash out the border;
+    `group-focus-visible:` mirrors hover for keyboard users.
+  - **`backdrop-filter` deliberately excluded from the `transition-[…]` list.** Tailwind's
+    `backdrop-blur-none` compiles to the keyword `none`, not a numeric `blur(0)`, and
+    engines can't interpolate a keyword against a filter function — the blur sticks on
+    after the pointer leaves. bg-color and box-shadow still animate; the blur just
+    switches instantly, which is imperceptible at 200ms on an element this size.
+  **The expensive lesson from this session is in §0's new "hover trap" subsection — read
+  it before debugging any hover style.** Short version: the preview pane was stuck in
+  touch emulation, `(hover: hover)` was false, and Tailwind gates every `hover:` rule
+  behind that media query, so hover was disabled at the CSS level. Verification failed
+  100% of the time and convincingly imitated both broken code and a dead input pipeline;
+  a five-commit bisect of `Title.tsx`, a dev-server restart, and fresh tabs were all spent
+  chasing it. One `matchMedia('(hover: hover)').matches` check answers it instantly.
+  After resetting the viewport to `desktop`, hover verified first try with real pointer
+  input, both directions: on → white@25% + `blur(12px)` + gold glow; off → transparent /
+  `none`, reverting immediately with no stuck blur. `npm run build` clean.
+
+  **Where this leaves things (end-of-session handoff):** `master` == `origin/master` ==
+  `85b2340`, working tree clean, nothing uncommitted. The pending list is at the top of
+  this file and in §4 item 8 — Skills is next up, and Action Suggestion Pills is the
+  cheapest of the four if a short session is all that's available.
