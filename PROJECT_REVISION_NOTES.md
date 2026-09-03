@@ -37,12 +37,27 @@ GitHub Pages 404 on the background images (hardcoded leading-slash path instead 
 
 **Repos:** `origin` → `github.com/kemave-arch/tale-dives` (the live one; GitHub Pages
 deploys from it). A second remote `backup` → `github.com/kemave-arch/TaleDivesGem` (the
-user renamed it from `TaleDivesDev`; both URLs still resolve to it) holds a full mirror,
-pushed manually — **nothing syncs it automatically**, so `git push backup master` when it
-matters. It was created for a planned Google AI Studio experiment. Verified there is no
-`.env` in the history of either (they share history), and `.gitignore` already excludes
-`.env`/`.env.local` — keep it that way; the API key is per-user in `localStorage` and must
-never enter the bundle or the repo.
+user renamed it from `TaleDivesDev`; both URLs still resolve to it), created for a Google
+AI Studio experiment. **Nothing syncs automatically** — `git push backup master` manually.
+
+**⚠️ The two repos have now diverged, and merging naively will break the Pages deploy.**
+AI Studio pushed `713fda9` ("chore: improve project configuration and metadata") to
+`backup` only. It adds a favicon, SEO metadata, Vite server host/port config, an empty
+`.env.example`, and a `VITE_GEMINI_API_KEY` fallback in `store.ts` — but it also
+**deletes `package-lock.json`**, and `.github/workflows/deploy.yml` runs `npm ci`, which
+*requires* a lockfile and fails hard without one. If that commit is merged into `origin`
+as-is, GitHub Pages deploys stop working until the lockfile is restored. Cherry-pick the
+good parts, or merge and then `npm install` to regenerate the lockfile before pushing.
+
+**On the `VITE_GEMINI_API_KEY` fallback specifically:** it is safe *as committed* — the
+`.env.example` value is empty, `.gitignore` still excludes `.env`/`.env.local`, and the
+Pages build runs on Actions where no `.env` exists, so the deployed bundle gets an empty
+string. The trap is one step away: `VITE_`-prefixed vars are **inlined into the client
+bundle at build time**, so putting a real key in `.env` and building — or wiring the key
+in as an Actions secret — publishes it in plaintext in `dist/assets/*.js` for anyone to
+read. Fine for local/AI-Studio dev; never for a deployed build. The intended design
+remains: the key is entered per-user in Settings and lives only in that browser's
+`localStorage`, never in the bundle or the repo.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It is kept in sync with the actual code on `master`,
