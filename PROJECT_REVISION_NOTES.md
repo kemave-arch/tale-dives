@@ -1,15 +1,21 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-03, by a Claude Code session on the home machine. Added: a
+**Last updated:** 2026-09-03, by a Claude Code session on the home machine. Same-day
+follow-up to the entry below: Main Menu was rebuilt around the same cycling background and
+border-only glassmorphism chrome as Title (shared into `src/lib/cyclingBackground.tsx` /
+`src/lib/glassChrome.tsx`), several Dive-In-button bugs got fixed (see the Revision log),
+and — the one that actually mattered for anyone visiting the live site — background images
+were 404ing on GitHub Pages because they used a hardcoded leading-slash path instead of
+Vite's `BASE_URL`; fixed and confirmed in the built bundle. Added: a
 4-screen new-story creation flow (Story Mode → World Setup → Protagonist Setup → Tale Dive
 Brief), gender/age fields for Player/NPCs, a default-Narrative combat mode, an in-app
 `useConfirm()` modal replacing every `window.confirm()` call site (which was silently
 no-oping — see its Revision log entry), Main Menu Worlds/Protagonists edit buttons, and a
-full art-driven Title screen redesign with a responsive `m_`/`pc_` background-image pairing
-system and a (currently single-slot, so dormant) crossfade cycler. See the bottom of the
-Revision log for full detail; this pass also left real unfinished work (campaign seeding, a
-prologue beat, and streaming turn rendering — see the new §4 item below) that a future
-session should pick up next.
+full art-driven Title/Main-Menu redesign with a responsive `m_`/`pc_` background-image
+pairing system and a live 2-slot crossfade cycler. See the bottom of the Revision log for
+full detail; this pass also left real unfinished work (campaign seeding, a prologue beat,
+and streaming turn rendering — see the new §4 item below) that a future session should pick
+up next.
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It is kept in sync with the actual code on `master`,
@@ -123,12 +129,13 @@ section of the blueprint for the full spec," not "this is built."
 
 ## 2. Current file inventory (verified against actual `src/`, not assumed)
 
-**Screens** (`src/screens/*.tsx`): `Title` (redesigned this session — full-bleed artwork,
-see its own Revision log entry; the entry-point screen), `StoryMode` (new this session —
-Original/Inspired mode picker, step 1 of the creation flow), `Settings`, `MainMenu`,
-`WorldSetup` (step 2), `NewGame` (step 3, "Protagonist Setup" in UI copy), `TaleBrief` (new
-this session — step 4, opening scene + narration/creativity/combat-mode settings, the
-screen that actually calls `beginCampaign`), `Chronicle` (main gameplay), `Codex`
+**Screens** (`src/screens/*.tsx`): `Title` (redesigned this session — full-bleed cycling
+artwork, the entry-point screen), `StoryMode` (Original/Inspired mode picker, step 1 of the
+creation flow), `Settings`, `MainMenu` (redesigned same session as Title, later same day —
+same cycling background + border-only glass chrome, no more skin-token `glass-panel`),
+`WorldSetup` (step 2), `NewGame` (step 3, "Protagonist Setup" in UI copy), `TaleBrief`
+(step 4, opening scene + narration/creativity/combat-mode settings, the screen that
+actually calls `beginCampaign`), `Chronicle` (main gameplay), `Codex`
 (Locations/NPCs/Factions/Lore/Quests/Bestiary/Items browser + CRUD),
 `SlashCommandManager`.
 
@@ -140,10 +147,14 @@ math), `leveling.ts` (milestone leveling + chapter boundaries), `bangCommands.ts
 client-side commands), `discovery.ts` (§5.12 Codex Discovery reveal checks), `crafting.ts`
 + `gameTime.ts` (§5.8 Crafting queue resolution + GameTime arithmetic), `summoning.ts`
 (§5.3 Summoning/Minion engine), `factions.ts` (§5.4/§5.11 rivalry + derived standing),
-`fsAccess.ts` (§6.4B File System Access API wrapper), `useConfirm.tsx` (new this session —
-an in-app confirm modal; see its Revision log entry for why `window.confirm()` had to go),
-`currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`, `autoRegister.ts`,
-`turnStates.ts`, `backup.ts` (`downloadJSON`/`readJSONFile` plus `saveJSON`, folder-aware).
+`fsAccess.ts` (§6.4B File System Access API wrapper), `useConfirm.tsx` (an in-app confirm
+modal; see its Revision log entry for why `window.confirm()` had to go),
+`cyclingBackground.tsx` (the shared background-slot picker/crossfader — `BACKGROUND_SLOTS`,
+`CyclingBackground`, used by both Title and MainMenu), `glassChrome.tsx` (the shared
+border-only-glassmorphism pieces — `TAPER_CLIP`, `GlassCTAButton`, `GlassIconButton`,
+`GLASS_SURFACE`), `currency.ts`, `derivedStats.ts`, `richText.tsx`, `slug.ts`,
+`autoRegister.ts`, `turnStates.ts`, `backup.ts` (`downloadJSON`/`readJSONFile` plus
+`saveJSON`, folder-aware).
 
 **API** (`src/api/`): `turnContract.ts` (system prompt + `TURN_SCHEMA`),
 `providers/types.ts` (the `Provider` interface, new this session),
@@ -161,13 +172,17 @@ Actions on every push to `master` (repo's Pages source is set to "GitHub Actions
 subpath without hardcoding the repo name — safe since there's no URL-based router, only
 in-app `screen` state.
 
-**Static assets** (`public/img/`): the Title screen's background artwork, one pair per
-"slot" — `m_<stem>.png` (phone-composed) and `pc_<stem>.png` (tablet/desktop-composed,
-also the guaranteed fallback if a slot's `m_` file doesn't exist yet). Today there's one
-slot, `title-bg1` → `m_title-bg1.png` + `pc_title-bg1.png`. `src/screens/Title.tsx`'s
-`BACKGROUND_SLOTS` array holds the stem list; add a stem there once its `m_`/`pc_` pair
-exists to extend the (currently dormant, single-slot) crossfade cycler. See that file's
-`useResponsiveBg` for the breakpoint/fallback logic and its own Revision log entry below.
+**Static assets** (`public/img/`): the Title/MainMenu cycling background artwork, one pair
+per "slot" — `m_<stem>.webp` (phone-composed) and `pc_<stem>.webp` (tablet/desktop-
+composed, also the guaranteed fallback if a slot's `m_` file doesn't exist yet). `.webp`,
+not `.png` — converted for ~90% smaller files, no visible quality loss. Two slots today,
+`title-bg1` and `title-bg2`, both real crossfading content (not a placeholder). `src/lib/
+cyclingBackground.tsx`'s `BACKGROUND_SLOTS` array holds the stem list; add a stem there
+once its `m_`/`pc_` pair exists to extend the cycle. Paths are built off
+`import.meta.env.BASE_URL`, not a hardcoded leading slash — that hardcoding is exactly what
+broke these images on the live GitHub Pages deploy (which serves from `/tale-dives/`, not
+the domain root) until this session's fix; see that file's `useResponsiveBg` and its own
+Revision log entry below before ever reintroducing a literal `/img/...` path anywhere.
 
 **Ambient types** (`src/types/`): `fileSystemAccess.d.ts` — minimal File System Access API
 types not yet in TS's bundled DOM lib, new this session.
@@ -1122,3 +1137,78 @@ office session above — same repo, same `master` branch.**
   aspect as the mobile image, not an actual wide composition) — expected and not a bug;
   will resolve itself once a real desktop-composed `pc_title-bg1.png` replaces the
   placeholder, no code change needed for that. `npm run typecheck`/`npm run build` clean.
+- **2026-09-03** — Same-day continuation: second background slot completed (real
+  `pc_title-bg2.webp` supplied, not a placeholder) and the crossfade cycler is now live for
+  real, not dormant; separately converted all four background images from `.png` to
+  `.webp` (~90% smaller, no visible quality loss) and moved images into `public/img/`
+  (from a flat `public/` root) per user request — both are pure asset/path changes, no
+  logic changes beyond updating the `.webp` extension in `useResponsiveBg`.
+- **2026-09-03** — Dive In button, three real bugs found and fixed via live verification,
+  each one a case of "looked right in a screenshot, was wrong under inspection":
+  1. The gradient-border technique (padding + a "transparent" inner layer) let the
+     gradient paint straight through the whole button, not just a thin ring — a plain
+     transparent fill doesn't mask what's underneath, it just reveals it. Fixed with
+     `mask-composite: exclude` on a dedicated border-only layer (real CSS `border` width,
+     not padding — the mask geometry boxes `padding-box`/`border-box` only differ when an
+     actual border exists).
+  2. Per a follow-up request, changed the button from a pill to a tapered-corner
+     (chamfered) rectangle via a shared `clipPath` polygon applied to all three stacked
+     layers, and switched `box-shadow` to `drop-shadow` (the former ignores `clip-path`,
+     the latter follows it).
+  3. Per "the interior should have zero blur/fill at rest, only on hover/press": scoping
+     blur to `group-hover`/`group-active` initially left it **stuck on** after unhovering.
+     Root cause: Tailwind's `backdrop-blur-none` compiles to an *empty* CSS custom
+     property (not an explicit `blur(0)`), and a `transition-all` that includes
+     `backdrop-filter` can get stuck trying to interpolate toward that empty value and
+     never actually reach it. Fixed by scoping the transition to `box-shadow` only, so
+     `backdrop-filter` snaps instantly instead of animating.
+  All three verified live via direct `getComputedStyle`/`:hover` inspection, not just
+  screenshots (screenshots don't reveal "the whole shape is tinted" vs "just a thin
+  border is" reliably at this size). `npm run typecheck`/`npm run build` clean throughout.
+- **2026-09-03** — Extracted Title's background-cycling and glass-button code into
+  `src/lib/cyclingBackground.tsx` and `src/lib/glassChrome.tsx` (no behavior change — Title
+  just imports them now) so Main Menu could reuse them, then rebuilt Main Menu per user
+  request: the same cycling background (pinned via `position: fixed` so it stays put while
+  the tale/world/protagonist list scrolls, unlike Title which never scrolls and uses the
+  cheaper `absolute`), the "TALE DIVES" wordmark/tagline header dropped (the art already
+  carries it), and every tab/card/row/icon-button restyled to border-only glass
+  (`GLASS_SURFACE`, `GlassIconButton` — transparent fill, thin border, blur) instead of the
+  old skin-token `glass-panel`. This retires the light/dark "parchment"/"obsidian" skin
+  toggle's relevance on this screen entirely — real photo art behind it makes a light skin
+  option meaningless here, so Main Menu now always uses the same hardcoded obsidian-gold
+  palette Title and Chronicle already use unconditionally.
+
+  **A real regression, found and fixed while verifying this**: after these changes,
+  clicking "Dive In" stopped navigating anywhere. Extensive bisection (see below) proved
+  it was **not** actually an app bug: `screen` state updated correctly every time (verified
+  by walking the React fiber tree directly), but the DOM never followed — and critically,
+  the *exact same* stuck behavior reproduced on the completely untouched, pre-today
+  original `Title.tsx` (`git checkout cc1c955 -- src/screens/Title.tsx`), on a fully
+  restarted dev server, and on a brand-new browser tab. `tabs_context` reported "the
+  Browser pane is currently hidden" throughout — this is the same documented tooling-trap
+  family from earlier sessions (§0 above), not a new one, just re-triggered by this
+  session's long runtime. **Verified Main Menu's actual code correctness a different way**:
+  temporarily changed `App.tsx`'s initial `screen` state to `'mainmenu'` (a one-line,
+  fully-reverted diagnostic, not a real change), confirmed the new design renders and its
+  local interactions (tab switching) work correctly, then reverted. A brief false alarm
+  during this check — the active-tab border looked like it was on the wrong tab in a
+  screenshot — turned out to be a misread of a small/busy screenshot; `getComputedStyle`
+  confirmed the active-tab class was on the correct button the whole time. **The
+  Title→MainMenu click transition itself was never re-confirmed live this session** —
+  a human (or a future session, once the tool recovers) should do that one check.
+  `npm run typecheck`/`npm run build` clean throughout.
+- **2026-09-03** — User reported the background not rendering on the live GitHub Pages
+  site (`kemave-arch.github.io/tale-dives/`) despite working fine locally. Root cause:
+  `useResponsiveBg` built image paths with a hardcoded leading slash (`/img/...`), which
+  resolves from the **domain root** — correct for the dev server (mounted at
+  `localhost:5173/`) but wrong for GitHub Pages, which serves this app from the
+  `/tale-dives/` **subpath**, so the request actually hit `kemave-arch.github.io/img/...`
+  (a real path on someone else's Pages site, or nothing) and 404'd. Fixed by building the
+  path off `import.meta.env.BASE_URL` instead, matching how `vite.config.ts`'s
+  `base: './'` already handles every Vite-processed asset — confirmed in the actual built
+  `dist/assets/*.js` output that the compiled path template is `` `./img/pc_${e}.webp` ``,
+  a relative path that resolves correctly under any subpath. **This class of bug — a
+  hand-written `url(/...)` or fetch path that bypasses Vite's asset pipeline — will recur
+  for any future asset referenced the same way; always build such paths off
+  `import.meta.env.BASE_URL`, never a bare leading slash.** `npm run build` clean; the
+  user confirmed the live site renders correctly after the next Pages Actions deploy.
