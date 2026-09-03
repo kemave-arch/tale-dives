@@ -67,14 +67,17 @@ export function GlassCTAButton({ onClick, icon: Icon, children, className = '' }
       className={`group relative inline-flex drop-shadow-[0_8px_14px_rgba(0,0,0,0.85)] transition-all duration-150 hover:-translate-y-0.5 hover:brightness-110 active:scale-[0.98] active:brightness-125 ${className}`}
       style={{ clipPath: TAPER_CLIP }}
     >
-      <GradientRing tapered />
-      {/* bg/box-shadow animate; backdrop-filter deliberately doesn't (see the
-          module comment) — it still changes instantly on hover/press, just
-          without a transition riding along that can get stuck. */}
+      {/* Fill sits BELOW the ring so the frosted tint never dulls the gold
+          border on hover. bg/box-shadow animate; backdrop-filter deliberately
+          doesn't (see the module comment) — it still changes instantly on
+          hover/press, just without a transition riding along that can get
+          stuck. focus-visible mirrors hover so keyboard users get the same
+          affordance. */}
       <span
-        className="absolute inset-0 bg-white/0 backdrop-blur-none transition-[background-color,box-shadow] duration-200 group-hover:bg-white/20 group-hover:backdrop-blur-md group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-active:bg-white/25 group-active:backdrop-blur-md group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
+        className="absolute inset-0 bg-white/0 backdrop-blur-none transition-[background-color,box-shadow] duration-200 group-hover:bg-white/25 group-hover:backdrop-blur-md group-hover:shadow-[0_0_18px_2px_rgba(240,202,101,0.35)] group-focus-visible:bg-white/25 group-focus-visible:backdrop-blur-md group-active:bg-white/30 group-active:backdrop-blur-md group-active:shadow-[0_0_34px_10px_rgba(240,202,101,0.7)]"
         style={{ clipPath: TAPER_CLIP }}
       />
+      <GradientRing tapered />
       <span className="relative z-10 flex items-center justify-center gap-2 px-6 py-2.5 font-display text-sm uppercase tracking-[0.2em] text-[#f5dfa0]">
         <span className="text-[#f0ca65]">◆</span>
         {Icon && <Icon size={14} />}
