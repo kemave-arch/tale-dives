@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { ArrowLeft } from 'lucide-react'
 import { CyclingBackground } from './cyclingBackground.tsx'
@@ -173,6 +173,38 @@ export const GLASS_SURFACE_HOVER = 'transition-colors duration-150 hover:border-
 // noise competing with the text.
 export type Ground = 'art' | 'dark'
 
+// Rising gold embers over the artwork, echoing the illustrations' own painted
+// light-streaks. Started life inside Title; shared here so every ground="art"
+// screen gets the same ambience rather than the effect stopping dead the
+// moment you leave the front door. Positions randomized once per mount, with
+// negative delays so they don't all ignite on the same beat.
+export function AmbientSparks({ count = 22 }: { count?: number }) {
+  const sparks = useMemo(
+    () =>
+      Array.from({ length: count }, () => {
+        const size = 2 + Math.random() * 2.5
+        return {
+          left: `${Math.random() * 100}%`,
+          bottom: `${Math.random() * 25}%`,
+          size,
+          duration: `${9 + Math.random() * 8}s`,
+          delay: `${-(Math.random() * 17)}s`,
+        }
+      }),
+    [count],
+  )
+  return (
+    <div className="title-sparks" aria-hidden="true">
+      {sparks.map((s, i) => (
+        <span
+          key={i}
+          style={{ left: s.left, bottom: s.bottom, width: `${s.size}px`, height: `${s.size}px`, animationDuration: s.duration, animationDelay: s.delay }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // Uniform (not bottom-only like Title's) so a long scrolling page stays
 // readable over its whole length, not just the last screenful.
 const ART_SCRIM = 'linear-gradient(180deg, rgba(4,3,7,0.62), rgba(4,3,7,0.72) 30%, rgba(4,3,7,0.8))'
@@ -194,6 +226,8 @@ export function GlassScreen({ ground, children, fill = false, className = '' }: 
         <>
           <CyclingBackground fixed />
           <div className="fixed inset-0 z-0 pointer-events-none" style={{ background: ART_SCRIM }} />
+          {/* Above the art and its scrim, below every panel — see .title-sparks. */}
+          <AmbientSparks />
         </>
       )}
       <div className={`relative z-10 ${fill ? 'flex-1 min-h-0 flex flex-col' : ''}`}>{children}</div>

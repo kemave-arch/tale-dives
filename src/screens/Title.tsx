@@ -1,7 +1,6 @@
-import { useMemo } from 'react'
 import { BookOpen, Play, Settings as SettingsIcon, Volume2, VolumeX } from 'lucide-react'
 import { CyclingBackground } from '../lib/cyclingBackground.tsx'
-import { GlassCTAButton } from '../lib/glassChrome.tsx'
+import { AmbientSparks, GlassCTAButton } from '../lib/glassChrome.tsx'
 
 interface TitleProps {
   onEnter: () => void
@@ -13,35 +12,8 @@ interface TitleProps {
   onToggleMusicMute: () => void
 }
 
-// Rising gold embers over the artwork, echoing its own painted light-streaks.
-// Pure CSS (see .title-sparks in index.css), positions randomized once
-// per mount; negative delays stagger them so they don't all ignite at once.
-function AmbientSparks({ count = 22 }: { count?: number }) {
-  const sparks = useMemo(
-    () =>
-      Array.from({ length: count }, () => {
-        const size = 2 + Math.random() * 2.5
-        return {
-          left: `${Math.random() * 100}%`,
-          bottom: `${Math.random() * 25}%`,
-          size,
-          duration: `${9 + Math.random() * 8}s`,
-          delay: `${-(Math.random() * 17)}s`,
-        }
-      }),
-    [count],
-  )
-  return (
-    <div className="title-sparks" aria-hidden="true">
-      {sparks.map((s, i) => (
-        <span
-          key={i}
-          style={{ left: s.left, bottom: s.bottom, width: `${s.size}px`, height: `${s.size}px`, animationDuration: s.duration, animationDelay: s.delay }}
-        />
-      ))}
-    </div>
-  )
-}
+// AmbientSparks now lives in lib/glassChrome.tsx so every ground="art" screen
+// shares it, not just this one.
 
 // Shared by the mute toggle and the Settings gear so the two read as one set.
 const TOP_ICON_BUTTON =

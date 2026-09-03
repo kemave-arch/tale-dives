@@ -51,7 +51,11 @@ const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
   skill: 'skills',
 }
 
-type Screen = 'title' | 'settings' | 'mainmenu' | 'storymode' | 'worldsetup' | 'newgame' | 'talebrief' | 'chronicle' | 'codex'
+// No 'settings' member: Settings is an overlay rendered ON TOP of whichever
+// screen is current (same as SlashCommandManager), not a screen that replaces
+// it — that's what lets its glass read against the live Chronicle parchment or
+// the Title artwork behind it rather than a flat ground.
+type Screen = 'title' | 'mainmenu' | 'storymode' | 'worldsetup' | 'newgame' | 'talebrief' | 'chronicle' | 'codex'
 type CreationMode = 'tale' | 'library'
 
 // §5.7 Player Defeat State — soft-fail recovery, client-owned.
@@ -68,7 +72,7 @@ function errorMessage(err: unknown): string {
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>('title')
-  const [settingsReturnTo, setSettingsReturnTo] = useState<Screen>('title')
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const [apiSettings, setApiSettings] = useState(store.loadApiSettings)
   const [uiPrefs, setUiPrefs] = useState(store.loadUiPrefs)
@@ -903,9 +907,10 @@ export default function App() {
     }
   }
 
-  function openSettings(from: Screen) {
-    setSettingsReturnTo(from)
-    setScreen('settings')
+  // No return-to bookkeeping any more — the screen underneath never changed,
+  // so closing just dismisses the overlay.
+  function openSettings() {
+    setSettingsOpen(true)
   }
 
   function startNewStory(worldId?: string, protagonistId?: string) {
@@ -928,60 +933,10 @@ export default function App() {
     content = (
       <Title
         onEnter={() => setScreen('mainmenu')}
-        onSettings={() => openSettings('title')}
+        onSettings={() => openSettings()}
         onContinue={mostRecentCampaignId() ? () => resumeCampaign(mostRecentCampaignId()!) : undefined}
         musicMuted={musicMuted}
         onToggleMusicMute={toggleMusicMute}
-      />
-    )
-  } else if (screen === 'settings') {
-    content = (
-      <Settings
-        apiSettings={apiSettings}
-        uiPrefs={uiPrefs}
-        game={game}
-        onBack={() => setScreen(settingsReturnTo)}
-        onSave={({ apiSettings: nextApi, uiPrefs: nextUi, proseDepthKey, combatMode }: SettingsSavePayload) => {
-          setApiSettings(nextApi)
-          setUiPrefs(nextUi)
-          if (game) {
-            setGame((g) => g && { ...g, proseDepth: PROSE_DEPTHS[proseDepthKey], combatMode })
-          }
-          setScreen(settingsReturnTo)
-        }}
-        onExportActive={() => game && saveJSON(`${game.title}.json`, game)}
-        onBackupAll={() =>
-          saveJSON('tale-dives-backup.json', {
-            schemaVersion: CURRENT_SCHEMA_VERSION,
-            worlds,
-            protagonists,
-            campaigns,
-            apiSettings: { ...apiSettings, apiKey: undefined },
-          })
-        }
-        onImportJson={async (file: File) => {
-          try {
-            const data = await readJSONFile(file)
-            if (data.worlds || data.protagonists || data.campaigns) {
-              setWorlds((w) => ({ ...w, ...(data.worlds ?? {}) }))
-              setProtagonists((p) => ({ ...p, ...(data.protagonists ?? {}) }))
-              setCampaigns((c) => ({ ...c, ...(data.campaigns ?? {}) }))
-            } else if (data.player && data.log) {
-              const id = data.id ?? store.newId('campaign')
-              setCampaigns((c) => ({
-                ...c,
-                [id]: { schemaVersion: CURRENT_SCHEMA_VERSION, ...data, id, lastPlayed: Date.now() },
-              }))
-            }
-          } catch {
-            setError('That file could not be read as a Tale Dives save.')
-          }
-        }}
-        onResetDefaults={async () => {
-          if (!(await confirm('Erase all Tales, Worlds, and Protagonists on this device? This cannot be undone.'))) return
-          localStorage.clear()
-          window.location.reload()
-        }}
       />
     )
   } else if (screen === 'mainmenu') {
@@ -1059,7 +1014,7 @@ export default function App() {
             return next
           })
         }}
-        onOpenSettings={() => openSettings('mainmenu')}
+        onOpenSettings={() => openSettings()}
         onBackToTitle={() => setScreen('title')}
         musicMuted={musicMuted}
         onToggleMusicMute={toggleMusicMute}
@@ -1182,7 +1137,7 @@ export default function App() {
         onBangCommand={handleBangCommand}
         slashCommands={[...Object.values(game.slashCommands ?? {}), ...Object.values(globalSlashCommands)]}
         onOpenSlashManager={() => setSlashManagerOpen(true)}
-        onOpenSettings={() => openSettings('chronicle')}
+        onOpenSettings={() => openSettings()}
         onOpenMenu={() => setScreen('mainmenu')}
         onOpenCodex={() => {
           setCodexTarget(null)
@@ -1202,7 +1157,7 @@ export default function App() {
     content = (
       <Title
         onEnter={() => setScreen('mainmenu')}
-        onSettings={() => openSettings('title')}
+        onSettings={() => openSettings()}
         onContinue={mostRecentCampaignId() ? () => resumeCampaign(mostRecentCampaignId()!) : undefined}
         musicMuted={musicMuted}
         onToggleMusicMute={toggleMusicMute}
@@ -1224,6 +1179,58 @@ export default function App() {
           {content}
         </motion.div>
       </AnimatePresence>
+
+      {/* Overlay, not a screen — the screen underneath stays mounted and
+          visible through the modal's glass. */}
+      {settingsOpen && (
+        <Settings
+          apiSettings={apiSettings}
+          uiPrefs={uiPrefs}
+          game={game}
+          onBack={() => setSettingsOpen(false)}
+          onSave={({ apiSettings: nextApi, uiPrefs: nextUi, proseDepthKey, combatMode }: SettingsSavePayload) => {
+            setApiSettings(nextApi)
+            setUiPrefs(nextUi)
+            if (game) {
+              setGame((g) => g && { ...g, proseDepth: PROSE_DEPTHS[proseDepthKey], combatMode })
+            }
+            setSettingsOpen(false)
+          }}
+          onExportActive={() => game && saveJSON(`${game.title}.json`, game)}
+          onBackupAll={() =>
+            saveJSON('tale-dives-backup.json', {
+              schemaVersion: CURRENT_SCHEMA_VERSION,
+              worlds,
+              protagonists,
+              campaigns,
+              apiSettings: { ...apiSettings, apiKey: undefined },
+            })
+          }
+          onImportJson={async (file: File) => {
+            try {
+              const data = await readJSONFile(file)
+              if (data.worlds || data.protagonists || data.campaigns) {
+                setWorlds((w) => ({ ...w, ...(data.worlds ?? {}) }))
+                setProtagonists((p) => ({ ...p, ...(data.protagonists ?? {}) }))
+                setCampaigns((c) => ({ ...c, ...(data.campaigns ?? {}) }))
+              } else if (data.player && data.log) {
+                const id = data.id ?? store.newId('campaign')
+                setCampaigns((c) => ({
+                  ...c,
+                  [id]: { schemaVersion: CURRENT_SCHEMA_VERSION, ...data, id, lastPlayed: Date.now() },
+                }))
+              }
+            } catch {
+              setError('That file could not be read as a Tale Dives save.')
+            }
+          }}
+          onResetDefaults={async () => {
+            if (!(await confirm('Erase all Tales, Worlds, and Protagonists on this device? This cannot be undone.'))) return
+            localStorage.clear()
+            window.location.reload()
+          }}
+        />
+      )}
 
       {slashManagerOpen && game && (
         <SlashCommandManager
