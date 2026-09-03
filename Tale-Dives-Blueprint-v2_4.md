@@ -266,7 +266,7 @@ Narrative output must wrap key elements in special delimiters for client-side vi
 * **`[Active Skill]`**: Soft indigo pill (`bg-[#e8eefb] border-[#5b7fc7]/40 text-[#31456e]`) — a cool accent against the warm gold/ivory palette so skills read as a distinct category from items at a glance, no glow (per §6.1d, glow is a sci-fi tell this app avoids). Tapping opens a Codex Popup Card (§6.4C) for that skill.
 * **`>Item / Equipment<`**: Warm metallic gold pill (`bg-[#e2c275]/15 border-[#9c7a2e]/40 text-[#5a4d3e]`). Tapping opens a Codex Popup Card (§6.4C) for that item.
 * **`'Inner Thoughts / Whispers'`**: Muted ink-toned serif italics, no pill or background — text treatment only, since interiority should feel quieter than an interactive element. Not Codex-linked; thoughts don't have entries.
-* **`{{Term|category}}`** *(new, v2.2)*: Codex keyword link, for the entity categories the first two markers don't already cover — proper nouns worth cross-referencing. `category` is a short code: `npc`, `loc`, `faction`, `lore`, `quest`, or `beast`, e.g. `{{Mira Sorrengail|npc}}`, `{{The Parapet|loc}}`, `{{Riders Quadrant|faction}}`. Rendered as a subtle dotted underline in Ink on Gold Accent (`underline decoration-dotted decoration-[#9c7a2e]/50 underline-offset-2`) — a literary in-text cross-reference, not another colored pill, consistent with §6.1d's "annotated manuscript" register. Tapping opens a Codex Popup Card the same way a Skill or Item does (§6.4C). Full mechanics — including what happens when the term doesn't match an existing Codex entry — in §5.14.
+* **`{{Term|category}}`** *(new, v2.2)*: Codex keyword link, for the entity categories the first two markers don't already cover — proper nouns worth cross-referencing. `category` is a short code: `npc`, `loc`, `faction`, `quest`, or `beast`, e.g. `{{Mira Sorrengail|npc}}`, `{{The Parapet|loc}}`, `{{Riders Quadrant|faction}}`. Rendered as a subtle dotted underline in Ink on Gold Accent (`underline decoration-dotted decoration-[#9c7a2e]/50 underline-offset-2`) — a literary in-text cross-reference, not another colored pill, consistent with §6.1d's "annotated manuscript" register. Tapping opens a Codex Popup Card the same way a Skill or Item does (§6.4C). Full mechanics — including what happens when the term doesn't match an existing Codex entry — in §5.14.
 
 All four markers share one interaction model: tap → Codex Popup Card, never a jarring full-screen navigation. See §6.4C for the popup component and §5.14 for how `{{Term|category}}` resolves against the Codex.
 
@@ -384,7 +384,7 @@ Tale Dives protagonists carry **exactly one active class at a time** — no lock
 * **The new class replaces the old one outright.** There's no averaging or blending vector to maintain. The player's single class slot is updated, and the Class Confirmation card (§Phase B.2a) appears again so the player can Accept / Reroll / Edit Manually / decline exactly as they could at creation.
 * **Non-retroactive, same principle as before.** Attribute points already earned under the old weight vector are never recalculated — the character's stat history stays exactly as played. Only points earned from the evolution turn forward use the new class's vector (§5.1a's `stat_gain = level_budget × weight_vector` formula, just re-pointed at a new vector going forward).
 * **Quick-Slots refresh, not reset.** On evolution, the Quick-Slot Tray (§6.4C) offers to re-populate from the new class's `suggested_quick_slots`; any slot the player had customized is left alone unless they accept the refresh.
-* **Manual evolution.** A player can also trigger this from Codex CRUD (Character Sheet / Skills & Ley-Arts) without waiting for a story trigger — the same "steer state directly" philosophy already established for auto-logged entries (§5.10) and Codex Discovery (§5.12).
+* **Manual evolution.** A player can also trigger this from Codex CRUD (Character Sheet / Skills) without waiting for a story trigger — the same "steer state directly" philosophy already established for auto-logged entries (§5.10) and Codex Discovery (§5.12).
 * **UI note.** The Chronicle surfaces an evolution as a distinct narrative beat (a banner/toast, not a silent stat change) — the same treatment principle as a Codex Discovery reveal (§5.12), just for the character sheet instead of the Codex.
 
 ### 5.1c Direct Stat Modification (Items & Events)
@@ -495,11 +495,11 @@ Crafting is fully client-resolved — like currency and faction rivalry, it cost
 
 **Resource management, using the same timer mechanic in reverse:** flag select materials as `"perishable": true` with a `spoil_hours` value in the item dictionary. Checked the same way as craft completion each turn — once `spoil_hours` elapses since acquisition, the item is silently removed or downgraded. This gives hoarding real stakes (can't stockpile rare reagents indefinitely) without adding a second engine — it's the identical timestamp-comparison logic already built for crafting completion, just running the other direction. Recommend also a simple per-material stack cap (e.g. 99) to keep the Materials view from growing unbounded, enforced the same way inventory sanity-checks already are.
 
-**UI placement — finalized in v1.7**: Crafting gets its own Codex category, **Workbenches & Recipes** (§6.4D, category 10). Folding it into "Relics & Vault" was the original either/or option, but Relics & Vault already carries 7 item-type filters (§5.9) — a crafting station screen with queued jobs and a live countdown (`complete_time − current_time`, styled in the JetBrains Mono metadata typeface used for timestamps elsewhere) reads more clearly as its own category than as an eighth filter bolted onto an already-dense one.
+**UI placement — finalized in v1.7**: Crafting gets its own Codex category, **Craft** (§6.4D, category 10). Folding it into "Items" was the original either/or option, but Items already carries 7 item-type filters (§5.9) — a crafting station screen with queued jobs and a live countdown (`complete_time − current_time`, styled in the JetBrains Mono metadata typeface used for timestamps elsewhere) reads more clearly as its own category than as an eighth filter bolted onto an already-dense one.
 
 ### 5.9 Item Type Taxonomy
 
-Earlier drafts used a loose free-text `category` field on inventory entries. This is now a **closed enum**, referenced identically by the Codex UI (Relics & Vault filters), the Shadow Referee's inventory sanity check (§3.2), and the crafting system's `type: "material"` tag (§5.8):
+Earlier drafts used a loose free-text `category` field on inventory entries. This is now a **closed enum**, referenced identically by the Codex UI (Items filters), the Shadow Referee's inventory sanity check (§3.2), and the crafting system's `type: "material"` tag (§5.8):
 
 | Type | Slot Behavior | Examples |
 | --- | --- | --- |
@@ -511,7 +511,7 @@ Earlier drafts used a loose free-text `category` field on inventory entries. Thi
 | **Consumable** | Stackable, single-use, applies an immediate effect and is removed on use | `>Elixir of Vigor<`, `>Bone Dust Pouch<` |
 | **Material** | Stackable, used only as crafting input (§5.8); never equippable | `iron_ore`, `bone_dust` |
 
-**Schema note**: `inv_add` / `inv_rem` entries (§7.3) gain an implicit type via the item's Codex definition, not a per-turn field — Gemini still only emits `{ "id", "qty" }`, keeping the JSON schema unchanged. The client resolves `id → type` against the Codex's Relics & Vault dictionary (or flags it as an ungrounded item for Shadow Referee review if the `id` is new — same pattern as Location Auto-Registration in §5.11).
+**Schema note**: `inv_add` / `inv_rem` entries (§7.3) gain an implicit type via the item's Codex definition, not a per-turn field — Gemini still only emits `{ "id", "qty" }`, keeping the JSON schema unchanged. The client resolves `id → type` against the Codex's Items dictionary (or flags it as an ungrounded item for Shadow Referee review if the `id` is new — same pattern as Location Auto-Registration in §5.11).
 
 **Stat bonus note**: Weapon, Armor, and Accessory entries may additionally carry an optional `stat_bonus` object in their Codex definition — `{"STR":2}` or `{"hp_flat":15}` — per §5.1c. This lives on the item, not the turn schema; the client applies/removes it purely by comparing equipped-item state before and after, at equip/unequip time, at zero API cost.
 
@@ -653,7 +653,7 @@ All in-app icons use the `lucide-react` icon set for a single consistent stroke 
 | Radial Menu FAB | `Wand2` | Story View floating prompt (§6.5) |
 | Quest Log shortcut | `ScrollText` | Radial menu (§6.5) |
 | Inventory shortcut | `Backpack` | Radial menu (§6.5), Quick-Slot Tray area |
-| Crafting shortcut (conditional) | `Hammer` | Radial menu (§6.5), Workbenches & Recipes cards (§6.4D) |
+| Crafting shortcut (conditional) | `Hammer` | Radial menu (§6.5), Craft cards (§6.4D) |
 | Character Sheet | `User` | Radial menu (§6.5) |
 | Slash command trigger | `Slash` | Command palette header |
 | Bang/system command trigger | `Terminal` | Command palette header |
@@ -667,7 +667,7 @@ All in-app icons use the `lucide-react` icon set for a single consistent stroke 
 Menu titles, section headers, and nav labels stay short by rule, not by accident — this is a phone-first app, and long labels wrap, truncate, or crowd touch targets on narrow viewports:
 
 * **Screen/drawer titles**: 1–3 words (`Main Menu`, `Codex`, `Settings`, not `Your Codex & World Database`).
-* **Category/section headers**: ≤4–5 words (`Relics & Vault`, `Quests & Objectives`) — every existing category name in §6.4D already fits this.
+* **Category/section headers**: ≤4–5 words (`Items`, `Quests`) — every existing category name in §6.4D already fits this.
 * **Buttons & actions**: 1–2 words, verb-first where possible (`Resume`, `New Session`, `Save & Export`).
 * **Where more explanation is genuinely needed** (a setting's effect, an onboarding hint), put it in a subtitle line or helper text at a smaller type size below the short label — never lengthen the label itself to carry the explanation.
 
@@ -762,39 +762,37 @@ Reached from the Title Screen's `ENTER`. This is the hub for everything that isn
 **Three-level drill-down**, consistent across every category: **Category List → Entry Grid → Entry Detail**. The player never lands on a wall of text; each level narrows before showing full content, and Framer Motion (§6.0) animates the forward/back transition as a horizontal push rather than a hard cut, so the drill-down reads as spatial navigation rather than a page reload.
 
 1. **Category List** (top level): the 10 categories below, each shown as a row with its Lucide icon (§6.1b), a live entry count (hidden entries count toward the total, so a "12" total hints there's more to find even before it's discovered), and a right-chevron. Tapping a row pushes into that category's Entry Grid. Lazy-loaded on drawer-open per §9.2 — none of this hydrates at session start.
-2. **Entry Grid** (per category): a responsive grid/list of **Entry Cards** (templates below) — glassmorphic (§6.1a), each summarizing just enough to recognize and select the right entry. A search/filter bar sits above the grid (by name, and by category-specific filters — e.g. Locations filter by Danger Level or Faction Owner, Relics & Vault filter by Item Type per §5.9). Entries with `discovery.state === "hidden"` (§5.12) render masked: name replaced with `???`, portrait/emblem replaced with a `Lock` glyph (§6.1b), and the card shows the entry's short `teaser` line if one was seeded, in place of its normal summary.
+2. **Entry Grid** (per category): a responsive grid/list of **Entry Cards** (templates below) — glassmorphic (§6.1a), each summarizing just enough to recognize and select the right entry. A search/filter bar sits above the grid (by name, and by category-specific filters — e.g. Locations filter by Danger Level or Faction Owner, Items filter by Item Type per §5.9). Entries with `discovery.state === "hidden"` (§5.12) render masked: name replaced with `???`, portrait/emblem replaced with a `Lock` glyph (§6.1b), and the card shows the entry's short `teaser` line if one was seeded, in place of its normal summary.
 3. **Entry Detail** (drill-down target): the full record — every field the category tracks — plus CRUD actions (Edit/Delete) where applicable. Tapping into a hidden entry opens a minimal "??? — not yet discovered" detail rather than the full record; no fields beyond the teaser are exposed outside CRUD Edit Mode.
 
 Categories:
 
-1. Realm Overview (Cosmology, Setting, Tone) — also surfaces the campaign's active Narration Style (§4.5) as a read-only field with a shortcut into the Settings Drawer (§6.4E) to change it, so the player never has to remember which drawer owns that setting.
-2. **Plot Chapters** — curated, chronological. One entry per chapter, populated from the 2-sentence Chapter Milestone summaries generated in Phase E (§2). This is the player-facing recap.
+1. Realm (Cosmology, Setting, Tone) — also surfaces the campaign's active Narration Style (§4.5) as a read-only field with a shortcut into the Settings Drawer (§6.4E) to change it, so the player never has to remember which drawer owns that setting.
+2. **Chapters** — curated, chronological. One entry per chapter, populated from the 2-sentence Chapter Milestone summaries generated in Phase E (§2). This is the player-facing recap.
 3. NPCs (Companions & Trust Ratings)
-4. Factions & Orders (Political Cabals & Territory)
+4. Factions (Political Cabals & Territory)
 5. Locations (Regions, Danger Levels, Faction Owner & Standing — §5.11)
-6. Lore & Myths (Legends & Magic)
-7. Skills & Ley-Arts (Spells & Abilities)
-8. Relics & Vault (Weapons, Armor, Accessories, Tools, Key Items, Consumables, Materials — §5.9)
-9. Quests & Objectives (Main, Side & Secret) — driven by the `quest_update` schema field (§7.3)
-10. **Workbenches & Recipes** — the crafting system (§5.8): known recipes, station requirements, and the live crafting queue with countdown.
-11. **Bestiary** — encountered adversaries (§5.13): threat tier, stats, and flavor notes, filled in as the player fights new enemy types.
+6. Skills (Spells & Abilities)
+7. Items (Weapons, Armor, Accessories, Tools, Key Items, Consumables, Materials — §5.9)
+8. Quests (Main, Side & Secret) — driven by the `quest_update` schema field (§7.3)
+9. **Craft** — the crafting system (§5.8): known recipes, station requirements, and the live crafting queue with countdown.
+10. **Bestiary** — encountered adversaries (§5.13): threat tier, stats, and flavor notes, filled in as the player fights new enemy types.
 
-**Codex CRUD.** Every category above (except Plot Chapters, which is a generated recap, and Master Archives, which is a raw log) supports full Create/Read/Update/Delete via the UI — the player can add, edit, or remove any NPC, Faction, Location, Lore entry, Skill, Item, Quest, or Recipe by hand. This is the correction path for auto-logged entries (§5.10) and for any state the player wants to fix directly rather than steering the LLM toward. **CRUD Edit Mode also bypasses masking** (§5.12): every entry shows its full content regardless of `discovery.state`, plus an editable Reveal Condition control (trigger type + target flag/location/NPC/quest), so a player can hand-author discovery pacing exactly like any other field.
+**Codex CRUD.** Every category above (except Plot Chapters, which is a generated recap, and Master Archives, which is a raw log) supports full Create/Read/Update/Delete via the UI — the player can add, edit, or remove any NPC, Faction, Location, Skill, Item, Quest, or Recipe by hand. This is the correction path for auto-logged entries (§5.10) and for any state the player wants to fix directly rather than steering the LLM toward. **CRUD Edit Mode also bypasses masking** (§5.12): every entry shows its full content regardless of `discovery.state`, plus an editable Reveal Condition control (trigger type + target flag/location/NPC/quest), so a player can hand-author discovery pacing exactly like any other field.
 
 **Entry Card templates (Entry Grid level)** — each category gets a card shape suited to what players actually scan for, rather than one generic card reused everywhere. (Masked/hidden cards, §5.12, override all of this with the `???` + teaser treatment described above, regardless of category.)
 
 | Category | Card Shows | Card Badge(s) |
 | --- | --- | --- |
 | NPCs | Portrait placeholder, name, current Stage (`Stranger` → `Beloved`) | Trust bar + Affection bar (0–100, §5.5), auto-logged flag if unmet-but-mentioned |
-| Factions & Orders | Emblem placeholder, faction name, one-line description | Rivalry indicator (linked rival faction), current Reputation Tier (§5.4) as a −2..+2 pip strip |
+| Factions | Emblem placeholder, faction name, one-line description | Rivalry indicator (linked rival faction), current Reputation Tier (§5.4) as a −2..+2 pip strip |
 | Locations | Name, region, one-line description | Danger Level, Faction Owner + derived Standing badge (green/gray/red, §5.11), `autoLogged: true` "auto" badge where applicable (§5.10) |
-| Lore & Myths | Title, category tag (Cosmology/Magic/History/etc.), opening line | none |
-| Skills & Ley-Arts | Skill name, owning class icon | MP/ST cost pill, `[Active Skill]` glow styling matching in-narrative formatting (§4.2) |
-| Relics & Vault | Item name, Item Type icon (§5.9) | Rarity/type pill, equipped indicator if currently worn/wielded |
-| Quests & Objectives | Quest title, tier (Main/Side/Secret) | Status badge (`advanced`/`completed`/`failed`, §7.3), objective checklist preview |
-| Workbenches & Recipes | Recipe/output item name, station icon (forge/bench/etc.) | Live countdown badge if queued (`complete_time − current_time`, JetBrains Mono), "Ready" badge if complete and uncollected |
+| Skills | Skill name, owning class icon | MP/ST cost pill, `[Active Skill]` glow styling matching in-narrative formatting (§4.2) |
+| Items | Item name, Item Type icon (§5.9) | Rarity/type pill, equipped indicator if currently worn/wielded |
+| Quests | Quest title, tier (Main/Side/Secret) | Status badge (`advanced`/`completed`/`failed`, §7.3), objective checklist preview |
+| Craft | Recipe/output item name, station icon (forge/bench/etc.) | Live countdown badge if queued (`complete_time − current_time`, JetBrains Mono), "Ready" badge if complete and uncollected |
 | Bestiary | Adversary name, threat tier icon | `autoLogged: true` "auto" badge where applicable (§5.13), boss/elite accent for higher tiers |
-| Plot Chapters | Chapter number + title, 2-sentence milestone summary | none — read-only recap |
+| Chapters | Chapter number + title, 2-sentence milestone summary | none — read-only recap |
 
 All cards share the same glass surface recipe (§6.1a) and the same tap target — the whole card is tappable, pushing into Entry Detail, not just a "view" link.
 
@@ -808,7 +806,7 @@ One glassmorphic (§6.1a) drawer component, reused in two contexts — opened fr
 
 * **API Settings** (§3.4): Provider, Model ID, API Key, Temperature, and the shared Prose Depth token-ceiling table (§4.4) — available in both contexts, since a player may need to fix credentials mid-session (this is also what the API Failure Diagnostics Panel's "Open API Settings" action, §3.5, deep-links into).
 * **Narration Style** (§4.5): the active style text, editable in both contexts. In-story edits apply from the next turn onward only, per §4.5.
-* **Combat Resolution Mode** (§5.1d): Tactical/Narrative toggle, the campaign-wide default. In-story changes apply from the next COMBAT-eligible turn onward; a `!`-command scene override (§6.6) always takes precedence over this default until the next chapter boundary.
+* **Combat Mode** (§5.1d): Tactical/Narrative toggle, the campaign-wide default. In-story changes apply from the next COMBAT-eligible turn onward; a `!`-command scene override (§6.6) always takes precedence over this default until the next chapter boundary.
 * **Prose Depth**: the current CONCISE/BALANCED/IMMERSIVE selection (§4.4) — also duplicated as a quick toggle near the input tray for faster in-story access, since it's the setting most likely to change turn-to-turn.
 * **UI Preferences**: reduced-motion toggle (respecting `prefers-reduced-motion`, §6.0), text size, and (in-story only) parchment scroll vs. paginated view.
 * **About** (§6.3): developer credit, dedication, version tag — pre-campaign context only.
@@ -821,13 +819,13 @@ A floating action control that keeps lower-frequency systems reachable from the 
 * **Expansion**: a tap/press expands a radial fan of glassmorphic icon buttons around the FAB using Framer Motion's `staggerChildren` (§6.0) — each option springs outward on a slight delay from its neighbor, arcing upward so the fan never covers the input tray or Quick-Slot Tray. A second tap, an outside tap, or selecting an option collapses it the same way in reverse.
 * **Default ring of actions** *(revised, v1.7)*:
   * `BookOpen` **Codex** (§6.4D) — full drill-down entry point.
-  * `ScrollText` **Quest Log** — a direct shortcut straight into the Quests & Objectives Entry Grid, skipping the Codex Category List tap, since objectives get checked far more often than most other categories.
-  * `Backpack` **Inventory** — shortcut into Relics & Vault (§5.9), filtered to owned items.
-  * `User` **Character Sheet** — attributes, derived HP/MP/ST pools (§5.1), equipped gear, and active class (including grounded custom classes, §Phase B.2a).
+  * `ScrollText` **Quest Log** — a direct shortcut straight into the Quests Entry Grid, skipping the Codex Category List tap, since objectives get checked far more often than most other categories.
+  * `Backpack` **Inventory** — shortcut into Items (§5.9), filtered to owned items.
+  * `User` **Character** — attributes, derived HP/MP/ST pools (§5.1), equipped gear, and active class (including grounded custom classes, §Phase B.2a).
   * `Map` **World Map** — Locations category (§5.11), current-location-centered.
   * `Save` **Save & Export** — writes current state per the Local Save mechanism (§6.4B).
   * `Settings` **Settings** — opens the Settings Drawer (§6.4E) in its in-story context.
-  * `Hammer` **Crafting** *(conditional)* — only appears in the ring while a crafting job is queued or a completed job is awaiting collection (§5.8); carries the same live countdown/"Ready" badge as its Workbenches & Recipes Entry Card (§6.4D). Absent otherwise, keeping the resting ring at 7 rather than 8.
+  * `Hammer` **Crafting** *(conditional)* — only appears in the ring while a crafting job is queued or a completed job is awaiting collection (§5.8); carries the same live countdown/"Ready" badge as its Craft Entry Card (§6.4D). Absent otherwise, keeping the resting ring at 7 rather than 8.
 * **Touch target sizing**: each radial option meets the 44×44px minimum from §9.3, with enough angular spacing between icons that adjacent options don't compete for a thumb tap on narrow viewports.
 * **State awareness**: the FAB itself swaps icon/glow briefly to reflect the active 9-Tier Turn State badge color (§4.3) when collapsed, so its resting state carries information rather than sitting static.
 
@@ -900,7 +898,7 @@ NARRATIVE & TONE RULES:
    - Enclose active skills, spells, or abilities in square brackets: [Shadow Step], [Arise], [Soul Feast].
    - Enclose items, weapons, keys, or loot in angle brackets: >Obsidian Dagger<, >Silver Quill<, >Bone Fragment<.
    - Enclose NPC inner monologues, spoken whispers, or player internal monologues in single quotes: 'Something watches us.'
-   - Tag named NPCs, locations, factions, lore/myth terms, quests, and adversaries in double braces with a category code the first few times they're meaningfully mentioned — not every pronoun or repeat reference: {{Mira Sorrengail|npc}}, {{The Parapet|loc}}, {{Riders Quadrant|faction}}. Category codes: npc, loc, faction, lore, quest, beast. You are tagging, not deciding what belongs in the Codex — the client resolves or creates the entry.
+   - Tag named NPCs, locations, factions, quests, and adversaries in double braces with a category code the first few times they're meaningfully mentioned — not every pronoun or repeat reference: {{Mira Sorrengail|npc}}, {{The Parapet|loc}}, {{Riders Quadrant|faction}}. Category codes: npc, loc, faction, lore, quest, beast. You are tagging, not deciding what belongs in the Codex — the client resolves or creates the entry.
 
 9-TIER TURN STATE GUIDELINES:
 - PEACE: Ambient travel, town interaction, downtime, environmental sensory detail.
@@ -1069,7 +1067,7 @@ This gives the player something to read within a few hundred milliseconds regard
 ### 9.2 Rendering & DOM Performance
 
 * **Virtualize the parchment scroll.** Don't keep every turn of a long chapter mounted in the DOM. Combine this directly with the page-counter pagination from §6.4: only the active page's ~8–12 turns are rendered; older pages unmount and are restored from local state on scroll-back, not re-fetched.
-* **Lazy-load Codex entries.** World DB / NPC Directory / Lore entries should hydrate on drawer-open, not at session load — none of it is needed for the active turn loop.
+* **Lazy-load Codex entries.** World DB / NPC Directory entries should hydrate on drawer-open, not at session load — none of it is needed for the active turn loop.
 * **Debounce the action input** and disable the send control during an in-flight request rather than allowing queued taps, which is a common source of duplicate-turn bugs in chat-style UIs.
 
 ### 9.3 Mobile-First Interaction
@@ -1139,12 +1137,10 @@ A representative slice of what the deferred grounding call (§Phase A.2) would r
 | NPCs | *(the late brother, named on grounding)* | `hidden` | `npc_met` — first time another NPC brings him up in conversation | "A name the family doesn't say at dinner." |
 | Locations | Lilith's Office | `known` | — (Turn 1 setting) | — |
 | Locations | The Parapet | `known` | — (named directly in the brief) | — |
-| Factions & Orders | Riders Quadrant | `known` | — (named directly in the brief) | — |
-| Factions & Orders | Scribes Quadrant | `known` | — (named directly in the brief) | — |
-| Lore & Myths | Conscription Day (tradition/history) | `known` | — (the brief's premise) | — |
-| Lore & Myths | *(a deeper faction secret the grounding call inferred but the brief never mentioned)* | `hidden` | `flag` — set once the player crosses the parapet | "Something about the Quadrant they don't put in the recruitment pamphlets." |
-| Skills & Ley-Arts | *(scribing-related utility skill, from her trained background)* | `known` | — (already part of her training) | — |
+| Factions | Riders Quadrant | `known` | — (named directly in the brief) | — |
+| Factions | Scribes Quadrant | `known` | — (named directly in the brief) | — |
+| Skills | *(scribing-related utility skill, from her trained background)* | `known` | — (already part of her training) | — |
 
-This is exactly the Category List / Entry Grid behavior described in §6.4D: the player opens Codex on Turn 1 and already sees a populated Realm Overview, both quadrant factions, and the immediate cast — with a couple of `Lock`-badged `???` cards visible in NPCs and Lore & Myths, seeded once at creation for free and revealed later purely by client-side flag/NPC checks (§5.12), at zero additional token cost.
+This is exactly the Category List / Entry Grid behavior described in §6.4D: the player opens Codex on Turn 1 and already sees a populated Realm Overview, both quadrant factions, and the immediate cast — with a couple of `Lock`-badged `???` cards visible in NPCs, seeded once at creation for free and revealed later purely by client-side flag/NPC checks (§5.12), at zero additional token cost.
 
 
