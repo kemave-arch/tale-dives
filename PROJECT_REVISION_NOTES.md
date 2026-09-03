@@ -444,13 +444,11 @@ after the additions below — items 7/8/9 above are unchanged and still the long
 3. ~~Continue the beautification pass to Title/Main Menu~~ — **checked, already clean**,
    see the revision log entry just above this list. Every screen has now had a dedicated
    look at least once.
-4. ~~Scope the radial quick-action menu~~ — **built** (commit `7ec0e36`), but **needs a
-   live spot-check from a human or a future session with working browser automation** —
-   it shipped on code review + a clean build only, since the tool went fully unresponsive
-   to clicks that session (see §0's third tooling-trap entry). Open Chronicle and tap the
-   Wand2 FAB above the input bar; confirm the fan opens without covering the input tray,
-   each shortcut lands on the right Codex category, and Crafting only appears once a job
-   is queued.
+4. ~~Scope the radial quick-action menu~~ — **built and live-verified** (commits
+   `7ec0e36`, then `bfd8792` after feedback: smaller 40px buttons, Compass icon instead of
+   Wand2, layered gold border + hover/press glow, and the browser tool recovered enough
+   this same session to confirm the fan opens correctly and both a Settings and a
+   Codex-category shortcut navigate correctly). Nothing outstanding here.
 5. **Inspired Mode (item 7 above)** — stays parked until the Google Search grounding quota
    resets or billing is enabled; don't re-spike more than once or twice a session.
 
@@ -804,3 +802,24 @@ the office machine, picking up directly afterward — same repo, same `master` b
   only; **a live spot-check is the single most valuable thing a human or a future working
   session could do next** (open Chronicle, tap the FAB, confirm the fan opens correctly
   and each shortcut lands on the right Codex category).
+
+  **Follow-up, same session (commit `bfd8792`)**: the browser tool recovered on its own
+  partway through, and the user gave direct visual feedback on the shipped design — too
+  large/visually loud, wrong icon. Shrunk both the FAB and fan buttons to 40px (from
+  44-48px) and the fan radius to 74px (from 108px), switched the FAB fill from a solid
+  gold circle to the same dark-glass style as the fan buttons (much lower visual weight
+  at rest), swapped `Wand2` for `Compass`, and added a layered border+glow treatment (a
+  thin gold ring at rest via a two-part `box-shadow`, brightening on hover, peaking when
+  pressed or while the menu is open) instead of the original flat single border. **This
+  time actually verified live**: opened the fan (all 5 shortcuts render correctly,
+  Crafting absent since no job was queued, matching the conditional design), confirmed
+  the Settings shortcut opens Settings and the Quest Log shortcut opens the Codex at the
+  right category. Also fixed two things the user flagged in the same message: Settings'
+  HUD Opacity slider was hard-capped at `max="0.9"`, so "100%" in the UI never actually
+  produced a fully solid header/footer — raised to `max="1"` and confirmed live (computed
+  background resolves to a plain opaque `rgb()`, no residual alpha); and added a small
+  pure-CSS ambient sparkle layer (`.chrome-motes`, new `@keyframes chrome-mote-twinkle`
+  in `index.css`, respects `prefers-reduced-motion`) inside the header and footer bars
+  specifically, since the existing `AmbientBackground` canvas sits behind the chrome
+  (z-0) and gets fully masked at high HUD Opacity — it could never provide ambience *on*
+  the chrome itself, only in gaps around it. `npm run build` clean.
