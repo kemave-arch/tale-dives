@@ -12,7 +12,22 @@ import { canAffordRecipe } from '../lib/crafting.ts'
 import { hoursRemaining } from '../lib/gameTime.ts'
 import { deriveStanding, effectiveStanding, repTierLabel } from '../lib/factions.ts'
 import { useConfirm } from '../lib/useConfirm.tsx'
-import type { BestiaryEntry, CraftingJob, Discovery, FactionEntry, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player, QuestEntry, RevealTrigger, WorldData } from '../types.ts'
+import { EQUIPPABLE_TYPES } from '../types.ts'
+import type {
+  BestiaryEntry, CraftingJob, Discovery, EquipSlot, FactionEntry, ItemEntry, ItemType, LocationEntry, LogEntry, LoreEntry, NpcEntry, Player,
+  QuestEntry, RevealTrigger, StatBonus, WorldData,
+} from '../types.ts'
+
+const ITEM_TYPES: ItemType[] = ['weapon', 'armor', 'accessory', 'tool', 'key', 'consumable', 'material']
+const STAT_BONUS_KEYS: (keyof StatBonus)[] = ['STR', 'INT', 'AGI', 'hp', 'mp', 'st']
+
+function statBonusText(bonus: StatBonus | undefined): string | null {
+  if (!bonus) return null
+  const parts = Object.entries(bonus)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${v! > 0 ? '+' : ''}${v} ${k}`)
+  return parts.length ? parts.join(', ') : null
+}
 
 export type CategoryId = 'realm' | 'character' | 'crafting' | 'chapters' | 'npcs' | 'factions' | 'locations' | 'lore' | 'quests' | 'bestiary' | 'items'
 
@@ -28,6 +43,7 @@ interface CodexProps {
   bestiary: Record<string, BestiaryEntry>
   flags: string[]
   inventory: Record<string, number>
+  items: Record<string, ItemEntry>
   crafting: CraftingJob[]
   onUpdateNpc: (id: string, patch: Partial<NpcEntry> | null) => void
   onUpdateFaction: (id: string, patch: Partial<FactionEntry> | null) => void
@@ -35,7 +51,9 @@ interface CodexProps {
   onUpdateLore: (id: string, patch: Partial<LoreEntry> | null) => void
   onUpdateQuest: (id: string, patch: Partial<QuestEntry> | null) => void
   onUpdateBestiary: (id: string, patch: Partial<BestiaryEntry> | null) => void
-  onUpdateItem: (id: string, qty: number | null) => void
+  onUpdateItem: (id: string, qty: number | null, entry?: Partial<ItemEntry>) => void
+  onEquipItem: (id: string) => void
+  onUnequipSlot: (slot: EquipSlot) => void
   onUpdateWorld: (patch: Partial<WorldData>) => void
   onEvolveClass: (classId: string) => void
   onStartCraft: (recipeId: string) => void
@@ -310,6 +328,7 @@ export default function Codex({
   bestiary,
   flags,
   inventory,
+  items,
   crafting,
   onUpdateNpc,
   onUpdateFaction,
@@ -318,6 +337,8 @@ export default function Codex({
   onUpdateQuest,
   onUpdateBestiary,
   onUpdateItem,
+  onEquipItem,
+  onUnequipSlot,
   onUpdateWorld,
   onEvolveClass,
   onStartCraft,
@@ -329,9 +350,11 @@ export default function Codex({
   const [entryId, setEntryId] = useState<string | null>(initialEntryId ?? null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<Record<string, any>>({})
-  const [addingItem, setAddingItem] = useState(false)
-  const [itemDraft, setItemDraft] = useState({ name: '', qty: '1' })
   const { confirm, dialog: confirmDialog } = useConfirm()
+
+  function equippedSlotFor(itemId: string): EquipSlot | undefined {
+    return (Object.entries(player.equipped ?? {}) as [EquipSlot, string][]).find(([, id]) => id === itemId)?.[0]
+  }
 
   const chapters = log.filter((e) => e.chapterSummary)
 
@@ -460,13 +483,25 @@ export default function Codex({
     setEntryId(null)
   }
 
-  function saveNewItem() {
-    const name = itemDraft.name.trim()
-    const qty = Math.max(1, Math.round(Number(itemDraft.qty) || 1))
+  function saveItem() {
+    const name = (draft.name ?? '').trim()
     if (!name) return
-    onUpdateItem(genId(name, inventory), qty)
-    setItemDraft({ name: '', qty: '1' })
-    setAddingItem(false)
+    const id = entryId === NEW_ID ? genId(name, inventory) : entryId!
+    const qty = Math.max(1, Math.round(Number(draft.qty) || 1))
+    const type: ItemType = draft.type ?? 'material'
+    const statBonus: StatBonus | undefined =
+      EQUIPPABLE_TYPES.includes(type) && draft.statBonus && STAT_BONUS_KEYS.some((k) => draft.statBonus[k])
+        ? Object.fromEntries(STAT_BONUS_KEYS.filter((k) => draft.statBonus[k]).map((k) => [k, Number(draft.statBonus[k])]))
+        : undefined
+    onUpdateItem(id, qty, { name, type, description: draft.description?.trim() || undefined, statBonus })
+    setEntryId(id)
+    setEditing(false)
+  }
+
+  async function deleteItemEntry() {
+    if (!entryId || !(await confirm('Delete this item? This cannot be undone.'))) return
+    onUpdateItem(entryId, null)
+    setEntryId(null)
   }
 
   // §5.12 — a hidden entry's own title bar reads "???" too, not just its card/detail.
@@ -478,6 +513,7 @@ export default function Codex({
     entryId && category === 'lore' ? (lore[entryId] && isHidden(lore[entryId]) ? '???' : lore[entryId]?.name) :
     entryId && category === 'quests' ? (quests[entryId] && isHidden(quests[entryId]) ? '???' : quests[entryId]?.name) :
     entryId && category === 'bestiary' ? (bestiary[entryId] && isHidden(bestiary[entryId]) ? '???' : bestiary[entryId]?.name) :
+    entryId && category === 'items' ? (items[entryId]?.name ?? entryId.replace(/_/g, ' ')) :
     categories.find((c) => c.id === category)?.label ?? 'Codex'
 
   return (
@@ -998,43 +1034,114 @@ export default function Codex({
         </>
       )}
 
-      {/* Items — id + qty is the whole record; inline edit/delete, no separate detail page */}
-      {category === 'items' && (
+      {/* Items — §5.9 Item Type Taxonomy. `items` (name/type/description/
+          statBonus) is a separate dict from `inventory` (id -> qty): every
+          item that's ever entered inventory gets at least a minimal entry
+          here (no more raw-slug display names), while only Weapon/Armor/
+          Accessory can carry a statBonus and be equipped. */}
+      {category === 'items' && !entryId && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {!addingItem && <AddButton label="Add Item" onClick={() => setAddingItem(true)} />}
-          {addingItem && (
-            <div className="rounded-2xl p-4 border border-[#e8ca8a]/25 bg-[#141622] flex flex-col gap-2">
-              <TextField label="Name" value={itemDraft.name} onChange={(v) => setItemDraft((d) => ({ ...d, name: v }))} />
-              <NumberField label="Quantity" value={Number(itemDraft.qty) || 1} onChange={(v) => setItemDraft((d) => ({ ...d, qty: String(v) }))} />
-              <div className="flex justify-end gap-1 mt-1">
-                <button onClick={() => setAddingItem(false)} aria-label="Cancel" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-white/50 hover:bg-white/10">
-                  <X size={15} />
-                </button>
-                <button onClick={saveNewItem} aria-label="Save" className="w-8 h-8 rounded-full inline-flex items-center justify-center text-[#0e1017] bg-[#e8ca8a]">
-                  <Save size={14} />
-                </button>
-              </div>
-            </div>
-          )}
-          {Object.entries(inventory).map(([id, qty]) => (
-            <div key={id} className="rounded-2xl p-4 flex items-center justify-between gap-2 border border-[#e8ca8a]/15 bg-[#141622]">
-              <h3 className="font-display font-bold text-sm text-[#e8ca8a] truncate">{id.replace(/_/g, ' ')}</h3>
-              <div className="flex items-center gap-2 shrink-0">
-                <input
-                  type="number"
-                  value={qty}
-                  min={1}
-                  onChange={(e) => onUpdateItem(id, Number(e.target.value))}
-                  className="w-14 rounded-md border border-[#e8ca8a]/25 bg-[#0f111a] px-1.5 py-1 font-mono text-xs text-white/90 text-right"
-                />
-                <button onClick={() => onUpdateItem(id, null)} aria-label={`Delete ${id}`} className="w-7 h-7 rounded-full inline-flex items-center justify-center text-rose-400 hover:bg-white/10">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            </div>
-          ))}
-          {Object.keys(inventory).length === 0 && !addingItem && <p className="font-narrative italic text-sm text-white/40 col-span-full">Nothing carried yet.</p>}
+          <AddButton label="Add Item" onClick={() => startCreate({ name: '', type: 'material', qty: '1', description: '', statBonus: {} })} />
+          {Object.entries(inventory).map(([id, qty]) => {
+            const item = items[id]
+            const slot = equippedSlotFor(id)
+            return (
+              <EntryCard
+                key={id}
+                title={item?.name ?? id.replace(/_/g, ' ')}
+                subtitle={`${item?.type ?? 'unknown'} · ×${qty}${statBonusText(item?.statBonus) ? ` · ${statBonusText(item?.statBonus)}` : ''}`}
+                badge={slot ? <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#e8ca8a]/15 text-[#e8ca8a]/80">equipped</span> : undefined}
+                onClick={() => setEntryId(id)}
+              />
+            )
+          })}
+          {Object.keys(inventory).length === 0 && <p className="font-narrative italic text-sm text-white/40 col-span-full">Nothing carried yet.</p>}
         </div>
+      )}
+      {category === 'items' && entryId && (editing || inventory[entryId] !== undefined) && (
+        <>
+          <div className="flex justify-end mb-3">
+            <CrudToolbar
+              editing={editing}
+              canDelete={entryId !== NEW_ID}
+              onEdit={() =>
+                startEdit(entryId, {
+                  name: items[entryId]?.name ?? entryId.replace(/_/g, ' '),
+                  type: items[entryId]?.type ?? 'material',
+                  qty: String(inventory[entryId] ?? 1),
+                  description: items[entryId]?.description ?? '',
+                  statBonus: items[entryId]?.statBonus ?? {},
+                })
+              }
+              onSave={saveItem}
+              onCancel={cancelEdit}
+              onDelete={deleteItemEntry}
+            />
+          </div>
+          {editing ? (
+            <DetailPanel>
+              <TextField label="Name" value={draft.name ?? ''} onChange={(v) => setDraft((d) => ({ ...d, name: v }))} />
+              <label className="block">
+                <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Type</span>
+                <select
+                  value={draft.type ?? 'material'}
+                  onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value as ItemType }))}
+                  className="mt-1 w-full rounded-lg border border-[#e8ca8a]/25 bg-[#0f111a] px-3 py-2 font-mono text-sm text-white/90"
+                >
+                  {ITEM_TYPES.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
+              <NumberField label="Quantity" value={Number(draft.qty) || 1} onChange={(v) => setDraft((d) => ({ ...d, qty: String(v) }))} />
+              <TextField
+                label="Description"
+                value={draft.description ?? ''}
+                onChange={(v) => setDraft((d) => ({ ...d, description: v }))}
+                textarea
+                placeholder="Optional — worth writing for key items and notable gear, not routine loot"
+              />
+              {EQUIPPABLE_TYPES.includes(draft.type) && (
+                <div className="rounded-lg border border-[#e8ca8a]/15 p-3 flex flex-col gap-2">
+                  <span className="text-[11px] font-display text-white/40 uppercase tracking-wide">Stat Bonus (applied on equip)</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {STAT_BONUS_KEYS.map((k) => (
+                      <NumberField
+                        key={k}
+                        label={k}
+                        value={draft.statBonus?.[k] ?? 0}
+                        onChange={(v) => setDraft((d) => ({ ...d, statBonus: { ...d.statBonus, [k]: v || undefined } }))}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </DetailPanel>
+          ) : (
+            <DetailPanel>
+              <DetailField label="Type" value={items[entryId]?.type ?? 'unknown'} />
+              <DetailField label="Quantity" value={String(inventory[entryId] ?? 0)} />
+              {items[entryId]?.description && <DetailField label="Description" value={items[entryId]!.description!} />}
+              {statBonusText(items[entryId]?.statBonus) && <DetailField label="Stat Bonus" value={statBonusText(items[entryId]?.statBonus)!} />}
+              {items[entryId] && EQUIPPABLE_TYPES.includes(items[entryId]!.type) && (
+                <div className="mt-1">
+                  {equippedSlotFor(entryId) ? (
+                    <button
+                      onClick={() => onUnequipSlot(equippedSlotFor(entryId)!)}
+                      className="rounded-full px-4 py-1.5 font-display text-xs font-semibold bg-rose-500/20 text-rose-300"
+                    >
+                      Unequip
+                    </button>
+                  ) : (
+                    <button onClick={() => onEquipItem(entryId)} className="rounded-full px-4 py-1.5 font-display text-xs font-semibold bg-[#e8ca8a] text-[#0e1017]">
+                      Equip
+                    </button>
+                  )}
+                </div>
+              )}
+            </DetailPanel>
+          )}
+        </>
       )}
 
       {confirmDialog}

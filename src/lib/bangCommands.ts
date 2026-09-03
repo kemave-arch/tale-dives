@@ -1,8 +1,10 @@
 import { slugify } from './slug.ts'
 import { effectiveStanding, repTierLabel } from './factions.ts'
 import type {
-  BangCommandEntry, BestiaryEntry, Campaign, FactionEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry,
+  BangCommandEntry, BestiaryEntry, Campaign, EquipSlot, FactionEntry, ItemEntry, LocationEntry, LoreEntry, NpcEntry, QuestEntry,
 } from '../types.ts'
+
+const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'accessory']
 
 // §6.6 Bang Commands — client-side, 0 API tokens. A bare command ("!npc") is
 // pure player reference and touches nothing else. A targeted command
@@ -20,6 +22,8 @@ export interface BangResult {
 export const BANG_COMMANDS: { name: string; usage: string; description: string }[] = [
   { name: 'npc', usage: '!npc [name]', description: "NPC roster, or one companion's dossier" },
   { name: 'items', usage: '!items', description: 'Everything currently carried' },
+  { name: 'equip', usage: '!equip [item]', description: 'Equip a weapon, armor, or accessory' },
+  { name: 'unequip', usage: '!unequip [weapon|armor|accessory]', description: 'Unequip a slot' },
   { name: 'location', usage: '!location [name]', description: 'Visited locations, or one in detail' },
   { name: 'faction', usage: '!faction [name]', description: 'Known factions and standing' },
   { name: 'quests', usage: '!quests [name]', description: 'Tracked objectives, or one in detail' },
@@ -35,7 +39,7 @@ const RECALL_ROW_CAP = 60
 
 // User-typed text is never a safe regex source — this is plain normalized
 // substring matching, not a regex, so there's nothing to escape or exploit.
-function findEntry<T extends { name: string }>(dict: Record<string, T> | undefined, query: string): [string, T] | null {
+export function findEntry<T extends { name: string }>(dict: Record<string, T> | undefined, query: string): [string, T] | null {
   const q = query.trim().toLowerCase()
   if (!dict || !q) return null
 
@@ -89,6 +93,20 @@ function bestiaryRow(id: string, b: BestiaryEntry): BangCommandEntry['rows'][num
 function loreRow(id: string, l: LoreEntry): BangCommandEntry['rows'][number] {
   return { name: l.name, id, category: 'lore', fields: [l.category] }
 }
+function statBonusText(bonus: ItemEntry['statBonus']): string | null {
+  if (!bonus) return null
+  const parts = Object.entries(bonus)
+    .filter(([, v]) => v)
+    .map(([k, v]) => `${v! > 0 ? '+' : ''}${v} ${k}`)
+  return parts.length ? parts.join(' ') : null
+}
+function itemRow(id: string, qty: number, item: ItemEntry | undefined, equippedSlot: EquipSlot | undefined): BangCommandEntry['rows'][number] {
+  const fields = [`×${qty}`, item?.type ?? 'unknown']
+  const bonus = statBonusText(item?.statBonus)
+  if (bonus) fields.push(bonus)
+  if (equippedSlot) fields.push(`equipped (${equippedSlot})`)
+  return { name: item?.name ?? id.replace(/_/g, ' '), id, fields }
+}
 
 // Bare table (no target) — pure player reference, never fed back to the model.
 function tableResult(command: string, rows: BangCommandEntry['rows'], emptyNote: string): BangResult {
@@ -127,9 +145,14 @@ export function resolveBangCommand(raw: string, campaign: Campaign): BangResult 
       return tableResult('NPC', rows, 'No NPCs met yet.')
     }
     case 'items': {
-      const rows = Object.entries(campaign.inventory ?? {}).map(([id, qty]) => ({
-        name: id.replace(/_/g, ' '), id, fields: [`×${qty}`],
-      }))
+      const equippedBy = new Map<string, EquipSlot>()
+      for (const slot of EQUIP_SLOTS) {
+        const id = campaign.player.equipped?.[slot]
+        if (id) equippedBy.set(id, slot)
+      }
+      const rows = Object.entries(campaign.inventory ?? {}).map(([id, qty]) =>
+        itemRow(id, qty, campaign.items?.[id], equippedBy.get(id)),
+      )
       return tableResult('Items', rows, 'Nothing carried yet.')
     }
     case 'location':

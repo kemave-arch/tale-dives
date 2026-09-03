@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Menu, Settings as SettingsIcon, Send, Star, BookOpen, Library, Sparkle, X, ExternalLink,
   ChevronUp, ChevronDown, ChevronsDown, History, Pause, Users, Backpack, Map as MapIcon, ShieldCheck, Target, Skull, HelpCircle,
-  Unlock, Lock, Repeat, Hammer, Ghost, Compass, ScrollText, User,
+  Unlock, Lock, Repeat, Hammer, Ghost, Compass, ScrollText, User, Swords,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { renderNarrative, type TapTermHandler } from '../lib/richText.tsx'
@@ -103,6 +103,8 @@ const BANG_DISPLAY: Record<string, { icon: LucideIcon; label: string }> = {
   arise: { icon: Ghost, label: 'Shadow Extraction' },
   raise_skeleton: { icon: Skull, label: 'Reanimation' },
   summon: { icon: Sparkle, label: 'Planar Gate' },
+  equip: { icon: Swords, label: 'Equipped' },
+  unequip: { icon: Swords, label: 'Unequipped' },
 }
 
 function bangDisplay(command: string): { icon: LucideIcon; label: string } {

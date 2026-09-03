@@ -1,16 +1,35 @@
 import { describeKnownLocation, territoryHostileLine } from './locations.ts'
 import { describePresentNpc, presentNpcs } from './npcs.ts'
-import type { Campaign } from '../types.ts'
+import type { Campaign, Dict, EquipSlot, ItemEntry, Player } from '../types.ts'
 
 const RECENT_CHAPTER_DIGEST_COUNT = 3
 const MAX_FLAGS_SHOWN = 20
 const MAX_KNOWN_NAMES = 25 // per category — hard cap so this line's token cost stays flat regardless of how long the campaign runs
+const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'accessory']
+
+function describeEquipped(equipped: Player['equipped'], items: Dict<ItemEntry> | undefined): string | null {
+  if (!equipped) return null
+  const parts: string[] = []
+  for (const slot of EQUIP_SLOTS) {
+    const id = equipped[slot]
+    const item = id ? items?.[id] : undefined
+    if (!item) continue
+    const bonus = item.statBonus
+      ? Object.entries(item.statBonus)
+          .filter(([, v]) => v)
+          .map(([k, v]) => `${v! > 0 ? '+' : ''}${v} ${k}`)
+          .join(' ')
+      : ''
+    parts.push(`${item.name}${bonus ? ` (${bonus})` : ''}`)
+  }
+  return parts.length ? `Equipped: ${parts.join(' | ')}` : null
+}
 
 // Just-In-Time Context Slicing — Blueprint §3.1.
 // Builds the compact per-turn header re-sent alongside the player's action;
 // this (not model memory) is what keeps state consistent turn to turn.
 export function buildContextSlice(state: Campaign, combatResultLine?: string | null, craftReadyLine?: string | null): string {
-  const { player, combatMode, proseDepth, narrationStyle, locations, npcs, factions, lore, world, flags, quests, log } = state
+  const { player, combatMode, proseDepth, narrationStyle, locations, npcs, factions, lore, world, flags, quests, log, items } = state
 
   const playerIdentity = [player.gender && `Gender: ${player.gender}`, player.age !== undefined && `Age: ${player.age}`]
     .filter(Boolean)
@@ -21,6 +40,13 @@ export function buildContextSlice(state: Campaign, combatResultLine?: string | n
     `Player: ${player.name} (${player.className})${playerIdentity ? ` | ${playerIdentity}` : ''} | Level: ${player.level} | HP: ${player.hp}/${player.hpMax} | MP: ${player.mp}/${player.mpMax} | ST: ${player.st}/${player.stMax}`,
     `Location Node: ${player.locId} | Time: Day ${player.time.d} ${player.time.h}`,
   ]
+
+  // §5.9 — always-on, not gated behind a bang command: an equipped weapon
+  // only actually shapes how combat/description reads if the narrator is
+  // reminded of it every turn, not just when the player asks. 0 tokens with
+  // nothing equipped.
+  const equippedLine = describeEquipped(player.equipped, items)
+  if (equippedLine) lines.push(equippedLine)
 
   // §3.1 — only re-told once a Codex entry exists; first visit to a place omits it.
   const known = locations?.[player.locId]

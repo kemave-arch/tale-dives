@@ -18,8 +18,8 @@ import { ensureLocation } from './lib/locations.ts'
 import { applyNpcUpdates } from './lib/npcs.ts'
 import { applyKeywordLinks } from './lib/codex.ts'
 import { applyQuestUpdate } from './lib/quests.ts'
-import { applyInventoryChanges } from './lib/inventory.ts'
-import { resolveBangCommand } from './lib/bangCommands.ts'
+import { applyInventoryChanges, equipItem, unequipSlot } from './lib/inventory.ts'
+import { resolveBangCommand, findEntry } from './lib/bangCommands.ts'
 import { checkCodexReveals } from './lib/discovery.ts'
 import { queueCraftingJob, resolveCraftingJobs } from './lib/crafting.ts'
 import { applyMinionUpkeep, attemptSummon, type SummonCommand } from './lib/summoning.ts'
@@ -33,10 +33,10 @@ import { PROSE_DEPTHS, DEFAULT_NARRATION_STYLE } from './api/turnContract.ts'
 import { readJSONFile, saveJSON } from './lib/backup.ts'
 import { useConfirm } from './lib/useConfirm.tsx'
 import * as store from './lib/store.ts'
-import { CURRENT_SCHEMA_VERSION } from './types.ts'
+import { CURRENT_SCHEMA_VERSION, EQUIPPABLE_TYPES } from './types.ts'
 import type {
-  BestiaryEntry, Campaign, CombatMode, CombatState, Dict, FactionEntry, HistoryTurn, KeywordLink, LocationEntry, LoreEntry, NpcEntry,
-  Player, ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
+  BestiaryEntry, Campaign, CombatMode, CombatState, Dict, EquipSlot, FactionEntry, HistoryTurn, ItemEntry, KeywordLink, LocationEntry, LoreEntry,
+  NpcEntry, Player, ProtagonistData, QuestEntry, SlashCommand, TurnState, WorldData,
 } from './types.ts'
 
 const KEYWORD_CATEGORY_TO_CODEX: Record<KeywordLink['category'], CategoryId> = {
@@ -370,7 +370,7 @@ export default function App() {
       // snapshot. Its output lands in inventory as the base applyInventoryChanges
       // below layers this turn's own inv_add/inv_rem on top of.
       const craftResolution = resolveCraftingJobs(current.crafting ?? [], current.inventory, nextPlayer.time)
-      const nextInventory = applyInventoryChanges(craftResolution.inventory, turn.inv_add, turn.inv_rem)
+      const invResult = applyInventoryChanges(craftResolution.inventory, current.items, turn.inv_add, turn.inv_rem)
 
       // §3.2 Turn State Consistency — forced to COMBAT whenever a Tactical
       // result was precomputed; otherwise Gemini's own call, same as always.
@@ -514,7 +514,8 @@ export default function App() {
         bestiary: reveals.bestiary,
         combat: nextCombat,
         flags: nextFlags,
-        inventory: nextInventory,
+        inventory: invResult.inventory,
+        items: invResult.items,
         crafting: craftResolution.jobs,
         lastPlayed: Date.now(),
         turnCount: turnNumber,
@@ -650,13 +651,41 @@ export default function App() {
     })
   }
 
-  function updateItem(id: string, qty: number | null) {
+  function updateItem(id: string, qty: number | null, entry?: Partial<ItemEntry>) {
     setGame((g) => {
       if (!g) return g
       const inv = { ...g.inventory }
-      if (qty === null || qty <= 0) delete inv[id]
-      else inv[id] = qty
-      return { ...g, inventory: inv }
+      const items = { ...(g.items ?? {}) }
+      if (qty === null || qty <= 0) {
+        delete inv[id]
+        delete items[id]
+      } else {
+        inv[id] = qty
+        const fallback: ItemEntry = { name: id, type: 'material' }
+        if (entry) items[id] = { ...fallback, ...items[id], ...entry }
+      }
+      return { ...g, inventory: inv, items }
+    })
+  }
+
+  // §5.9 — Codex's own Equip/Unequip buttons reuse the exact same
+  // equipItem/unequipSlot logic as the !equip/!unequip bang commands, just
+  // invoked directly from a click instead of parsed from typed text.
+  function equipFromCodex(itemId: string) {
+    setGame((g) => {
+      if (!g) return g
+      const item = g.items?.[itemId]
+      if (!item || !EQUIPPABLE_TYPES.includes(item.type)) return g
+      const result = equipItem(g.player, g.items ?? {}, itemId, item.type as EquipSlot)
+      return result.error ? g : { ...g, player: result.player }
+    })
+  }
+
+  function unequipFromCodex(slot: EquipSlot) {
+    setGame((g) => {
+      if (!g) return g
+      const result = unequipSlot(g.player, g.items ?? {}, slot)
+      return result.error ? g : { ...g, player: result.player }
     })
   }
 
@@ -730,14 +759,85 @@ export default function App() {
     })
   }
 
+  // §5.9 Equip/Unequip — deterministic and player-initiated, so (like
+  // Summoning above) this is a mutating bang command rather than a schema
+  // field: there's no narrative ambiguity for the model to arbitrate.
+  const EQUIP_COMMANDS = new Set(['equip', 'unequip'])
+
+  function handleEquipCommand(command: 'equip' | 'unequip', target: string) {
+    setGame((g) => {
+      if (!g) return g
+      const items = g.items ?? {}
+
+      if (command === 'equip') {
+        const found = findEntry(items, target)
+        if (!found || !EQUIPPABLE_TYPES.includes(found[1].type)) {
+          const note = found ? `${found[1].name} can't be equipped.` : `No item matching "${target}" found.`
+          return { ...g, lastPlayed: Date.now(), log: [...g.log, { nar: '', bang: { command: 'equip', rows: [], note } }] }
+        }
+        const [itemId, item] = found
+        const result = equipItem(g.player, items, itemId, item.type as EquipSlot)
+        return {
+          ...g,
+          player: result.player,
+          lastPlayed: Date.now(),
+          log: [
+            ...g.log,
+            {
+              nar: '',
+              bang: {
+                command: 'equip',
+                rows: result.error ? [] : [{ name: item.name, id: itemId, fields: [`equipped (${item.type})`] }],
+                note: result.error,
+              },
+            },
+          ],
+        }
+      }
+
+      const slot = target.trim().toLowerCase() as EquipSlot
+      if (!EQUIPPABLE_TYPES.includes(slot)) {
+        return {
+          ...g,
+          lastPlayed: Date.now(),
+          log: [...g.log, { nar: '', bang: { command: 'unequip', rows: [], note: 'Usage: !unequip weapon|armor|accessory' } }],
+        }
+      }
+      const currentId = g.player.equipped?.[slot]
+      const result = unequipSlot(g.player, items, slot)
+      return {
+        ...g,
+        player: result.player,
+        lastPlayed: Date.now(),
+        log: [
+          ...g.log,
+          {
+            nar: '',
+            bang: {
+              command: 'unequip',
+              rows: result.error || !currentId ? [] : [{ name: items[currentId]?.name ?? currentId, id: currentId, fields: [`unequipped (${slot})`] }],
+              note: result.error,
+            },
+          },
+        ],
+      }
+    })
+  }
+
   // §6.6 Bang Commands — 0 API tokens, resolved and rendered entirely
   // client-side. An unrecognized "!word" still renders a small note rather
   // than being silently swallowed, so mistyped commands are visibly not-lost.
   function handleBangCommand(raw: string) {
     if (!game) return
-    const word = raw.slice(1).trim().split(/\s/)[0]?.toLowerCase()
+    const match = /^!(\w+)\s*(.*)$/s.exec(raw.trim())
+    const word = match?.[1]?.toLowerCase()
+    const target = match?.[2]?.trim() ?? ''
     if (word && SUMMON_COMMANDS.has(word)) {
       handleSummonCommand(word as SummonCommand)
+      return
+    }
+    if (word && EQUIP_COMMANDS.has(word)) {
+      handleEquipCommand(word as 'equip' | 'unequip', target)
       return
     }
     const result = resolveBangCommand(raw, game)
@@ -1021,6 +1121,7 @@ export default function App() {
         bestiary={game.bestiary}
         flags={game.flags}
         inventory={game.inventory}
+        items={game.items ?? {}}
         crafting={game.crafting ?? []}
         onUpdateNpc={(id: string, patch: Partial<NpcEntry> | null) => patchCodexDict('npcs', id, patch as Record<string, unknown> | null)}
         onUpdateFaction={(id: string, patch: Partial<FactionEntry> | null) => patchCodexDict('factions', id, patch as Record<string, unknown> | null)}
@@ -1029,6 +1130,8 @@ export default function App() {
         onUpdateQuest={(id: string, patch: Partial<QuestEntry> | null) => patchCodexDict('quests', id, patch as Record<string, unknown> | null)}
         onUpdateBestiary={(id: string, patch: Partial<BestiaryEntry> | null) => patchCodexDict('bestiary', id, patch as Record<string, unknown> | null)}
         onUpdateItem={updateItem}
+        onEquipItem={equipFromCodex}
+        onUnequipSlot={unequipFromCodex}
         onUpdateWorld={updateWorld}
         onEvolveClass={evolveClass}
         onStartCraft={startCraftingJob}

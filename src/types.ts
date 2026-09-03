@@ -86,6 +86,38 @@ export interface Player {
   locId: string
   locDisp: string
   time: GameTime
+  equipped?: Partial<Record<EquipSlot, string>> // §5.9 — slot -> equipped item id
+}
+
+// §5.9 Item Type Taxonomy — a closed set; only these three carry a
+// stat_bonus and occupy an equip slot (1:1 with ItemType, one slot each).
+export type ItemType = 'weapon' | 'armor' | 'accessory' | 'tool' | 'key' | 'consumable' | 'material'
+export type EquipSlot = 'weapon' | 'armor' | 'accessory'
+export const EQUIPPABLE_TYPES: ItemType[] = ['weapon', 'armor', 'accessory']
+
+// Flat, all-optional deltas applied on equip and reversed (negated) on
+// unequip — STR/INT/AGI recompute derived HP/MP/ST max (same math as
+// stat_grant); hp/mp/st bonuses add directly to that pool's max.
+export interface StatBonus {
+  STR?: number
+  INT?: number
+  AGI?: number
+  hp?: number
+  mp?: number
+  st?: number
+}
+
+// The item Codex — one entry per item id the player has ever carried.
+// Deliberately not a full "every item in the world" registry (§5.9 scope is
+// the player's own inventory): materials/consumables typically only ever
+// get `name`/`type` since the model has no reason to write a description
+// for "5x Iron Ore," while key items and personal gear naturally accumulate
+// one because the model actually has something to say about them.
+export interface ItemEntry {
+  name: string
+  type: ItemType
+  description?: string
+  statBonus?: StatBonus // only meaningful when type is weapon/armor/accessory
 }
 
 // §5.12 Codex Discovery ("Fog of Lore") — an entry with no `discovery` field
@@ -284,6 +316,7 @@ export interface Campaign {
   combat: CombatState
   flags: string[] // §5.6 World Impact Ledger
   inventory: Dict<number> // item id -> quantity (§5.9)
+  items?: Dict<ItemEntry> // §5.9 — item id -> name/type/description/statBonus, the item Codex
   crafting?: CraftingJob[] // §5.8 — queued/in-progress crafting jobs, never sent to Gemini
   minions?: Dict<Minion> // §5.3 — the player's persistent summoned army
   corpses?: string[] // §5.3 — harvestable slain-enemy tags accumulated from corpse_add, consumed by `!arise`
@@ -316,6 +349,17 @@ export interface TurnDelta {
 export interface InventoryChange {
   id: string
   qty: number
+}
+
+// §5.9 — inv_add's richer shape: item metadata arrives atomically with the
+// quantity change itself, so there's no separate registration step for it
+// to fall out of sync with. name/type re-supplied on a restock of an
+// already-known item just re-confirms/refreshes the existing ItemEntry.
+export interface InventoryAcquisition extends InventoryChange {
+  name: string
+  type: ItemType
+  description?: string
+  statBonus?: StatBonus
 }
 
 export interface StatGrant {
@@ -375,7 +419,7 @@ export interface TurnResponse {
   dist?: 'c' | 'm' | 'f' | 'none'
   mood?: string
   deltas?: TurnDelta
-  inv_add?: InventoryChange[]
+  inv_add?: InventoryAcquisition[]
   inv_rem?: InventoryChange[]
   corpse_add?: string[]
   stat_grant?: StatGrant

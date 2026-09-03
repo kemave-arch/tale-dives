@@ -43,7 +43,8 @@ MECHANICS & GROUNDING DEFENSE:
 5. Permanent Stat Grants: Only use "stat_grant" for a genuine permanent boost (a blessing, a hard-won transformation) — never for ordinary damage/healing, which belongs in "deltas". Supply only the attribute/pool and the amount; never compute or state a resulting HP/MP/ST max yourself, the client derives that.
 6. Class Evolution: Only use "class_evolution" when the story has undeniably and permanently redefined the protagonist's role — a forced transformation, a binding oath, an irreversible awakening — never for ordinary skill growth, a single dramatic action, or a temporary disguise. This should be rare, at most once or twice in a whole campaign. "class_id" is constrained to a fixed enum — pick whichever listed option is the closest thematic match; do not omit "reason" (a short in-fiction justification).
 7. Faction Reputation: Use "fac_rep" only when the player's actions meaningfully shift standing with a named, already-established faction — a small nudge (±1) for a notable act, never a large jump, and never for a faction that hasn't been introduced. Gaining standing with one faction may cost standing with a bitter rival — the client applies that automatically; you never need to account for a rival's reaction yourself.
-8. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
+8. Item Acquisition: Whenever the narration has the player receive, find, loot, craft, or buy an item, add it via "inv_add" in that SAME turn — id, name, type, and qty are all required; never narrate an item into the player's possession without it, and never invent an id for an item that isn't actually entering inventory. Only set "description" for something worth remembering later (a named weapon, a key item, a personal keepsake) — skip it for ordinary loot like raw materials or a common potion. Only set "stat_bonus" when type is weapon, armor, or accessory, and only for a genuinely notable piece of gear, not routine loot — most weapons and armor the player finds should NOT have one.
+9. JSON Strictness: Output ONLY valid, parsable JSON matching the defined response schema. Do NOT wrap output in markdown code blocks.`
 
 export const TURN_SCHEMA = {
   type: 'OBJECT',
@@ -84,10 +85,30 @@ export const TURN_SCHEMA = {
     },
     inv_add: {
       type: 'ARRAY',
+      description:
+        '§5.9 Item Acquisition — id/name/type/qty required every time (even a restock of an item already carried); description and stat_bonus optional, see rule 8.',
       items: {
         type: 'OBJECT',
-        properties: { id: { type: 'STRING' }, qty: { type: 'INTEGER', minimum: 1, maximum: 999 } },
-        required: ['id', 'qty'],
+        properties: {
+          id: { type: 'STRING' },
+          name: { type: 'STRING' },
+          type: { type: 'STRING', enum: ['weapon', 'armor', 'accessory', 'tool', 'key', 'consumable', 'material'] },
+          qty: { type: 'INTEGER', minimum: 1, maximum: 999 },
+          description: { type: 'STRING' },
+          stat_bonus: {
+            type: 'OBJECT',
+            description: 'Only for a genuinely notable weapon/armor/accessory — set only the fields that actually apply.',
+            properties: {
+              STR: { type: 'INTEGER', minimum: -20, maximum: 20 },
+              INT: { type: 'INTEGER', minimum: -20, maximum: 20 },
+              AGI: { type: 'INTEGER', minimum: -20, maximum: 20 },
+              hp: { type: 'INTEGER', minimum: -100, maximum: 100 },
+              mp: { type: 'INTEGER', minimum: -100, maximum: 100 },
+              st: { type: 'INTEGER', minimum: -100, maximum: 100 },
+            },
+          },
+        },
+        required: ['id', 'name', 'type', 'qty'],
       },
     },
     inv_rem: {
