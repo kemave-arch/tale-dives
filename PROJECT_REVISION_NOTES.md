@@ -4,7 +4,7 @@
 **Read this first if you are a Claude Code session picking this project back up** — this
 file exists specifically so a *different* session (possibly on a different machine) can
 resume without re-deriving context. It reflects the actual code on `master` as of commit
-`5f271d1`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
+`087b413`, verified by direct inspection (grep/read), not by trusting the blueprint doc's
 intentions — several blueprint sections describe features that are **not** built yet, and
 that distinction matters below. **Check the Revision log at the bottom first** — it's the
 fastest way to see what's changed since your last read of this file.
@@ -93,7 +93,7 @@ types not yet in TS's bundled DOM lib, new this session.
 
 ## 3. What's actually built (chronological, oldest to newest)
 
-Everything below is implemented and working as of `5f271d1`. See `git log --oneline` for
+Everything below is implemented and working as of `087b413`. See `git log --oneline` for
 the literal commit sequence; the summary here groups by feature, not commit.
 
 - **Core loop**: Title → Main Menu (Tales/Worlds/Protagonists libraries) → World Setup
@@ -282,7 +282,25 @@ confirming/scoping if Crafting (#12) is picked up, since its UI hook depends on 
 Per the standing instruction this session was given:
 
 - **Verify all existing functions/components and fix issues found.** Started this session
-  (commits `f43488d`, `43d5ad8`) — not an exhaustive sweep, but real findings were fixed:
+  (commits `f43488d`, `43d5ad8`, `087b413`) — not an exhaustive sweep, but real findings
+  were fixed:
+  - **Fixed** (user-reported, not found by internal review — commit `087b413`): narration
+    (`nar`) sometimes rendered as one dense, unbroken wall of text despite the system
+    prompt's rule 1b explicitly telling the model to paragraph it. Checked this session's
+    actual saved turns directly: 2 of the last 6 had **zero** `\n` characters at all
+    despite being 1300-2000 characters long, while the other 4 paragraphed normally — the
+    model is inconsistent, not uniformly broken, so re-wording the prompt again wasn't
+    going to be a reliable fix on its own. Added a client-side guarantee instead:
+    `src/lib/richText.tsx`'s new `ensureParagraphBreaks`, wired into `renderNarrative`,
+    which *only* acts when a turn has zero line breaks at all — any turn the model
+    already formatted, even partially, is left untouched. It tokenizes into quoted
+    (`'thought/dialogue'`) spans and plain narration first, so a break is never inserted
+    *inside* a quote (which would break its `<em>` rendering) and a quote's attribution
+    tag always stays with it; plain narration groups into ~3-sentence paragraphs.
+    Verified against both actual zero-newline turns from this session's own saved data
+    (1952 chars → 8 newlines/5 paragraphs; 1324 chars → 6 newlines/4 paragraphs) and
+    confirmed live in the Chronicle — the exact turn the user pointed at now renders with
+    clean paragraph spacing and properly isolated dialogue lines.
   - **Fixed**: `turn.stat_grant` (§5.1c permanent stat boosts) was fully defined in the
     schema and prompted to the model but never actually applied anywhere client-side — a
     real, silent gap predating this session. Now applied as a permanent attribute/pool-max
@@ -559,3 +577,10 @@ Per the standing instruction this session was given:
   are both genuinely started with real, verified work landed, but neither is complete,
   and this file says exactly where each one left off. There is no unstated or hidden
   work — if it isn't written down above, it either doesn't exist yet or wasn't checked.
+- **2026-09-03** — User directly reported the narration-wall-of-text bug (pointed at a
+  specific broken paragraph in the live Chronicle, saying it had come up before). Fixed
+  and pushed as commit `087b413` — see §5 above for the full detail (root cause,
+  client-side fix design, and verification against real saved turns from this session).
+  This is exactly the kind of thing the "not yet covered" list in §5 exists to be
+  replaced by — a live user report, verified end-to-end, not a guess. `npm run
+  typecheck` and `npm run build` both clean.
