@@ -272,12 +272,20 @@ export const SELECT_CLASS = `${FIELD_CLASS} [&>option]:bg-[#14101c] [&>option]:t
 
 export const LABEL_CLASS = 'font-display text-[11px] uppercase tracking-[0.14em] text-[#f0d9a4]'
 
+// The hint sits on the label's own line, not under the input — trailing it
+// below the field left it floating between one field and the next label, so it
+// read as a caption for the wrong control. `items-baseline` keeps it sitting
+// on the label's baseline despite the two different fonts and sizes, and
+// `flex-wrap` lets a long hint drop to its own line on a narrow screen rather
+// than crushing the label beside it.
 export function GlassField({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="flex flex-col gap-1.5">
-      <span className={LABEL_CLASS}>{label}</span>
+      <span className="flex flex-wrap items-baseline gap-x-2">
+        <span className={LABEL_CLASS}>{label}</span>
+        {hint && <span className="font-narrative italic text-[11px] text-[#e8ca8a]/70">{hint}</span>}
+      </span>
       {children}
-      {hint && <span className="font-narrative text-[11px] text-[#e8ca8a]/80">{hint}</span>}
     </label>
   )
 }
