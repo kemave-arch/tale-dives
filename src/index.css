@@ -218,11 +218,31 @@ body {
   .title-sparks span { animation: none; opacity: 0.2; }
 }
 
-/* Themed scrollbars instead of the browser default. */
+/* Themed scrollbars instead of the browser default. Deliberately muted: at
+   full --td-gold-accent the thumb read as a bright yellow bar slamming in at
+   the right edge the moment anything became scrollable. It's chrome, not an
+   accent — it brightens on hover, when you're actually reaching for it. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: var(--td-gold-accent) transparent;
+  scrollbar-color: color-mix(in srgb, var(--td-gold-accent) 32%, transparent) transparent;
 }
+
+/* Reserve the scrollbar's track BEFORE it appears, so content never jumps
+   sideways the instant one shows up. Clicking into a textarea used to reflow
+   its text by 12px — the gutter appearing was itself the layout shift. Scoped
+   to things that actually scroll rather than `*`, because `scrollbar-gutter`
+   also applies to overflow:hidden scroll containers and would reserve dead
+   space in a lot of places that never scroll. */
+html,
+textarea,
+.overflow-y-auto,
+.overflow-auto,
+.overflow-x-auto {
+  scrollbar-gutter: stable;
+}
+
+/* Chrome honours scrollbar-color and ignores these once it's set; kept in
+   sync for engines that only support the -webkit- pseudo-elements. */
 *::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -231,6 +251,9 @@ body {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background-color: color-mix(in srgb, var(--td-gold-accent) 60%, transparent);
+  background-color: color-mix(in srgb, var(--td-gold-accent) 32%, transparent);
   border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--td-gold-accent) 65%, transparent);
 }

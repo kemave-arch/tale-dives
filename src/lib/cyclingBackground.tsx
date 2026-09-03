@@ -6,7 +6,13 @@ import { useEffect, useState } from 'react'
 // MainMenu so both cycle through the same backdrop. Slots are discovered at
 // runtime (see useDiscoveredSlots below) — dropping a new numbered pair into
 // public/img/ is enough on its own to add it to the rotation.
-const MOBILE_QUERY = '(max-width: 767px)'
+// Orientation, not device width. The two art variants differ by SHAPE — m_ is
+// composed portrait (2:3), pc_ landscape (16:9) — so what matters is which way
+// the viewport is turned, not how big it is. Keyed on width alone, a portrait
+// tablet took the landscape art and stranded it as a narrow band across the
+// middle (768x1024 fit only 42% of the height); on the portrait art the same
+// screen fills 100%. A phone held sideways correctly gets the landscape art.
+const PORTRAIT_QUERY = '(orientation: portrait)'
 const BG_FADE_MS = 7000
 const BG_HOLD_MS = 6000
 const MAX_SLOT_PROBE = 20 // sanity cap, not an expected real count
@@ -50,8 +56,8 @@ function useDiscoveredSlots(): string[] {
 }
 
 // pc_ is the guaranteed default — a slot's m_ file is optional and can lag
-// behind. On a phone-width viewport, try the m_ variant first and silently
-// fall back to pc_ if it 404s; on anything wider, always use pc_ directly.
+// behind. On a portrait viewport, try the m_ variant first and silently
+// fall back to pc_ if it 404s; in landscape, always use pc_ directly.
 // Paths are built off Vite's own BASE_URL rather than a hardcoded leading
 // slash — GitHub Pages serves this app from /tale-dives/, not the domain
 // root, so a literal `/img/...` request 404s there even though it works
@@ -63,7 +69,7 @@ function useResponsiveBg(stem: string): string {
   const [src, setSrc] = useState(pcSrc)
 
   useEffect(() => {
-    const mq = window.matchMedia(MOBILE_QUERY)
+    const mq = window.matchMedia(PORTRAIT_QUERY)
     let cancelled = false
 
     function resolve() {
@@ -95,14 +101,36 @@ function useResponsiveBg(stem: string): string {
 // Decorative (aria-hidden) rather than described per-slot — with more than
 // one slot cycling through, a single alt text would go stale the moment a
 // second image takes over.
+// Two stacked copies of the same image, because neither sizing mode is right
+// on its own:
+//   - `cover` (what this used to be) scales the illustration up until it fills
+//     the viewport and crops the rest, so the visible slice changed with every
+//     window aspect ratio — reading as "zoomed in" on one screen and "panned
+//     somewhere else" on the next, with the artwork's own wordmark drifting
+//     off-centre.
+//   - `contain` alone keeps the whole photo at its true aspect ratio (right),
+//     but the art is 16:9 while phones and portrait tablets are far taller, so
+//     it strands 31%-58% of the screen as dead black.
+// So: `contain` on top for the real, uncropped photo, over a blurred and
+// dimmed `cover` copy that fills the letterbox with the image's own colour
+// instead of a void. On a 16:9 desktop the top layer covers the screen exactly
+// and the blurred one never shows at all.
 function BackgroundLayer({ stem, active }: { stem: string; active: boolean }) {
   const src = useResponsiveBg(stem)
+  const image = `url(${src})`
   return (
     <div
-      className="absolute inset-0 bg-center bg-cover bg-no-repeat"
-      style={{ backgroundImage: `url(${src})`, opacity: active ? 1 : 0, transition: `opacity ${BG_FADE_MS}ms ease-in-out` }}
+      className="absolute inset-0"
+      style={{ opacity: active ? 1 : 0, transition: `opacity ${BG_FADE_MS}ms ease-in-out` }}
       aria-hidden="true"
-    />
+    >
+      {/* Scaled past the edges so the blur's own soft border never shows. */}
+      <div
+        className="absolute inset-0 bg-center bg-cover bg-no-repeat"
+        style={{ backgroundImage: image, filter: 'blur(36px) brightness(0.4) saturate(0.85)', transform: 'scale(1.15)' }}
+      />
+      <div className="absolute inset-0 bg-center bg-contain bg-no-repeat" style={{ backgroundImage: image }} />
+    </div>
   )
 }
 
@@ -138,5 +166,7 @@ export function CyclingBackground({ fixed = false }: { fixed?: boolean }) {
   // Fragment carries no DOM node and sidesteps the problem entirely.
   if (!fixed) return <>{layers}</>
 
-  return <div className="fixed inset-0 z-0">{layers}</div>
+  // bg-canvas so `contain`'s letterbox bars are the app's own dark ground
+  // rather than whatever happens to sit behind this layer.
+  return <div className="fixed inset-0 z-0 bg-canvas">{layers}</div>
 }
