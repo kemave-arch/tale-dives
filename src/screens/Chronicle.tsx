@@ -734,7 +734,7 @@ export default function Chronicle({
                   animate={{ opacity: 1, x, y, scale: 1 }}
                   exit={{ opacity: 0, x: 0, y: 0, scale: 0.4 }}
                   transition={{ type: 'spring', stiffness: 320, damping: 22, delay: i * 0.03 }}
-                  className="absolute left-1/2 top-1/2 w-10 h-10 rounded-full flex items-center justify-center text-[#e8ca8a] backdrop-blur-sm transition-shadow duration-150 shadow-[0_0_0_1px_rgba(232,202,138,0.18),0_2px_8px_rgba(0,0,0,0.45)] hover:shadow-[0_0_0_1px_rgba(232,202,138,0.4),0_0_16px_3px_rgba(232,202,138,0.5)] active:shadow-[0_0_0_1.5px_rgba(232,202,138,0.6),0_0_22px_5px_rgba(232,202,138,0.75)]"
+                  className="absolute left-1/2 top-1/2 w-10 h-10 rounded-full flex items-center justify-center text-[#e8ca8a] transition-shadow duration-150 shadow-[0_0_0_1px_rgba(232,202,138,0.18),0_2px_8px_rgba(0,0,0,0.45)] hover:shadow-[0_0_0_1px_rgba(232,202,138,0.4),0_0_16px_3px_rgba(232,202,138,0.5)] active:shadow-[0_0_0_1.5px_rgba(232,202,138,0.6),0_0_22px_5px_rgba(232,202,138,0.75)]"
                   style={{ marginLeft: -20, marginTop: -20, background: 'rgba(20,22,34,0.92)', border: '1px solid rgba(232,202,138,0.35)' }}
                 >
                   <action.icon size={15} />
@@ -745,7 +745,7 @@ export default function Chronicle({
         <button
           onClick={() => setRadialOpen((v) => !v)}
           aria-label={radialOpen ? 'Close quick actions' : 'Quick actions'}
-          className={`relative w-10 h-10 rounded-full inline-flex items-center justify-center backdrop-blur-sm transition-shadow duration-150 ${
+          className={`relative w-10 h-10 rounded-full inline-flex items-center justify-center transition-shadow duration-150 ${
             radialOpen
               ? 'text-[#e8ca8a] shadow-[0_0_0_1.5px_rgba(232,202,138,0.6),0_0_20px_4px_rgba(232,202,138,0.65)]'
               : 'text-[#e8ca8a] shadow-[0_0_0_1px_rgba(232,202,138,0.25),0_2px_8px_rgba(0,0,0,0.45)] hover:shadow-[0_0_0_1px_rgba(232,202,138,0.4),0_0_14px_3px_rgba(232,202,138,0.45)]'
