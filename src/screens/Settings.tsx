@@ -4,7 +4,7 @@ import { PROSE_DEPTHS } from '../api/turnContract.ts'
 import { allProviders, getProvider } from '../api/providers/index.ts'
 import { forgetSaveFolder, loadSaveFolder, pickSaveFolder, supportsFileSystemAccess } from '../lib/fsAccess.ts'
 import {
-  FIELD_CLASS, GlassButton, GlassField, GlassIconButton, GlassSegmented, GlassTabs, LABEL_CLASS, SELECT_CLASS,
+  FIELD_CLASS, GLASS_SURFACE, GlassButton, GlassField, GlassIconButton, GlassSegmented, LABEL_CLASS, SELECT_CLASS,
 } from '../lib/glassChrome.tsx'
 import type { ApiSettings, Campaign, CombatMode, UiPrefs } from '../types.ts'
 
@@ -191,9 +191,28 @@ export default function Settings({
           <GlassIconButton icon={X} label="Close" compact onClick={onBack} />
         </div>
 
-        {/* Labelled tabs (they used to be icon-only with the active label
-            repeated underneath) — same strip as MainMenu/Codex now. */}
-        <GlassTabs tabs={TABS} value={tab} onChange={setTab} className="mb-4" />
+        {/* Icon-only tabs — the shared GlassTabs (MainMenu/Codex) labels each
+            button, but here 4 labels ("AI Model", "Gameplay", ...) don't fit
+            this modal's narrower width without overflowing. The active
+            tab's name moves to a header below instead, so nothing is lost. */}
+        <nav className={`${GLASS_SURFACE} rounded-2xl p-1 flex items-center justify-center gap-1 mb-2.5`}>
+          {TABS.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              aria-label={label}
+              title={label}
+              className={`w-11 h-11 rounded-xl inline-flex items-center justify-center border transition-colors duration-150 ${
+                tab === id ? 'border-[#f0ca65]/70 text-[#f5dfa0]' : 'border-transparent text-[#e8ca8a]/85 hover:text-[#f5dfa0]'
+              }`}
+            >
+              <Icon size={18} />
+            </button>
+          ))}
+        </nav>
+        <h3 className="text-center font-display text-sm font-semibold tracking-wide text-[#f0ca65] mb-4">
+          {TABS.find((t) => t.id === tab)?.label}
+        </h3>
 
         {tab === 'model' && (
           <div className="flex flex-col gap-4">

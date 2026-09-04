@@ -281,48 +281,55 @@ body {
   .bday-confetti span { opacity: 0.75; }
 }
 
-/* Themed scrollbars instead of the browser default. Deliberately muted: at
-   full --td-gold-accent the thumb read as a bright yellow bar slamming in at
-   the right edge the moment anything became scrollable. It's chrome, not an
-   accent — it brightens on hover, when you're actually reaching for it. */
+/* Scrollbars are hidden everywhere by default — this is a game shell, not a
+   webpage, and a visible scrollbar (or an OS overlay one flashing in at the
+   edge of the eye) reads as browser chrome breaking the illusion rather than
+   as navigation. Scrolling itself is untouched everywhere this applies —
+   `overflow` stays whatever it already was; only the visual track/thumb
+   disappears, so wheel/touch/keyboard scrolling all keep working.
+
+   The one deliberate exception is `.parchment-surface` below, the
+   Chronicle's own reading pane: scrolling through the tale IS the point
+   there, so it keeps a real, themed gold scrollbar. This also fully
+   subsumes an earlier, narrower fix that reserved `scrollbar-gutter: stable`
+   on every scrollable element to stop a textarea's text reflowing sideways
+   the instant a scrollbar appeared — with the scrollbar hidden and 0-width
+   everywhere by default, that reflow can no longer happen at all, so the
+   gutter reservation only needs to exist on the one element that still has
+   a real scrollbar to guard against (see below). */
 * {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* Themed scrollbar for the parchment reading surface specifically —
+   deliberately muted: at full --td-gold-accent the thumb read as a bright
+   yellow bar slamming in at the right edge the moment anything became
+   scrollable. It's chrome, not an accent — it brightens on hover, when
+   you're actually reaching for it. `scrollbar-gutter: stable` reserves its
+   track before it appears, so the tale's own text never jumps sideways the
+   instant it grows past one screen. */
+.parchment-surface {
   scrollbar-width: thin;
   scrollbar-color: color-mix(in srgb, var(--td-gold-accent) 70%, transparent) transparent;
-}
-
-/* Reserve the scrollbar's track BEFORE it appears, so content never jumps
-   sideways the instant one shows up. Clicking into a textarea used to reflow
-   its text by 12px — the gutter appearing was itself the layout shift. Scoped
-   to things that actually scroll rather than `*`, because `scrollbar-gutter`
-   also applies to overflow:hidden scroll containers and would reserve dead
-   space in a lot of places that never scroll.
-
-   Deliberately NOT on `html`: a gutter there is subtracted from the initial
-   containing block, so every `position: fixed; inset: 0` layer — including
-   the background artwork — paints 10px short of the right edge and the body
-   colour shows through as a black strip down the side of the app. The
-   page-level shift it would have prevented is a one-off between screens
-   anyway, far less disruptive than content moving under a cursor mid-type. */
-textarea,
-.overflow-y-auto,
-.overflow-auto,
-.overflow-x-auto {
   scrollbar-gutter: stable;
 }
-
-/* Chrome honours scrollbar-color and ignores these once it's set; kept in
-   sync for engines that only support the -webkit- pseudo-elements. */
-*::-webkit-scrollbar {
+.parchment-surface::-webkit-scrollbar {
+  display: block;
   width: 8px;
   height: 8px;
 }
-*::-webkit-scrollbar-track {
+.parchment-surface::-webkit-scrollbar-track {
   background: transparent;
 }
-*::-webkit-scrollbar-thumb {
+.parchment-surface::-webkit-scrollbar-thumb {
   background-color: color-mix(in srgb, var(--td-gold-accent) 70%, transparent);
   border-radius: 999px;
 }
-*::-webkit-scrollbar-thumb:hover {
+.parchment-surface::-webkit-scrollbar-thumb:hover {
   background-color: var(--td-gold-accent);
 }
