@@ -163,34 +163,6 @@ body {
   box-shadow: 0 8px 20px -6px rgba(0, 0, 0, 0.6);
 }
 
-/* §6.0 ambient chrome motes — small drifting sparkles layered inside the
-   header/footer glass for atmosphere, independent of the ambient canvas
-   behind them (which the chrome's own background can fully hide at high
-   HUD Opacity). Pure CSS, no JS/rAF cost; a handful of elements only. */
-.chrome-motes {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-.chrome-motes span {
-  position: absolute;
-  width: 2.5px;
-  height: 2.5px;
-  border-radius: 50%;
-  background: var(--td-gold-accent);
-  box-shadow: 0 0 5px 1px var(--td-gold-accent);
-  opacity: 0;
-  animation: chrome-mote-twinkle 5s ease-in-out infinite;
-}
-@keyframes chrome-mote-twinkle {
-  0%, 100% { opacity: 0; transform: translateY(2px) scale(0.8); }
-  50% { opacity: 0.75; transform: translateY(-3px) scale(1.15); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .chrome-motes span { animation: none; opacity: 0.35; }
-}
-
 /* Rising gold embers layered over the artwork, echoing its own painted
    light-streaks. Pure CSS, randomized once per mount. `fixed` with z-index 1
    puts them ABOVE the background art and its scrim (z-0) but BELOW every

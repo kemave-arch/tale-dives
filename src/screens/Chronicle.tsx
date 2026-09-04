@@ -118,99 +118,6 @@ function formatTimestamp(time: GameTime, locDisp: string): string {
   return `D-${String(time.d).padStart(2, '0')} ${time.h} | ${locDisp.toUpperCase()}`
 }
 
-// Ambient drifting motes behind the glass header/input bars — pure decoration
-// (aria-hidden, pointer-events-none), skipped entirely under reduced-motion.
-// `accent` tracks the current turn state's color (§3.2) via a ref so the
-// mote color drifts live without restarting the particle system.
-function AmbientBackground({ accent }: { accent: string }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const accentRef = useRef(accent)
-  useEffect(() => {
-    accentRef.current = accent
-  }, [accent])
-
-  useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-
-    const ctx = canvas.getContext('2d')
-    if (!ctx) return
-
-    let width = (canvas.width = window.innerWidth)
-    let height = (canvas.height = window.innerHeight)
-
-    const particles = Array.from({ length: 44 }, () => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      size: Math.random() * 1.8 + 0.8,
-      speedX: (Math.random() - 0.5) * 0.12,
-      speedY: (Math.random() - 0.5) * 0.12,
-      opacity: Math.random() * 0.45 + 0.15,
-    }))
-
-    let animationId: number
-    function animate() {
-      const accent = accentRef.current
-      ctx!.clearRect(0, 0, width, height)
-      ctx!.fillStyle = accent
-      for (const p of particles) {
-        p.x += p.speedX
-        p.y += p.speedY
-        if (p.x < 0) p.x = width
-        if (p.x > width) p.x = 0
-        if (p.y < 0) p.y = height
-        if (p.y > height) p.y = 0
-        ctx!.globalAlpha = p.opacity
-        ctx!.beginPath()
-        ctx!.arc(p.x, p.y, p.size, 0, Math.PI * 2)
-        ctx!.shadowBlur = 8
-        ctx!.shadowColor = accent
-        ctx!.fill()
-      }
-      animationId = requestAnimationFrame(animate)
-    }
-
-    function handleResize() {
-      width = canvas!.width = window.innerWidth
-      height = canvas!.height = window.innerHeight
-    }
-
-    window.addEventListener('resize', handleResize)
-    animationId = requestAnimationFrame(animate)
-
-    return () => {
-      window.removeEventListener('resize', handleResize)
-      cancelAnimationFrame(animationId)
-    }
-  }, [])
-
-  return <canvas ref={canvasRef} className="fixed inset-0 pointer-events-none z-0" aria-hidden="true" />
-}
-
-// Small ambient sparkle layer for the header/footer glass itself — the main
-// AmbientBackground canvas sits behind the chrome (z-0) and gets fully
-// masked at high HUD Opacity, so it can't provide this on its own. Pure CSS
-// (see .chrome-motes in index.css), positions randomized once per mount.
-function ChromeMotes({ count = 6 }: { count?: number }) {
-  const motes = useMemo(
-    () =>
-      Array.from({ length: count }, (_, i) => ({
-        left: `${8 + Math.random() * 84}%`,
-        top: `${15 + Math.random() * 70}%`,
-        delay: `${(i / count) * 5}s`,
-      })),
-    [count],
-  )
-  return (
-    <div className="chrome-motes" aria-hidden="true">
-      {motes.map((m, i) => (
-        <span key={i} style={{ left: m.left, top: m.top, animationDelay: m.delay }} />
-      ))}
-    </div>
-  )
-}
-
 interface PopupTarget {
   category: KeywordLink['category']
   id: string
@@ -698,11 +605,8 @@ export default function Chronicle({
 
   return (
     <div className="min-h-screen text-ink relative bg-canvas">
-      <AmbientBackground accent={stateAccent} />
-
       {/* Full-bleed dark obsidian header — flat, no color-wash gradient; the
-          gold accent lives only in the border. Transparent enough for the
-          ambient motes to show through. */}
+          gold accent lives only in the border. */}
       <header
         ref={headerRef}
         className="fixed top-0 inset-x-0 z-10 flex items-center justify-between px-3 py-1.5 border-b shadow-2xl transition-[background,border-color] duration-700 ease-out"
@@ -712,7 +616,6 @@ export default function Chronicle({
           borderColor: `${stateAccent}45`,
         }}
       >
-        <ChromeMotes count={4} />
         <button onClick={onOpenMenu} aria-label="Menu" className="w-7 h-7 rounded-full inline-flex items-center justify-center text-[#e8ca8a] hover:bg-white/10">
           <Menu size={16} />
         </button>
@@ -861,7 +764,6 @@ export default function Chronicle({
           borderColor: `${stateAccent}45`,
         }}
       >
-        <ChromeMotes count={7} />
         {combat?.active && (
           <div className="border-b border-rose/30 px-4 py-1 text-white/80">
             <PoolBar label={combat.enemyName?.slice(0, 3).toUpperCase() ?? 'ENM'} value={combat.enemyHp ?? 0} max={combat.enemyHpMax ?? 1} colorVar="#e11d48" />
