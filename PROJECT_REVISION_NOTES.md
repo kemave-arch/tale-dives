@@ -1,6 +1,7 @@
 # Tale Dives — Project Revision Notes
 
-**Last updated:** 2026-09-04, home machine — a UI unification pass plus the Skills system.
+**Last updated:** 2026-09-04, home machine — scrollbar/Settings-tabs bug fixes, a Chronicle
+performance pass, and the Radial Menu's first live verification.
 
 > ## 🎨 READ THIS BEFORE TOUCHING ANY SCREEN — the app now has ONE theme
 > The selectable parchment/obsidian **skins are gone** (`UiPrefs.skin`, the `Skin` type,
@@ -33,8 +34,47 @@
 > it overrides the option background, because a transparent select renders an unreadable
 > near-white OS popup on Windows/Chrome.
 
-Previous entry: 2026-09-03, end of a Claude-Code-on-the-web session, written as a
-leaving-the-desk handoff.
+This session (home machine) picked up from a prior session that ran out of usage
+mid-diagnosis, resuming a 4-part bug report: a recurring scrollbar/"moving screen" glitch
+in Chronicle, a horizontal scrollbar on opening Settings over the parchment, Settings'
+tab strip rendering off-screen, and a request to make those tabs icon-only with the active
+tab's name as a header below. Fixed both, per the user's own explicit scrollbar policy —
+**"scrollbar only on the Story Viewer parchment view... hidden in other views, since it's
+a game after all"**: `index.css`'s scrollbar rules now hide the thumb/track globally
+(`scrollbar-width: none`, `*::-webkit-scrollbar{display:none}`) with `.parchment-surface`
+carved out as the one themed, visible exception (commit `cabc31b`); Settings'
+4 labelled tabs became an icon-only row with the active tab's name as a header below
+(same commit). Live-verified by scrolling the parchment, clicking the Block
+Navigator's Previous/Next/Jump-to-latest, and a drag attempt — zero horizontal overflow
+throughout.
+
+Also this session, on request: removed two ambient decoration layers from Chronicle
+(`7b0af20`) — `ChromeMotes` (small CSS-animated twinkles in the header/footer glass) and
+`AmbientBackground` (a full-viewport `<canvas>` drawing 44 particles every frame with
+`ctx.shadowBlur` — a known-expensive Canvas2D pattern, running continuously the entire
+time Chronicle was open). This was both the requested "remove the light motes/sparks
+effect" and the most likely fix for reported sluggishness in that screen; nothing else in
+`src/` referenced either, so both were deleted outright rather than disabled.
+
+The Radial Menu (§6.5, shipped office-side on code review only per its own log entry
+below) got its **first actual live verification** this session: opened it, watched all
+buttons fan out correctly, clicked through to Codex end-to-end, confirmed zero horizontal
+overflow throughout (`b928a62`'s commit message has the full trail). Along the way, found
+and removed one genuine dead-weight optimization — the fan buttons and FAB both sit on a
+92%-opaque background (`rgba(20,22,34,0.92)`), so `backdrop-blur-sm` had nothing
+meaningful to blur while still costing a compositing layer on up to 6 simultaneously
+animating buttons; removed from just those two spots (confirmed visually identical
+before/after), left untouched everywhere else it's actually visible (`.turn-nav`'s
+translucent idle state, the input textarea). See the new fifth tooling-trap variant and
+the `localStorage` JSON-encoding gotcha in §0 — both cost real time this session and are
+worth reading before the next live-verification pass.
+
+**Two items added to the backlog this session, not yet started**: (1) more natural,
+novel-style text formatting for both the narrator's prose and the player's own typed
+responses; (2) a contrast pass on the parchment's colors — some elements are hard to read
+against the cream paper, lean toward higher contrast. Neither has been scoped yet.
+
+Previous entry: 2026-09-04, home machine — a UI unification pass plus the Skills system.
 
 Everything below is committed, merged and pushed; `master`/`origin/master` are in sync
 and the working tree is clean. This session's work was built on a feature branch
@@ -76,10 +116,20 @@ rule applies to music.
 > 4. **Codex overhaul — filters.** User: "some items have drilldowns, but what we're
 >    missing are filters." Check against the blueprint before scoping. Note §6.4D also
 >    specifies a **search bar** above each Entry Grid, which likewise doesn't exist.
+> 5. **Novel-style text formatting**, added 2026-09-04 — more natural prose formatting for
+>    both the narrator's blocks and the player's own typed responses. Not yet scoped.
+> 6. **Parchment contrast pass**, added 2026-09-04 — some elements in the Chronicle
+>    reading surface are hard to read against the cream paper; lean toward higher contrast.
+>    Not yet scoped.
 >
 > Also still open from earlier, unrelated to the list above: campaign seeding, the
 > prologue beat, and streaming turn rendering (§4 item 7), and Inspired Mode (§4 item 5,
 > deferred on a quota block with evidence — read that entry before re-attempting).
+>
+> **The Radial Menu (§6.5) is no longer an open item** — it shipped office-side on code
+> review only, and got its first live verification 2026-09-04 (home machine): opens
+> correctly, all buttons fan out, navigates through to Codex end-to-end, zero horizontal
+> overflow. Don't re-flag it as "unverified."
 
 Recent shipped work, most recent first: a **glass-button pass** on the shared
 `GlassCTAButton` (frosted hover tint, a properly uniform tapered border, ring-above-fill
@@ -233,6 +283,36 @@ success/failure report is wrong), not the third variant's total stall (screensho
 its own as proof nothing happened** — immediately check real state (`get_page_text` or
 `read_page`) before retrying or concluding a click failed; retrying a click that actually
 landed risks a double-submit on anything non-idempotent (e.g. a second nested navigation).
+
+**A fifth variant, home machine, 2026-09-04 (Radial Menu live-verification session)**:
+opening the Radial Menu and immediately screenshotting showed the fan buttons frozen
+mid-animation — partial opacity/scale values that never advanced no matter how long a
+`setTimeout` wait was placed *inside the same `javascript_exec` call*, even though
+`document.hidden` was `false` throughout. Direct proof: a `requestAnimationFrame` counter
+registered inside one `javascript_exec` call, awaited for 600ms inside that same call,
+never incremented once. The animation was not actually stuck — the very next `computer`
+`screenshot` call (a separate tool call) instantly showed it fully settled. **The
+browser's rAF/compositor pipeline appears to pause for the duration of a `javascript_exec`
+evaluation and only catches up on the next real render-producing action (a screenshot, a
+`computer` click).** Practical fix: don't verify a framer-motion/CSS animation's end state
+by `await`-ing inside the same `javascript_exec` call that triggered it — trigger it, then
+immediately take a `computer` `screenshot` (which forces the frame), and only inspect
+state/DOM in a follow-up call after that.
+
+**A false alarm that looked exactly like the above, from the same session — check this
+before assuming a tool/app bug**: React-fiber inspection showed `screen` had updated to
+`'chronicle'` while the DOM kept rendering Title, which matches the second/third variants
+above almost exactly. The actual cause was a bug in the *test setup*, not the tool or the
+app: a synthetic campaign was seeded via `localStorage.td_active_campaign = 'some-id'`
+(a bare, unquoted string) instead of `localStorage.td_active_campaign =
+JSON.stringify('some-id')`. `store.ts`'s `load()` helper always `JSON.parse`s the raw
+string and silently falls back to its default on a parse error — an unquoted string isn't
+valid JSON, so this threw internally, `loadActiveCampaignId()` returned `null`, `game`
+stayed `null`, and `screen === 'chronicle' && game` fell through to the final `else`
+branch (Title) regardless of what `screen` actually held. **When hand-seeding
+`localStorage` for a screen-bypass test, every value must be `JSON.stringify`-ed before
+assignment — including plain ID strings** — or `store.ts`'s `load()` will eat the parse
+error and hand back its fallback with no visible error anywhere.
 
 ### The hover trap — check this FIRST before debugging any `hover:` style
 
@@ -790,9 +870,12 @@ assumption.
 ### Also noted in the blueprint but not on the numbered list above
 
 ~~The blueprint's radial quick-action menu (§6.5)~~ — **done** (office session,
-2026-09-03, commit `7ec0e36`). See the revision log entry near the end of this file —
-built on code review and a clean build only, not live-verified, due to a total
-browser-automation stall that session (§0's third tooling-trap variant).
+2026-09-03, commit `7ec0e36`), built on code review and a clean build only that session
+due to a total browser-automation stall (§0's third tooling-trap variant). **Live-verified
+2026-09-04** (home machine, commit `b928a62`): opens correctly, all buttons fan out,
+navigates through to Codex end-to-end, zero horizontal overflow. Also removed dead
+`backdrop-blur-sm` from the fan buttons/FAB in the same commit — see this file's top entry
+for that session's full write-up.
 
 ## 5. Explicitly requested but not yet started (separate from the feature list)
 
